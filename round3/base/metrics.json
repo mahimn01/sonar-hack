@@ -1,0 +1,33 @@
+{
+ "split": "none (trained on everything, no validation)",
+ "n_train": 11350,
+ "n_val": 0,
+ "history": {
+  "epoch": 60,
+  "loss": 0.37311515808105467,
+  "seconds": 12.05
+ },
+ "best_epoch": 60,
+ "train_seconds": 16.8,
+ "settings": {
+  "device": "cuda",
+  "epochs": 60,
+  "batch": 256,
+  "lr": 0.004,
+  "width": 24,
+  "seed": 0,
+  "augment": "torch",
+  "amp": "auto",
+  "channels_last": "auto",
+  "compile": false,
+  "init": "C:\\Users\\lance\\sonar-hack\\train_out_base\\pretrain\\d5214c38be04\\gesture.pt",
+  "labels": [
+   "none",
+   "swipe_left",
+   "swipe_right",
+   "push"
+  ]
+ },
+ "onnx_max_logit_diff": 2.1457672119140625e-06,
+ "onnx_ms_per_inference": 0.509
+}

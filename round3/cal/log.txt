@@ -1,0 +1,433 @@
+=== gesture training run 20261114-113400 (full, device cuda); log: train_out_cal\runs\20261114-113400\log.txt
+machine: Windows 11, 24 CPU threads, Python 3.12.10
+PyTorch 2.15.0+cu132 (CUDA build 13.2), onnxruntime 1.32.0
+GPU: NVIDIA GeForce RTX 4090, 24.0 GB, compute 8.9, bf16 yes
+synthetic gestures: 50% replay real hand paths from datagen\motion_library\unica_v1.npz, the rest use the formulas (--motion none: formulas only)
+synthetic clips and session pictures are computed on: cuda
+
+=== GPU parity check: 1000 fixed clips through the CPU code and the GPU code (--skip-parity to skip)
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe scripts/check_gpu_parity.py --device cuda --precision auto --clips 1000 --workers 24 --work C:\Users\lance\sonar-hack\train_out\parity --data mac --json C:\Users\lance\sonar-hack\train_out\parity\last_1d29fe2a5af5.json --kernel auto --noise cpu --features conv
+parity check: 1080 clips, CPU reference (numpy) against cuda (PyTorch 2.15.0+cu132, number format 'ref'), 24 worker processes
+echo loop on the GPU side: fused CUDA kernel (CUDA kernel (NVRTC): echoes within 2.6e-07 of the PyTorch path; 4.53 ms per clip against 23.95)
+  217/1080 clips (53 s)
+  434/1080 clips (100 s)
+  651/1080 clips (150 s)
+  868/1080 clips (200 s)
+  1080/1080 clips (236 s)
+  session 20261113-232748_lance_scene: 120.0 s, 41 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-233122_lance_gestures: 120.0 s, 59 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-233427_lance_breathing: 120.0 s, 7 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-235154_lance2_scene: 120.0 s, 43 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-235514_lance2_gestures: 120.0 s, 60 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-235900_lance2_breathing: 120.0 s, 6 bursts, largest feature difference 0.0e+00, bursts identical
+
+check                                                                   worst     median      limit  result
+same number of redraws                                                      0          0          0  ok
+echo loudness (dB)                                                   6.99e-06   9.33e-07      0.001  ok
+moving echoes, before rounding                                       6.98e-07   4.21e-07      2e-05  ok
+direct sound + room, before rounding                                 3.97e-10   3.95e-11      1e-08  ok
+audio right before the converter                                     2.47e-06   2.84e-08     0.0001  ok
+final audio: largest difference / what rounding allows                      1      0.995          1  ok
+final audio: samples one step apart / what rounding predicts            0.801      0.388          1  ok
+  (for information) 16 bit: share of samples one step apart            0.0279   2.22e-06          1  ok
+  (for information) 24 bit: share of samples one step apart             0.649    0.00068          1  ok
+final audio, pure clip without rounding                                  0.68      0.603          1  ok
+final audio, overlays (no rounding): largest difference              1.12e-07   6.98e-10      2e-06  ok
+final audio: correlation                                                    1          1          1  ok
+features from IDENTICAL audio: largest difference                    2.38e-07          0     0.0001  ok
+features from IDENTICAL audio: same bursts                                  0          0          0  ok
+feature stream: average difference                                   0.000858   9.21e-07      0.003  ok
+same bursts and labels                                                0.00463    0.00463       0.02  ok
+pictures: average difference                                          0.00103   1.26e-06      0.004  ok
+pictures: largest single pixel (Doppler pictures)                      0.0284   7.21e-05       0.12  ok
+pictures: correlation (Doppler pictures)                                0.998          1       0.99  ok
+left/right picture: average difference                               0.000871   5.43e-07      0.004  ok
+  (for information) left/right picture: largest single pixel                2   0.000162          2  ok
+
+worst clips per check:
+  moving echoes, before rounding: none, one microphone (seed 9000742) 6.98e-07; none (seed 9000511) 6.87e-07; none, fastest / most reflectors (seed 9100133) 6.63e-07; swipe_left (seed 9000025) 6.56e-07; pull (seed 9000347) 6.35e-07
+  same bursts and labels: swipe_left (seed 9000012) 1; push (seed 9000260) 1; pull (seed 9000378) 1; pull, swapped speakers (seed 9000739) 1; pull, fitted laptop (seed 9600018) 1
+  pictures: average difference: swipe_left (seed 9000018) 0.00103; swipe_left, real hand path (seed 9500025) 0.000798; swipe_right (seed 9000135) 0.000666; swipe_right (seed 9000158) 0.000445; push, real hand path (seed 9500027) 0.000421
+  pictures: largest single pixel (Doppler pictures): swipe_left (seed 9000018) 0.0284; wave (seed 9000545) 0.0241; swipe_left, real hand path (seed 9500025) 0.024; swipe_left, swapped speakers (seed 9000675) 0.0228; swipe_right (seed 9000158) 0.0192
+  pictures: correlation (Doppler pictures): none (seed 9000436) 0.998; none, strong desk bounce (seed 9000819) 0.999; none (seed 9000482) 1; none, loudest speaker, 16 bit (seed 9000869) 1; none (seed 9000473) 1
+
+pictures compared pixel by pixel: 1767 of 1777 (the rest belong to clips whose bursts differ, counted above)
+time per clip: CPU reference 153 ms x cores, GPU path 20 ms (wall, on cuda)
+stored CPU results: close - not bit-identical to the stored CPU results but within rounding (another computer or library version)
+real recording 20261113-232748_lance_scene: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-233122_lance_gestures: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-233427_lance_breathing: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-235154_lance2_scene: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-235514_lance2_gestures: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-235900_lance2_breathing: largest feature difference 0.0e+00, bursts identical
+
+echo loop: fused CUDA kernel; hall noise shaped in the CPU workers; feature filter: conv
+PARITY OK: the GPU path makes the same training pictures as the CPU path (1080 clips, 248 s)
+
+13 session folder(s) under mac:
+  session                                    person       script     minutes trials mics  status
+  20261113-232748_lance_scene                lance        scene          3.2      0    1  use
+  20261113-233122_lance_gestures             lance        gestures       3.0     36    1  use
+  20261113-233427_lance_breathing            lance        breathing      2.3      0    1  use
+  20261113-235154_lance2_scene               lance2       scene          3.2      0    1  use
+  20261113-235514_lance2_gestures            lance2       gestures       3.7     45    1  use
+  20261113-235900_lance2_breathing           lance2       breathing      2.3      0    1  use
+  20261114-000902_mahimn_scene               mahimn       scene          3.2      0    1  use
+  20261114-001650_mahimn_breathing           mahimn       breathing      2.3      0    1  use
+  20261114-020852_aarsh_scene                aarsh        scene          3.2      0    1  use
+  20261114-021255_aarsh_gestures             aarsh        gestures       3.7     45    1  use
+  20261114-021645_aarsh_breathing            aarsh        breathing      2.3      0    1  use
+  20261114-025724_mahimn_gestures            mahimn       gestures       3.9     48    1  use
+  20261114-001248_mahimn_gestures            mahimn       gestures       3.7     45    1  SKIP: it is in a folder named 'excluded'
+
+recorded on: MacBook Pro Microphone (1 mic): 12 session(s)
+
+cutting 12 session(s) into training pictures on cuda (0 already done)
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.dataset --device cuda --pairs C:\Users\lance\sonar-hack\mac\data\20261113-232748_lance_scene::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-232748_lance_scene__57b3348d3c10.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261113-233122_lance_gestures::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233122_lance_gestures__bd767792ad28.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261113-233427_lance_breathing::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233427_lance_breathing__bbedbc51c2c1.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261113-235154_lance2_scene::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235154_lance2_scene__92d483fc4e13.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261113-235514_lance2_gestures::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235514_lance2_gestures__c44fcbd0645b.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261113-235900_lance2_breathing::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235900_lance2_breathing__11e5e992b453.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261114-000902_mahimn_scene::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-000902_mahimn_scene__41367d242bd6.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261114-001650_mahimn_breathing::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-001650_mahimn_breathing__b20e24f53ec8.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261114-020852_aarsh_scene::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-020852_aarsh_scene__44affcfee082.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261114-021255_aarsh_gestures::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021255_aarsh_gestures__59a0d0ea5cc5.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261114-021645_aarsh_breathing::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021645_aarsh_breathing__39c8cc963510.tmp.npz C:\Users\lance\sonar-hack\mac\data\20261114-025724_mahimn_gestures::C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-025724_mahimn_gestures__4b258266913c.tmp.npz
+20261113-232748_lance_scene: 0 gestures, 0 prompts with no movement found, 83 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-232748_lance_scene__57b3348d3c10.tmp.npz: 91 examples {'none': 91, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261113-233122_lance_gestures: 35 gestures, 1 prompts with no movement found, 1 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233122_lance_gestures__bd767792ad28.tmp.npz: 44 examples {'none': 9, 'swipe_left': 12, 'swipe_right': 12, 'push': 11, 'pull': 0}, picture shape (2, 64, 96)
+20261113-233427_lance_breathing: 0 gestures, 0 prompts with no movement found, 7 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233427_lance_breathing__bbedbc51c2c1.tmp.npz: 15 examples {'none': 15, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261113-235154_lance2_scene: 0 gestures, 0 prompts with no movement found, 72 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235154_lance2_scene__92d483fc4e13.tmp.npz: 80 examples {'none': 80, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261113-235514_lance2_gestures: 45 gestures, 0 prompts with no movement found, 0 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235514_lance2_gestures__c44fcbd0645b.tmp.npz: 53 examples {'none': 8, 'swipe_left': 15, 'swipe_right': 15, 'push': 15, 'pull': 0}, picture shape (2, 64, 96)
+20261113-235900_lance2_breathing: 0 gestures, 0 prompts with no movement found, 6 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235900_lance2_breathing__11e5e992b453.tmp.npz: 14 examples {'none': 14, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261114-000902_mahimn_scene: 0 gestures, 0 prompts with no movement found, 60 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-000902_mahimn_scene__41367d242bd6.tmp.npz: 68 examples {'none': 68, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261114-001650_mahimn_breathing: 0 gestures, 0 prompts with no movement found, 5 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-001650_mahimn_breathing__b20e24f53ec8.tmp.npz: 13 examples {'none': 13, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261114-020852_aarsh_scene: 0 gestures, 0 prompts with no movement found, 89 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-020852_aarsh_scene__44affcfee082.tmp.npz: 97 examples {'none': 97, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261114-021255_aarsh_gestures: 45 gestures, 0 prompts with no movement found, 2 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021255_aarsh_gestures__59a0d0ea5cc5.tmp.npz: 55 examples {'none': 10, 'swipe_left': 15, 'swipe_right': 15, 'push': 15, 'pull': 0}, picture shape (2, 64, 96)
+20261114-021645_aarsh_breathing: 0 gestures, 0 prompts with no movement found, 24 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021645_aarsh_breathing__39c8cc963510.tmp.npz: 32 examples {'none': 32, 'swipe_left': 0, 'swipe_right': 0, 'push': 0, 'pull': 0}, picture shape (2, 64, 96)
+20261114-025724_mahimn_gestures: 48 gestures, 0 prompts with no movement found, 0 other bursts, 8 idle
+wrote C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-025724_mahimn_gestures__4b258266913c.tmp.npz: 56 examples {'none': 8, 'swipe_left': 12, 'swipe_right': 12, 'push': 12, 'pull': 12}, picture shape (2, 64, 96)
+
+real training pictures: 618 {'none': 445, 'swipe_left': 54, 'swipe_right': 54, 'push': 53, 'pull': 12}
+
+left/right wiring from 108 recorded swipes: microphones unclear (cue too weak) (t = +0.0), speakers as expected (t = +9.4)
+virtual laptop: fitted to real recordings (calibration\macbook_v2_no_mahimn.json; --calibration none for the generic one); how people move was fitted without mahimn, who is held out for the score
+one microphone channel (a MacBook): no two-microphone direction cue; left/right swipes rely on the two speakers
+
+=== synthetic data
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-hack\train_out_cal\synth\6c46e6dd4137 --per-class 2000 --negatives 2.0 --workers 24 --seed 0 --profile default --mics 1 --motion C:\Users\lance\sonar-hack\datagen\motion_library\unica_v1.npz --motion-share 0.5 --calibration C:\Users\lance\sonar-hack\calibration\macbook_v2_no_mahimn.json --gen-device cuda --gen-precision auto --gen-kernel auto --gen-noise cpu --gen-features conv
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+12000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/12000 clips, 369 examples, 16 s
+  400/12000 clips, 733 examples, 16 s
+  600/12000 clips, 1091 examples, 18 s
+  800/12000 clips, 1448 examples, 20 s
+  1000/12000 clips, 1811 examples, 22 s
+  1200/12000 clips, 2172 examples, 24 s
+  1400/12000 clips, 2538 examples, 27 s
+  1600/12000 clips, 2893 examples, 29 s
+  1800/12000 clips, 3259 examples, 31 s
+  2000/12000 clips, 3616 examples, 33 s
+  2200/12000 clips, 3987 examples, 35 s
+  2400/12000 clips, 4346 examples, 37 s
+  2600/12000 clips, 4730 examples, 38 s
+  2800/12000 clips, 5096 examples, 40 s
+  3000/12000 clips, 5457 examples, 42 s
+  3200/12000 clips, 5809 examples, 44 s
+  3400/12000 clips, 6149 examples, 46 s
+  3600/12000 clips, 6509 examples, 48 s
+  3800/12000 clips, 6879 examples, 50 s
+  4000/12000 clips, 7240 examples, 53 s
+  4200/12000 clips, 7615 examples, 55 s
+  4400/12000 clips, 7962 examples, 57 s
+  4600/12000 clips, 8314 examples, 59 s
+  4800/12000 clips, 8665 examples, 61 s
+  5000/12000 clips, 8997 examples, 63 s
+  5200/12000 clips, 9371 examples, 63 s
+  5400/12000 clips, 9731 examples, 65 s
+  5600/12000 clips, 10086 examples, 68 s
+  5800/12000 clips, 10447 examples, 70 s
+  6000/12000 clips, 10817 examples, 72 s
+  6200/12000 clips, 11145 examples, 74 s
+  6400/12000 clips, 11483 examples, 76 s
+  6600/12000 clips, 11844 examples, 78 s
+  6800/12000 clips, 12213 examples, 80 s
+  7000/12000 clips, 12564 examples, 83 s
+  7200/12000 clips, 12898 examples, 85 s
+  7400/12000 clips, 13246 examples, 87 s
+  7600/12000 clips, 13606 examples, 89 s
+  7800/12000 clips, 13964 examples, 89 s
+  8000/12000 clips, 14305 examples, 92 s
+  8200/12000 clips, 14659 examples, 94 s
+  8400/12000 clips, 15041 examples, 96 s
+  8600/12000 clips, 15365 examples, 98 s
+  8800/12000 clips, 15707 examples, 100 s
+  9000/12000 clips, 16088 examples, 102 s
+  9200/12000 clips, 16460 examples, 104 s
+  9400/12000 clips, 16814 examples, 107 s
+  9600/12000 clips, 17173 examples, 109 s
+  9800/12000 clips, 17528 examples, 111 s
+  10000/12000 clips, 17901 examples, 113 s
+  10200/12000 clips, 18288 examples, 115 s
+  10400/12000 clips, 18638 examples, 115 s
+  10600/12000 clips, 19001 examples, 117 s
+  10800/12000 clips, 19376 examples, 120 s
+  11000/12000 clips, 19739 examples, 122 s
+  11200/12000 clips, 20100 examples, 124 s
+  11400/12000 clips, 20452 examples, 126 s
+  11600/12000 clips, 20796 examples, 128 s
+  11800/12000 clips, 21146 examples, 129 s
+  12000/12000 clips, 21507 examples, 130 s
+  echo loop: fused CUDA kernel (CUDA kernel (NVRTC): echoes within 2.6e-07 of the PyTorch path; 4.53 ms per clip against 23.95); plans from the workers: shared memory; hall noise shaped in the CPU workers; feature filter: conv
+  GPU path on cuda:0: batch 217, precision ref, 56 batches, render 104.8 s, features 15.6 s, 0 redraws
+done in 139 s: 12000 clips -> 21507 examples in C:\Users\lance\sonar-hack\train_out_cal\synth\6c46e6dd4137
+  none         14492
+  swipe_left   1739
+  swipe_right  1785
+  push         1784
+  pull         1707
+  gesture strokes the core segmenter did not pick up: 985 of 8000
+
+=== pre-training 1 model(s) in the background while the next clips are made (their output follows below; --no-overlap for one step at a time)
+
+=== synthetic gestures on 6 real background recording(s) (not mahimn's: they are held out)
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-hack\train_out_cal\synth_bg\af7918b32ada --per-class 1000 --negatives 2.0 --workers 24 --seed 1 --profile default --background C:\Users\lance\sonar-hack\mac\data\20261113-232748_lance_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-233427_lance_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-235154_lance2_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-235900_lance2_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-020852_aarsh_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-021645_aarsh_breathing\audio.wav --mics 1 --motion C:\Users\lance\sonar-hack\datagen\motion_library\unica_v1.npz --motion-share 0.5 --calibration C:\Users\lance\sonar-hack\calibration\macbook_v2_no_mahimn.json --gen-device cuda --gen-precision auto --gen-kernel auto --gen-noise cpu --gen-features conv --gen-batch 182
+6 background recording(s), memory-mapped from C:\Users\lance\sonar-hack\train_out_cal\synth_bg\af7918b32ada\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+6000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/6000 clips, 372 examples, 13 s
+  400/6000 clips, 741 examples, 15 s
+  600/6000 clips, 1085 examples, 18 s
+  800/6000 clips, 1447 examples, 20 s
+  1000/6000 clips, 1803 examples, 22 s
+  1200/6000 clips, 2159 examples, 24 s
+  1400/6000 clips, 2546 examples, 26 s
+  1600/6000 clips, 2926 examples, 28 s
+  1800/6000 clips, 3304 examples, 30 s
+  2000/6000 clips, 3673 examples, 34 s
+  2200/6000 clips, 4009 examples, 36 s
+  2400/6000 clips, 4349 examples, 38 s
+  2600/6000 clips, 4680 examples, 40 s
+  2800/6000 clips, 5044 examples, 42 s
+  3000/6000 clips, 5392 examples, 43 s
+  3200/6000 clips, 5733 examples, 45 s
+  3400/6000 clips, 6084 examples, 46 s
+  3600/6000 clips, 6424 examples, 47 s
+  3800/6000 clips, 6754 examples, 50 s
+  4000/6000 clips, 7077 examples, 51 s
+  4200/6000 clips, 7434 examples, 52 s
+  4400/6000 clips, 7770 examples, 53 s
+  4600/6000 clips, 8129 examples, 54 s
+  4800/6000 clips, 8464 examples, 55 s
+  5000/6000 clips, 8779 examples, 57 s
+  5200/6000 clips, 9116 examples, 58 s
+  5400/6000 clips, 9453 examples, 59 s
+  5600/6000 clips, 9790 examples, 60 s
+  5800/6000 clips, 10144 examples, 61 s
+  6000/6000 clips, 10507 examples, 62 s
+  echo loop: fused CUDA kernel (CUDA kernel (NVRTC): echoes within 2.6e-07 of the PyTorch path; 4.53 ms per clip against 23.95); plans from the workers: shared memory; hall noise shaped in the CPU workers; feature filter: conv
+  GPU path on cuda:0: batch 182, precision ref, 33 batches, render 45.2 s, features 8.6 s, 0 redraws
+done in 66 s: 6000 clips -> 10507 examples in C:\Users\lance\sonar-hack\train_out_cal\synth_bg\af7918b32ada
+  none         7239
+  swipe_left   830
+  swipe_right  838
+  push         882
+  pull         718
+  gesture strokes the core segmenter did not pick up: 732 of 4000
+
+=== synthetic gestures on all 8 real background recording(s), for the final retrain
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-hack\train_out_cal\synth_bg\012810dcf68e --per-class 1000 --negatives 2.0 --workers 24 --seed 1 --profile default --background C:\Users\lance\sonar-hack\mac\data\20261113-232748_lance_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-233427_lance_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-235154_lance2_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-235900_lance2_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-000902_mahimn_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-001650_mahimn_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-020852_aarsh_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-021645_aarsh_breathing\audio.wav --mics 1 --motion C:\Users\lance\sonar-hack\datagen\motion_library\unica_v1.npz --motion-share 0.5 --calibration C:\Users\lance\sonar-hack\calibration\macbook_v2_no_mahimn.json --gen-device cuda --gen-precision auto --gen-kernel auto --gen-noise cpu --gen-features conv --gen-batch 182
+8 background recording(s), memory-mapped from C:\Users\lance\sonar-hack\train_out_cal\synth_bg\012810dcf68e\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+6000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/6000 clips, 355 examples, 13 s
+  400/6000 clips, 723 examples, 13 s
+  600/6000 clips, 1078 examples, 14 s
+  800/6000 clips, 1441 examples, 16 s
+  1000/6000 clips, 1818 examples, 17 s
+  1200/6000 clips, 2168 examples, 18 s
+  1400/6000 clips, 2562 examples, 19 s
+  1600/6000 clips, 2942 examples, 21 s
+  1800/6000 clips, 3325 examples, 22 s
+  2000/6000 clips, 3681 examples, 23 s
+  2200/6000 clips, 4025 examples, 25 s
+  2400/6000 clips, 4348 examples, 26 s
+  2600/6000 clips, 4675 examples, 28 s
+  2800/6000 clips, 5032 examples, 29 s
+  3000/6000 clips, 5373 examples, 30 s
+  3200/6000 clips, 5710 examples, 31 s
+  3400/6000 clips, 6053 examples, 33 s
+  3600/6000 clips, 6394 examples, 34 s
+  3800/6000 clips, 6727 examples, 35 s
+  4000/6000 clips, 7055 examples, 36 s
+  4200/6000 clips, 7402 examples, 39 s
+  4400/6000 clips, 7728 examples, 40 s
+  4600/6000 clips, 8087 examples, 41 s
+  4800/6000 clips, 8431 examples, 42 s
+  5000/6000 clips, 8748 examples, 43 s
+  5200/6000 clips, 9095 examples, 45 s
+  5400/6000 clips, 9428 examples, 46 s
+  5600/6000 clips, 9762 examples, 47 s
+  5800/6000 clips, 10107 examples, 48 s
+  6000/6000 clips, 10458 examples, 49 s
+  echo loop: fused CUDA kernel (CUDA kernel (NVRTC): echoes within 2.6e-07 of the PyTorch path; 4.53 ms per clip against 23.95); plans from the workers: shared memory; hall noise shaped in the CPU workers; feature filter: conv
+  GPU path on cuda:0: batch 182, precision ref, 33 batches, render 32.5 s, features 7.8 s, 0 redraws
+done in 54 s: 6000 clips -> 10458 examples in C:\Users\lance\sonar-hack\train_out_cal\synth_bg\012810dcf68e
+  none         7110
+  swipe_left   849
+  swipe_right  865
+  push         892
+  pull         742
+  gesture strokes the core segmenter did not pick up: 652 of 4000
+
+=== pre-training on synthetic data
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.train --dataset C:\Users\lance\sonar-hack\train_out_cal\synth\6c46e6dd4137\dataset.npz --labels swipe_left,swipe_right,push --width 24 --seed 0 --epochs 60 --device cuda --out C:\Users\lance\sonar-hack\train_out_cal\pretrain\fd10a9ba49d8
+21507 examples, classes ['none', 'swipe_left', 'swipe_right', 'push']
+validation: held-out sessions (2841): synth-3027, synth-11780, synth-4032, synth-11802, synth-1, ... (+2836 more)
+device cuda, 136132 weights, 16128 train / 5379 validation examples
+train class counts: {'none': 12176, 'swipe_left': 1321, 'swipe_right': 1306, 'push': 1325}
+batch 256, peak learning rate 4.00e-03, 63 steps per epoch; augmentation torch; bf16 mixed precision; channels_last on (6.27 ms/step plain, 3.64 ms/step channels_last)
+epoch   1/60  loss 1.219  val acc 0.547  macro-F1 0.353  (1 s)
+epoch   5/60  loss 0.862  val acc 0.380  macro-F1 0.326  (3 s)
+epoch  10/60  loss 0.720  val acc 0.405  macro-F1 0.396  (6 s)
+epoch  15/60  loss 0.635  val acc 0.746  macro-F1 0.641  (9 s)
+epoch  20/60  loss 0.579  val acc 0.711  macro-F1 0.633  (12 s)
+epoch  25/60  loss 0.544  val acc 0.832  macro-F1 0.730  (15 s)
+epoch  30/60  loss 0.512  val acc 0.845  macro-F1 0.737  (18 s)
+epoch  35/60  loss 0.471  val acc 0.746  macro-F1 0.671  (21 s)
+epoch  40/60  loss 0.446  val acc 0.841  macro-F1 0.737  (24 s)
+epoch  45/60  loss 0.436  val acc 0.858  macro-F1 0.765  (27 s)
+epoch  50/60  loss 0.417  val acc 0.843  macro-F1 0.748  (30 s)
+epoch  55/60  loss 0.410  val acc 0.861  macro-F1 0.767  (34 s)
+epoch  60/60  loss 0.412  val acc 0.858  macro-F1 0.766  (36 s)
+
+validation accuracy 0.868, macro-F1 0.777 (rows = truth)
+                     none  swipe_left  swipe_righ        push   <- predicted
+none                 3566         182         165         110
+swipe_left             43         336          28          11
+swipe_right            49          30         386          14
+push                   46          16          16         381
+
+as deployed (confidence >= 0.6, temperature 1.00): gestures recognised 0.7168, non-gestures that would trigger 0.0684
+                     none  swipe_left  swipe_righ        push   <- predicted
+none                 3748         105         109          61
+swipe_left             98         294          20           6
+swipe_right           114          20         337           8
+push                  104           7           7         341
+  none         precision 0.96  recall 0.89  n=4023
+  swipe_left   precision 0.60  recall 0.80  n=418
+  swipe_right  precision 0.65  recall 0.81  n=479
+  push         precision 0.74  recall 0.83  n=459
+
+physics-classifier weights from 2627 synthetic swipes: speakers +0.54, microphones +0.00  (0 = that cue is useless on this device)
+
+training took 42 s on cuda; best epoch 48
+wrote C:\Users\lance\sonar-hack\train_out_cal\pretrain\fd10a9ba49d8\gesture.onnx (+ .json, .pt), ONNX vs PyTorch max logit difference 2.38e-06, 0.52 ms per inference on CPU
+
+pre-training, scored on held-out SYNTHETIC clips:
+  width seed  accuracy macro-F1 recall@0.6 false@0.6 best ep    sec
+     24    0     0.868    0.777      0.717     0.068      48     42
+
+=== fine-tuning on 12 recorded session(s) + train_out_cal\synth_bg\af7918b32ada
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.train --dataset C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-232748_lance_scene__57b3348d3c10.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233122_lance_gestures__bd767792ad28.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233427_lance_breathing__bbedbc51c2c1.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235154_lance2_scene__92d483fc4e13.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235514_lance2_gestures__c44fcbd0645b.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235900_lance2_breathing__11e5e992b453.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-000902_mahimn_scene__41367d242bd6.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-001650_mahimn_breathing__b20e24f53ec8.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-020852_aarsh_scene__44affcfee082.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021255_aarsh_gestures__59a0d0ea5cc5.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021645_aarsh_breathing__39c8cc963510.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-025724_mahimn_gestures__4b258266913c.npz C:\Users\lance\sonar-hack\train_out_cal\synth_bg\af7918b32ada\dataset.npz --labels swipe_left,swipe_right,push --width 24 --seed 0 --epochs 60 --device cuda --out C:\Users\lance\sonar-hack\train_out_cal\runs\20261114-113400\sweep\w24_s0 --init C:\Users\lance\sonar-hack\train_out_cal\pretrain\fd10a9ba49d8\gesture.pt --val-person mahimn
+11125 examples, classes ['none', 'swipe_left', 'swipe_right', 'push']
+validation: held-out person mahimn
+device cuda, 136132 weights, 10988 train / 137 validation examples
+train class counts: {'none': 8313, 'swipe_left': 872, 'swipe_right': 880, 'push': 923}
+batch 256, peak learning rate 4.00e-03, 43 steps per epoch; augmentation torch; bf16 mixed precision; channels_last on (6.19 ms/step plain, 3.59 ms/step channels_last)
+epoch   1/60  loss 0.645  val acc 0.847  macro-F1 0.784  (1 s)
+epoch   5/60  loss 0.563  val acc 0.883  macro-F1 0.838  (1 s)
+epoch  10/60  loss 0.527  val acc 0.883  macro-F1 0.836  (2 s)
+epoch  15/60  loss 0.487  val acc 0.839  macro-F1 0.780  (3 s)
+epoch  20/60  loss 0.469  val acc 0.890  macro-F1 0.841  (5 s)
+epoch  25/60  loss 0.444  val acc 0.890  macro-F1 0.836  (6 s)
+epoch  30/60  loss 0.408  val acc 0.890  macro-F1 0.838  (7 s)
+epoch  35/60  loss 0.399  val acc 0.869  macro-F1 0.764  (8 s)
+epoch  40/60  loss 0.380  val acc 0.890  macro-F1 0.828  (8 s)
+epoch  45/60  loss 0.372  val acc 0.883  macro-F1 0.804  (9 s)
+epoch  50/60  loss 0.359  val acc 0.869  macro-F1 0.770  (10 s)
+epoch  55/60  loss 0.357  val acc 0.883  macro-F1 0.807  (11 s)
+epoch  60/60  loss 0.356  val acc 0.898  macro-F1 0.822  (12 s)
+
+validation accuracy 0.912, macro-F1 0.870 (rows = truth)
+                     none  swipe_left  swipe_righ        push   <- predicted
+none                   90           2           5           4
+swipe_left              0          11           1           0
+swipe_right             0           0          12           0
+push                    0           0           0          12
+
+as deployed (confidence >= 0.6, temperature 1.00): gestures recognised 0.8889, non-gestures that would trigger 0.0495
+                     none  swipe_left  swipe_righ        push   <- predicted
+none                   96           2           1           2
+swipe_left              1          10           1           0
+swipe_right             1           0          11           0
+push                    1           0           0          11
+  none         precision 1.00  recall 0.89  n=101
+  swipe_left   precision 0.85  recall 0.92  n=12
+  swipe_right  precision 0.67  recall 1.00  n=12
+  push         precision 0.75  recall 1.00  n=12
+
+physics-classifier weights from 84 recorded swipes: speakers +0.37, microphones +0.00  (0 = that cue is useless on this device)
+gesture strength: 10 % of the recorded gestures were below 35.8 dB (engine will ignore bursts 6 dB weaker)
+
+training took 17 s on cuda; best epoch 26
+wrote C:\Users\lance\sonar-hack\train_out_cal\runs\20261114-113400\sweep\w24_s0\gesture.onnx (+ .json, .pt), ONNX vs PyTorch max logit difference 1.67e-06, 0.52 ms per inference on CPU
+
+fine-tuning, scored on held-out person mahimn (never seen in training):
+  width seed  accuracy macro-F1 recall@0.6 false@0.6 best ep    sec
+     24    0     0.912    0.870      0.889     0.050      26     18
+
+winner: width 24, seed 0 (highest held-out accuracy)
+
+=== retraining the winner on everyone, mahimn included (--no-refit to skip)
+
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.train --dataset C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-232748_lance_scene__57b3348d3c10.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233122_lance_gestures__bd767792ad28.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-233427_lance_breathing__bbedbc51c2c1.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235154_lance2_scene__92d483fc4e13.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235514_lance2_gestures__c44fcbd0645b.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261113-235900_lance2_breathing__11e5e992b453.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-000902_mahimn_scene__41367d242bd6.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-001650_mahimn_breathing__b20e24f53ec8.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-020852_aarsh_scene__44affcfee082.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021255_aarsh_gestures__59a0d0ea5cc5.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-021645_aarsh_breathing__39c8cc963510.npz C:\Users\lance\sonar-hack\train_out_cal\sessions\20261114-025724_mahimn_gestures__4b258266913c.npz C:\Users\lance\sonar-hack\train_out_cal\synth_bg\012810dcf68e\dataset.npz --labels swipe_left,swipe_right,push --width 24 --seed 0 --epochs 60 --device cuda --out C:\Users\lance\sonar-hack\train_out_cal\runs\20261114-113400\final --init C:\Users\lance\sonar-hack\train_out_cal\pretrain\fd10a9ba49d8\gesture.pt --val-fraction 0 --temperature 1.0000
+11076 examples, classes ['none', 'swipe_left', 'swipe_right', 'push']
+validation: none (trained on everything, no validation)
+device cuda, 136132 weights, 11076 train / 0 validation examples
+train class counts: {'none': 8309, 'swipe_left': 903, 'swipe_right': 919, 'push': 945}
+batch 256, peak learning rate 4.00e-03, 44 steps per epoch; augmentation torch; bf16 mixed precision; channels_last on (6.22 ms/step plain, 3.60 ms/step channels_last)
+epoch   1/60  loss 0.640  (0 s)
+epoch   5/60  loss 0.578  (1 s)
+epoch  10/60  loss 0.529  (2 s)
+epoch  15/60  loss 0.479  (3 s)
+epoch  20/60  loss 0.451  (4 s)
+epoch  25/60  loss 0.427  (5 s)
+epoch  30/60  loss 0.413  (6 s)
+epoch  35/60  loss 0.387  (7 s)
+epoch  40/60  loss 0.388  (8 s)
+epoch  45/60  loss 0.369  (9 s)
+epoch  50/60  loss 0.357  (10 s)
+epoch  55/60  loss 0.347  (11 s)
+epoch  60/60  loss 0.355  (12 s)
+no validation data: confidence temperature 1.00 taken from --temperature
+
+physics-classifier weights from 108 recorded swipes: speakers +0.29, microphones +0.00  (0 = that cue is useless on this device)
+gesture strength: 10 % of the recorded gestures were below 35.8 dB (engine will ignore bursts 6 dB weaker)
+
+training took 16 s on cuda; best epoch 60
+wrote C:\Users\lance\sonar-hack\train_out_cal\runs\20261114-113400\final\gesture.onnx (+ .json, .pt), ONNX vs PyTorch max logit difference 2.26e-06, 0.51 ms per inference on CPU
+
+=== export
+copied gesture.onnx, gesture.json, gesture.pt, metrics.json, confusion.txt from train_out_cal\runs\20261114-113400\final to train_out_cal\models
+copied gesture.onnx, gesture.json, gesture.pt, metrics.json, confusion.txt from train_out_cal\runs\20261114-113400\final to models-release-cal
+
+engine check: loaded train_out_cal\models\gesture.onnx (classes ['none', 'swipe_left', 'swipe_right', 'push'], temperature 1.00); ran 25 s of the simulated demo visitor through it
+  movement bursts the model classified: 8 (5 none, 1 push, 1 swipe_left, 1 swipe_right); gestures the engine reported: ['swipe_right 0.80', 'push 0.93', 'swipe_left 0.89']
+  (the simulator's visitor is not real data: this proves the model loads and runs, not how accurate it is)
+
+==============================================================================
+DONE in 10.0 min. Model: train_out_cal\models/gesture.onnx (+ gesture.json, gesture.pt), copied to models-release-cal/
+Honest score on mahimn: accuracy 0.912, macro-F1 0.870; at the engine's 0.6 threshold 0.889 of gestures recognised, 0.050 of non-gestures would trigger
+Verdict: GOOD: ship it
+Time per step: GPU parity check 4.2 min, cut sessions 0.2 min, generate synthetic 2.5 min, generate on real backgrounds 1.2 min, generate on all backgrounds 1.0 min, pre-train 2.2 min, fine-tune sweep 0.4 min, refit on everyone 0.4 min, total 10.0 min
+Next: commit models-release-cal/ and push (TRAINING.md, step 8).
+Full log: train_out_cal\runs\20261114-113400\log.txt

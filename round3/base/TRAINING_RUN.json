@@ -1,0 +1,282 @@
+{
+ "started": "20261114-114917",
+ "argv": [
+  "--data",
+  "mac",
+  "--val-person",
+  "mahimn",
+  "--calibration",
+  "none",
+  "--motion",
+  "none",
+  "--out",
+  "train_out_base",
+  "--models",
+  "train_out_base\\models",
+  "--release",
+  "models-release-base"
+ ],
+ "size": "full",
+ "preset": {
+  "per_class": 2000,
+  "negatives": 2.0,
+  "bg_per_class": 1000,
+  "pretrain_epochs": 60,
+  "finetune_epochs": 60
+ },
+ "labels": "swipe_left,swipe_right,push",
+ "widths": [
+  24
+ ],
+ "seeds": [
+  0
+ ],
+ "git": {
+  "commit": "ac32fb7",
+  "branch": "gpu-train",
+  "uncommitted_changes": false
+ },
+ "machine": {
+  "python": "3.12.10",
+  "torch": "2.15.0+cu132",
+  "torch_cuda": "13.2",
+  "cuda": true,
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "gpu_gb": 24.0,
+  "bf16": true,
+  "capability": "8.9",
+  "gpu_count": 1,
+  "mps": false,
+  "onnx": "1.23.2",
+  "onnxruntime": "1.32.0",
+  "soundfile": "0.14.0",
+  "scipy": "1.18.1",
+  "numpy": "2.5.4",
+  "os": "Windows 11",
+  "cpus": 24
+ },
+ "motion": {
+  "library": null,
+  "share": 0.0
+ },
+ "generation": {
+  "device": "cuda",
+  "precision": "auto"
+ },
+ "parity": {
+  "status": "passed earlier",
+  "clips": 1080,
+  "report": "train_out\\parity\\passed_1d29fe2a5af5.json"
+ },
+ "sessions": [
+  {
+   "session": "20261113-232748_lance_scene",
+   "person": "lance",
+   "script": "scene",
+   "seconds": 191.0,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261113-233122_lance_gestures",
+   "person": "lance",
+   "script": "gestures",
+   "seconds": 179.0,
+   "trials": 36,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261113-233427_lance_breathing",
+   "person": "lance",
+   "script": "breathing",
+   "seconds": 136.3,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261113-235154_lance2_scene",
+   "person": "lance2",
+   "script": "scene",
+   "seconds": 191.0,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261113-235514_lance2_gestures",
+   "person": "lance2",
+   "script": "gestures",
+   "seconds": 221.4,
+   "trials": 45,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261113-235900_lance2_breathing",
+   "person": "lance2",
+   "script": "breathing",
+   "seconds": 136.3,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261114-000902_mahimn_scene",
+   "person": "mahimn",
+   "script": "scene",
+   "seconds": 191.0,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261114-001650_mahimn_breathing",
+   "person": "mahimn",
+   "script": "breathing",
+   "seconds": 136.3,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261114-020852_aarsh_scene",
+   "person": "aarsh",
+   "script": "scene",
+   "seconds": 191.0,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261114-021255_aarsh_gestures",
+   "person": "aarsh",
+   "script": "gestures",
+   "seconds": 221.4,
+   "trials": 45,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261114-021645_aarsh_breathing",
+   "person": "aarsh",
+   "script": "breathing",
+   "seconds": 136.3,
+   "trials": 0,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261114-025724_mahimn_gestures",
+   "person": "mahimn",
+   "script": "gestures",
+   "seconds": 235.6,
+   "trials": 48,
+   "use": true,
+   "why": null
+  },
+  {
+   "session": "20261114-001248_mahimn_gestures",
+   "person": "mahimn",
+   "script": "gestures",
+   "seconds": 221.4,
+   "trials": 45,
+   "use": false,
+   "why": "it is in a folder named 'excluded'"
+  }
+ ],
+ "wiring": {
+  "n_swipes": 108,
+  "t_mics": 0.0,
+  "t_speakers": 9.408337654321029
+ },
+ "swap": {
+  "mics": false,
+  "speakers": false
+ },
+ "microphones": 1,
+ "calibration": null,
+ "pretrain": [
+  {
+   "width": 24,
+   "seed": 0,
+   "folder": "C:\\Users\\lance\\sonar-hack\\train_out_base\\pretrain\\d5214c38be04",
+   "accuracy": 0.874,
+   "macro_f1": 0.7728,
+   "recall": 0.6753,
+   "false_triggers": 0.0677,
+   "best_epoch": 32,
+   "seconds": 53.6,
+   "temperature": 1.0,
+   "split": "held-out sessions (2578): synth-2842, synth-8325, synth-7334, synth-1054, synth-3021, ... (+2573 more)",
+   "n_train": 14904,
+   "n_val": 4969
+  }
+ ],
+ "val_people": [
+  "mahimn"
+ ],
+ "sweep": [
+  {
+   "width": 24,
+   "seed": 0,
+   "folder": "C:\\Users\\lance\\sonar-hack\\train_out_base\\runs\\20261114-114917\\sweep\\w24_s0",
+   "accuracy": 0.9197,
+   "macro_f1": 0.8725,
+   "recall": 0.7222,
+   "false_triggers": 0.0198,
+   "best_epoch": 39,
+   "seconds": 17.3,
+   "temperature": 1.0,
+   "split": "held-out person mahimn",
+   "n_train": 11379,
+   "n_val": 137
+  }
+ ],
+ "winner": {
+  "width": 24,
+  "seed": 0,
+  "folder": "C:\\Users\\lance\\sonar-hack\\train_out_base\\runs\\20261114-114917\\sweep\\w24_s0",
+  "accuracy": 0.9197,
+  "macro_f1": 0.8725,
+  "recall": 0.7222,
+  "false_triggers": 0.0198,
+  "best_epoch": 39,
+  "seconds": 17.3,
+  "temperature": 1.0,
+  "split": "held-out person mahimn",
+  "n_train": 11379,
+  "n_val": 137
+ },
+ "model_from": "train_out_base\\runs\\20261114-114917\\final",
+ "verdict": "OK: usable for the demo; more people in the recordings will lift it (TRAINING.md, 'If the numbers are poor')",
+ "honest_score": {
+  "accuracy": 0.9197,
+  "macro_f1": 0.8725,
+  "recall": 0.7222,
+  "false_triggers": 0.0198,
+  "split": "held-out person mahimn"
+ },
+ "engine_check": {
+  "bursts_classified": 8,
+  "gestures": [
+   "swipe_right 0.98",
+   "push 0.99",
+   "swipe_left 0.83"
+  ]
+ },
+ "minutes": {
+  "GPU parity check": 0.0,
+  "cut sessions": 0.2,
+  "generate synthetic": 2.4,
+  "generate on real backgrounds": 1.2,
+  "generate on all backgrounds": 0.9,
+  "pre-train": 2.1,
+  "fine-tune sweep": 0.4,
+  "refit on everyone": 0.4,
+  "total": 5.6
+ },
+ "finished": "2026-11-14 11:54:52"
+}
