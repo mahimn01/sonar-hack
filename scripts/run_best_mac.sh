@@ -7,7 +7,9 @@
 #   * a movement burst also ends once it is 12 dB below its own peak (SONAR_SEG_REL_OFF_DB=12). On this MacBook the
 #     hand is so loud that the engine's burst otherwise runs into its 1.4 s limit and is chopped at an arbitrary
 #     point (111 of 218 recorded gestures). With the same model and no retraining this alone took the held-out
-#     person from 0.65 to 0.73 of gestures recognised, with fewer false triggers;
+#     person from 0.65 to 0.73 of gestures recognised, with fewer false triggers.
+#     The model folder decides this: its gesture.json ("run_with", written by recall.package) names the burst
+#     cutting the model was scored with, and whether the click filter is off. No such block = the 12 dB cutting;
 #   * range gate off (it blocked fast swipes and never blocked a non-gesture);
 #   * "somebody is walking in" gate limited to 3 s (it used to swallow gestures for up to 41 s).
 # It plays the near-inaudible 18.5-21.5 kHz sonar signal on the speakers, listens on the microphone, prints every
@@ -25,7 +27,19 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONUNBUFFERED=1            # so every line reaches a log file at once when the output is piped
-export SONAR_SEG_REL_OFF_DB="${SONAR_SEG_REL_OFF_DB:-12}"   # peak-relative burst end (0 = the engine's old cutting)
+MODEL_DIR="${SONAR_MODEL_DIR:-models-release-mac-recall}"
+# How this model wants its movement bursts cut: "<dB below the burst's peak, 0 = the engine's old cutting> [--no-click-rejection]"
+RUN_WITH="$(.venv/bin/python - "$MODEL_DIR/gesture.json" <<'PY'
+import json, sys
+rw = json.load(open(sys.argv[1])).get("run_with")
+if rw is None:
+    print("12")
+else:
+    print(rw.get("env", {}).get("SONAR_SEG_REL_OFF_DB", "0"), *[f for f in rw.get("flags", []) if f == "--no-click-rejection"])
+PY
+)"
+read -r REL_DB CLICKS <<<"$RUN_WITH"
+export SONAR_SEG_REL_OFF_DB="${SONAR_SEG_REL_OFF_DB:-$REL_DB}"   # set it yourself to override the model's choice
 DEVICES=()
 if [[ "$(sysctl -n hw.model 2>/dev/null)" == MacBook* ]]; then
   DEVICES=(--in-device "${SONAR_IN_DEVICE:-MacBook}" --out-device "${SONAR_OUT_DEVICE:-MacBook}")
@@ -33,4 +47,4 @@ else
   [ -n "${SONAR_IN_DEVICE:-}" ] && DEVICES+=(--in-device "$SONAR_IN_DEVICE")
   [ -n "${SONAR_OUT_DEVICE:-}" ] && DEVICES+=(--out-device "$SONAR_OUT_DEVICE")
 fi
-exec .venv/bin/python -m sonar.engine --model models-release-mac-recall/gesture.onnx --mics 1 --no-range-gate --entering-gate-s 3 ${DEVICES[@]+"${DEVICES[@]}"} "$@"
+exec .venv/bin/python -m sonar.engine --model "$MODEL_DIR/gesture.onnx" --mics 1 --no-range-gate --entering-gate-s 3 $CLICKS ${DEVICES[@]+"${DEVICES[@]}"} "$@"

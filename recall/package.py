@@ -8,12 +8,15 @@ What it does:
      and fires at confidence >= 0.6. The average of several networks cannot be written as one such formula, so the
      exported graph does it inside: per network (logits - handicap on "none") / temperature, softmax, average, log.
      gesture.json then says temperature 1.0 and the engine needs no change,
-  3. sets `gesture_peak_db_p10` (the engine ignores bursts 6 dB weaker than that),
+  3. sets `gesture_peak_db_p10` (the engine ignores bursts 6 dB weaker than that) from the gesture bursts as the
+     engine will cut them at run time (--cutting; default: the cutting the recipe was trained on),
   4. re-exports gesture.onnx, checks it against PyTorch, loads it exactly as the engine does and runs the
-     simulated demo visitor through it, then replays every recorded session through the engine's rules.
+     simulated demo visitor through it, then replays every recorded session through the engine's rules with that
+     same cutting, and writes into gesture.json ("run_with") the switch and flags the engine must be started with.
 
 How to run:
-    .venv/bin/python -m recall.package <run folder> <arm> --out models-release-mac-recall [--temperature T --handicap B --peak-p10 P]
+    .venv/bin/python -m recall.package <run folder> <arm> --out models-release-mac-recall [--cutting std|rel12|rel12nc]
+                                       [--temperature T --handicap B --peak-p10 P --no-range-gate --entering-gate-s 3]
 Without --temperature / --handicap the point is the one recall.analyze chose on all three humans' held-out answers
 (analysis.json, "final_point"); run `python -m recall.analyze <run folder>` first.
 What it changes: writes gesture.onnx / gesture.json / gesture.pt / metrics.json into --out. Nothing else.
@@ -50,7 +53,10 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--temperature", type=float)
     ap.add_argument("--handicap", type=float)
-    ap.add_argument("--peak-p10", type=float, help="value stored as gesture_peak_db_p10 (default: keep the exported one)")
+    ap.add_argument("--peak-p10", type=float, help="value stored as gesture_peak_db_p10 (default: from the gesture bursts cut the --cutting way)")
+    ap.add_argument("--cutting", choices=("std", "rel12", "rel12nc"),
+                    help="how the engine will cut movement bursts at run time: std = as shipped, rel12 = ended 12 dB below the "
+                         "burst's own peak, rel12nc = that and click rejection off (default: what the recipe was trained on)")
     ap.add_argument("--no-range-gate", action="store_true", help="replay with the range gate off (the MacBook setting)")
     ap.add_argument("--entering-gate-s", type=float, help="replay with the walking-in gate capped at this many seconds")
     ap.add_argument("--single", action="store_true", help="ship seed 0 alone instead of the average of all seeds")
@@ -58,10 +64,21 @@ def main() -> int:
     run = Path(args.run)
     src = run / "final" / args.arm
     meta = json.loads((src / "gesture.json").read_text())
+    man = json.loads((run / "manifest.json").read_text())
+    spec = man.get("arm_specs", {}).get(args.arm, {}) or {}
+    if spec.get("features") == "wide":
+        print(f"ERROR: {args.arm} was trained on the +-750 Hz pictures; the engine has no profile that makes them. Not packaged.")
+        return 1
+    cutting = args.cutting or spec.get("table") or "std"
     t, b = args.temperature, args.handicap
     analysis = run / "analysis.json"
     if (t is None or b is None) and analysis.exists():
-        pts = json.loads(analysis.read_text()).get(args.arm, {}).get("points", {})
+        found = json.loads(analysis.read_text()).get(args.arm, {})
+        if cutting != (spec.get("table") or "std"):          # the point chosen for the cutting the engine will use
+            found = found.get("cross", {}).get(cutting, {})
+        pts = found.get("points", {})
+        if not pts:
+            print(f"NOTE: analysis.json has no operating point for {args.arm} with burst cutting {cutting}; using temperature 1, no handicap")
         fp, folds = pts.get("final_point"), pts.get("folds", {})
         if fp:                               # chosen on all three humans' held-out answers (recall.analyze)
             t = float(fp["t"]) if t is None else t
@@ -72,7 +89,6 @@ def main() -> int:
     t = 1.0 if t is None else t
     b = 0.0 if b is None else b
 
-    man = json.loads((run / "manifest.json").read_text())
     seeds = man["seeds"][:1] if args.single else man["seeds"]
     states = [torch.load(run / "jobs" / f"{args.arm}__final__s{k}.pt", map_location="cpu") for k in seeds
               if (run / "jobs" / f"{args.arm}__final__s{k}.pt").exists()]
@@ -114,8 +130,25 @@ def main() -> int:
         probe = np.ascontiguousarray(z["X"][:64].astype(np.float32)[..., 8:88])
     diff, ms = check_onnx(out / "gesture.onnx", model, probe)
     meta["temperature"] = 1.0                 # the operating point is inside the graph (see the header)
+    table = run / ("table.npz" if cutting == "std" else f"table_{cutting}.npz")
     if args.peak_p10 is not None:
         meta["gesture_peak_db_p10"] = float(args.peak_p10)
+    elif table.exists():                      # how strong real gestures are when their bursts are cut the way the engine will cut them
+        with np.load(table, allow_pickle=False) as z:
+            gest = (z["source"] == "gesture") & np.isin(z["label"], LABELS[1:]) & ~z["locked"]
+            meta["gesture_peak_db_p10"] = round(float(np.percentile(z["peak_db"][gest], 10)), 1)
+    else:
+        print(f"NOTE: {table.name} is not in this run folder; gesture_peak_db_p10 stays at the exported {meta.get('gesture_peak_db_p10')}")
+    # what the engine must be started with for this model (the engine does not read this block; scripts/run_best_mac.sh carries it)
+    flags = ["--mics", "1"] + (["--no-range-gate"] if args.no_range_gate else [])
+    flags += ["--entering-gate-s", f"{args.entering_gate_s:g}"] if args.entering_gate_s is not None else []
+    flags += ["--no-click-rejection"] if cutting.endswith("nc") else []
+    meta.pop("needs", None)
+    meta["run_with"] = {"burst_cutting": {"std": "the engine's default", "rel12": "ends 12 dB below the burst's own peak",
+                                          "rel12nc": "ends 12 dB below the burst's own peak, click rejection off"}[cutting],
+                        "trained_on_cutting": spec.get("table") or "std",
+                        "env": {} if cutting == "std" else {"SONAR_SEG_REL_OFF_DB": cutting[3:].replace("nc", "")},
+                        "flags": flags}
     meta["metrics"] = {**meta.get("metrics", {}), "networks_averaged": len(states),
                        "operating_point": {"temperature": float(t), "none_handicap": float(b), "inside_the_graph": True,
                                            "chosen_on": "training humans only (nested), see analysis.md"},
@@ -124,6 +157,8 @@ def main() -> int:
     (out / "gesture.json").write_text(json.dumps(meta, indent=1))
     print(f"wrote {out}: {len(states)} network(s) averaged, temperature {t:.2f}, none handicap {b:+.2f}, gesture_peak_db_p10 {meta.get('gesture_peak_db_p10')}, "
           f"ONNX vs PyTorch max logit difference {diff:.2e}, {ms:.2f} ms per inference")
+    env = " ".join(f"{k}={v}" for k, v in meta["run_with"]["env"].items())
+    print(f"start the engine with: {env + ' ' if env else ''}python -m sonar.engine --model {args.out}/gesture.onnx {' '.join(flags)}")
     if diff > 1e-3:
         print("ERROR: the exported ONNX model disagrees with PyTorch; do not deploy it.")
         return 1
@@ -140,7 +175,7 @@ def main() -> int:
     names = sorted(p.stem for p in STREAMS.glob("*.npz"))
     tabs = {}
     for n in names:
-        trace = load_trace(n)
+        trace = load_trace(n, cutting)
         probs, labels, m = onnx_probs(out / "gesture.onnx", trace["windows"])
         gate = max(cfg.seg_min_peak_db, float(m.get("gesture_peak_db_p10", 9.0)) - 6.0)
         fired, _ = replay(trace, probs, labels, cfg, min_peak_db=gate, gate_range=not args.no_range_gate, entering_cap_s=args.entering_gate_s)
@@ -150,9 +185,9 @@ def main() -> int:
         s = summarise([v for n, v in tabs.items() if n.split("_")[1] == person], LABELS)
         lines.append(f"{person:<8} right gesture first on {s['correct']}/{s['n_prompts']} prompts ({s['recall']:.2f}), clean {s['clean_rate']:.2f}, "
                      f"wrong first {s['wrong']}, false events {s['outside_fired']} in {s['outside_minutes']:.1f} min")
-    print("engine replay on the people it was trained on (range gate " + ("off" if args.no_range_gate else "on") + "):\n  " + "\n  ".join(lines))
+    print(f"engine replay on the people it was trained on (burst cutting {cutting}, range gate " + ("off" if args.no_range_gate else "on") + "):\n  " + "\n  ".join(lines))
     (out / "metrics.json").write_text(json.dumps({"operating_point": {"temperature": t, "none_handicap": b}, "engine_check": check,
-                                                  "in_sample_engine_replay": lines, "source": str(src)}, indent=1))
+                                                  "burst_cutting": cutting, "in_sample_engine_replay": lines, "source": str(src)}, indent=1))
     return 0
 
 

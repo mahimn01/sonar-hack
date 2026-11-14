@@ -491,6 +491,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--min-peak-db", type=float, help="ignore bursts weaker than this (default: from the model, else 3 dB)")
     ap.add_argument("--no-ws", action="store_true", help="do not start the WebSocket server (console only)")
     ap.add_argument("--no-spectrogram", action="store_true", help="do not send spectrogram events")
+    ap.add_argument("--no-click-rejection", action="store_true",
+                    help="do not treat broadband frames as clicks. The click test also fires on very fast hands and then "
+                         "cuts the stroke's peak out of the burst; use it only with a model trained on pictures cut that way")
     ap.add_argument("--mics", type=int,
                     help="microphone channels to use (default: the profile's 2, or fewer if the device has fewer). A model "
                          "trained on a one-microphone MacBook needs --mics 1 on a device whose microphone has 2 channels")
@@ -512,6 +515,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     cfg = get_profile(args.profile) if args.mics is None else get_profile(args.profile, n_mics=args.mics)
+    if args.no_click_rejection:
+        cfg = cfg.with_(impulse_ratio=1e9)       # the click test in gestures.frame_activity can then never be true
     try:
         if args.backend == "live":
             backend = make_backend(

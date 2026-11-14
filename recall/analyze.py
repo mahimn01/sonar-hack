@@ -11,7 +11,11 @@ raw answers for every burst). Output, printed and saved as analysis.md in that f
      held-out human. Reported next to temperature 1 and to the best-possible ("oracle") point.
   2. the engine-level score: each session replayed through the engine's own gesture rules (recall.engine_replay)
      with the held-out models: right gesture first per prompt, wrong ones, extra ones, false events per minute.
-  3. where the misses are: by person, by class, bursts cut by the 1.4 s limit or not, burst strength.
+  3. every recipe scored again as it would run in an engine that cuts movement bursts ANOTHER way than the recipe
+     was trained on (std = as shipped, rel12 = ended 12 dB below the burst's own peak, rel12nc = that and click
+     rejection off). The operating point is chosen again, on the training humans' pictures cut that same way.
+     This table decides which model ships together with which engine cutting.
+  4. where the misses are: by person, by class, bursts cut by the 1.4 s limit or not, burst strength.
 
 How to run:   .venv/bin/python -m recall.analyze <run folder> [--arms a,b] [--no-events]
 What it changes: writes <run folder>/analysis.md and analysis.json. Read-only otherwise.
@@ -41,14 +45,14 @@ class Run:
         self.man = json.loads((self.dir / "manifest.json").read_text())
         self.humans, self.seeds, self.arms = self.man["humans"], self.man["seeds"], self.man["arms"]
         self._tables: dict[str, tuple] = {}
-        self._cache: dict[str, np.ndarray | None] = {}
+        self._cache: dict[tuple[str, str], np.ndarray | None] = {}
 
     def variant(self, arm: str) -> str:
         return (self.man.get("arm_specs", {}).get(arm, {}) or {}).get("table") or "std"
 
-    def tab(self, arm: str) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray]:
-        """(columns, labels, scored-rows mask) of the cutting this arm was trained and answered on."""
-        v = self.variant(arm)
+    def tab(self, arm: str, cut: str | None = None) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray]:
+        """(columns, labels, scored-rows mask) of one burst cutting: `cut`, or the one this arm was trained on."""
+        v = cut or self.variant(arm)
         if v not in self._tables:
             name = "table.npz" if v == "std" else f"table_{v}.npz"
             with np.load(self.dir / name, allow_pickle=False) as z:
@@ -58,11 +62,17 @@ class Run:
             self._tables[v] = (r, y, np.isin(r["source"], ["gesture", "burst", "idle"]) & ~r["locked"])
         return self._tables[v]
 
-    def logits(self, job: str) -> np.ndarray | None:
-        if job not in self._cache:
+    def logits(self, job: str, cut: str | None = None) -> np.ndarray | None:
+        """One model's raw answers for every row of a cutting's table (`cut`; default: the cutting it was trained on)."""
+        key = "logits" if cut in (None, self.variant(job.split("__")[0])) else f"logits__{cut}"
+        if (job, key) not in self._cache:
             p = self.dir / "jobs" / f"{job}.npz"
-            self._cache[job] = np.load(p)["logits"] if p.exists() else None
-        return self._cache[job]
+            val = None
+            if p.exists():
+                with np.load(p) as z:
+                    val = z[key] if key in z.files else None
+            self._cache[(job, key)] = val
+        return self._cache[(job, key)]
 
     def views(self, job: str) -> list[np.ndarray] | None:
         """The model's answers for the picture as the engine cuts it AND for the copies cut 3 and 6 frames earlier / later."""
@@ -74,20 +84,20 @@ class Run:
                 return None
             return [z["logits"].astype(np.float64)] + [v.astype(np.float64) for v in z["logits_shifted"]]
 
-    def outer(self, arm: str, h: str) -> list[np.ndarray]:
-        out = [self.logits(f"{arm}__{h}__s{s}") for s in self.seeds]
+    def outer(self, arm: str, h: str, cut: str | None = None) -> list[np.ndarray]:
+        out = [self.logits(f"{arm}__{h}__s{s}", cut) for s in self.seeds]
         return [l for l in out if l is not None]
 
     def outer_views(self, arm: str, h: str) -> list[list[np.ndarray]]:
         out = [self.views(f"{arm}__{h}__s{s}") for s in self.seeds]
         return [v for v in out if v is not None]
 
-    def inner(self, arm: str, h: str) -> tuple[np.ndarray, np.ndarray] | None:
+    def inner(self, arm: str, h: str, cut: str | None = None) -> tuple[np.ndarray, np.ndarray] | None:
         """Held-out answers among the TRAINING humans of fold h: (logits, labels), scored rows only."""
-        r, y, scored = self.tab(arm)
+        r, y, scored = self.tab(arm, cut)
         ls, ys = [], []
         for h2 in [x for x in self.humans if x != h]:
-            l2 = self.logits(f"{arm}__{h}__in_{h2}__s{self.seeds[0]}")
+            l2 = self.logits(f"{arm}__{h}__in_{h2}__s{self.seeds[0]}", cut)
             if l2 is None:
                 return None
             m = scored & (r["human"] == h2)
@@ -110,15 +120,18 @@ def rates(p: np.ndarray, y: np.ndarray, thr: float = 0.6) -> tuple[float, float]
     return (float((pred[g] == y[g]).mean()) if g.any() else 0.0, float((pred[~g] != 0).mean()) if (~g).any() else 0.0)
 
 
-def choose_point(logits: np.ndarray, y: np.ndarray, budget: float = BUDGET, margin: float = 0.0) -> tuple[float, float]:
+def choose_point(logits: np.ndarray | list[np.ndarray], y: np.ndarray, budget: float = BUDGET, margin: float = 0.0) -> tuple[float, float]:
     """(temperature, none handicap) with the most gestures recognised while false triggers stay <= budget - margin.
 
+    `logits`: one model's answers, or a list of models' answers for the same rows; then the point is applied to
+    each model and the probabilities are averaged, exactly as the packaged graph does (recall.package).
     Ties go to the point closest to "do nothing" (temperature 1, handicap 0).
     """
+    members = logits if isinstance(logits, list) else [logits]
     best = (-1.0, 0.0, 1.0, 0.0)
     for t in (0.5, 0.6, 0.7, 0.85, 1.0, 1.25, 1.5, 2.0):
         for b in np.linspace(-3.0, 4.0, 29):
-            r, f = rates(apply(logits, t, b), y)
+            r, f = rates(np.mean([apply(l, t, b) for l in members], axis=0), y)
             if f <= budget - margin:
                 key = (r, -(abs(np.log(t)) + 0.1 * abs(b)))
                 if key > (best[0], best[1]):
@@ -126,18 +139,22 @@ def choose_point(logits: np.ndarray, y: np.ndarray, budget: float = BUDGET, marg
     return best[2], best[3]
 
 
-def operating_points(run: Run, arm: str) -> dict[str, Any]:
-    """Per fold and pooled: recall / false at temperature 1, at the nested point, and at the oracle point."""
+def operating_points(run: Run, arm: str, cut: str | None = None) -> dict[str, Any]:
+    """Per fold and pooled: recall / false at temperature 1, at the nested point, and at the oracle point.
+
+    `cut`: score the arm's models on the recordings cut this way (the engine's cutting at run time) instead of
+    the way the arm was trained on; the nested point is then chosen on the training humans' pictures cut that way.
+    """
     out: dict[str, Any] = {"folds": {}}
-    pooled: dict[str, list] = {k: [] for k in ("t1", "nested", "y", "h")}
-    r_, y_, scored_ = run.tab(arm)
+    pooled: dict[str, list] = {k: [] for k in ("t1", "nested", "y", "h", "members")}
+    r_, y_, scored_ = run.tab(arm, cut)
     for h in run.humans:
         test = scored_ & (r_["human"] == h)
-        outer = run.outer(arm, h)
+        outer = run.outer(arm, h, cut)
         if not outer:
             continue
         y = y_[test]
-        inner = run.inner(arm, h)
+        inner = run.inner(arm, h, cut)
         t, b = choose_point(*inner) if inner is not None else (1.0, 0.0)
         p1 = np.mean([softmax(l[test], 1.0) for l in outer], axis=0)
         pn = np.mean([apply(l[test], t, b) for l in outer], axis=0)
@@ -151,12 +168,15 @@ def operating_points(run: Run, arm: str) -> dict[str, Any]:
         pooled["nested"].append(pn)
         pooled["y"].append(y)
         pooled["h"].append(r_["human"][test])
+        pooled["members"].append([l[test].astype(np.float64) for l in outer])
     if pooled["y"]:
         y, hh = np.concatenate(pooled["y"]), np.concatenate(pooled["h"])
         # The operating point for the model that SHIPS (trained on everyone): chosen on all three humans' held-out
-        # answers at once (each human answered by models that never saw them). It is not used for any score above.
-        ft, fb = choose_point(np.log(np.concatenate(pooled["t1"]) + 1e-12), y)
-        rf, ff = rates(apply(np.log(np.concatenate(pooled["t1"]) + 1e-12), ft, fb), y)
+        # answers at once (each human answered by models that never saw them), applied the way the shipped graph
+        # applies it: to each seed's network, then the probabilities are averaged. Not used for any score above.
+        members = [np.concatenate([fold[k] for fold in pooled["members"]]) for k in range(min(len(fold) for fold in pooled["members"]))]
+        ft, fb = choose_point(members, y)
+        rf, ff = rates(np.mean([apply(l, ft, fb) for l in members], axis=0), y)
         out["final_point"] = {"t": ft, "b": fb, "recall_on_the_data_it_was_chosen_on": rf, "false_on_the_data_it_was_chosen_on": ff}
         for key in ("t1", "nested"):
             p = np.concatenate(pooled[key])
@@ -198,70 +218,22 @@ def shift_average(run: Run, arm: str) -> dict[str, Any] | None:
     return {k: sc[k] for k in ("recall", "false", "hits", "n_gesture", "false_n", "n_none")}
 
 
-def cross_cutting(run: Run, arm: str) -> dict[str, Any] | None:
-    """The honest score of an arm when the ENGINE cuts the other way than the arm was trained on (the nested
-    operating point is chosen on the training humans' pictures cut that same other way)."""
-    own = run.variant(arm)
-    others = [v for v in run.man.get("tables", ["std"]) if v != own]
-    if not others:
-        return None
-    other = others[0]
-    name = "table.npz" if other == "std" else f"table_{other}.npz"
-    with np.load(run.dir / name, allow_pickle=False) as z:
-        r = {k: z[k] for k in ("label", "source", "human", "locked")}
-    lut = {n: i for i, n in enumerate(LABELS)}
-    y_all = np.array([lut.get(str(x), 0) for x in r["label"]], dtype=np.int64)
-    scored = np.isin(r["source"], ["gesture", "burst", "idle"]) & ~r["locked"]
-
-    def cross(job: str) -> np.ndarray | None:
-        p = run.dir / "jobs" / f"{job}.npz"
-        if not p.exists():
-            return None
-        with np.load(p) as z:
-            return z[f"logits__{other}"].astype(np.float64) if f"logits__{other}" in z.files else None
-
-    pooled_p, pooled_y, pooled_h = [], [], []
-    for h in run.humans:
-        outer = [cross(f"{arm}__{h}__s{s}") for s in run.seeds]
-        if any(l is None for l in outer):
-            return None
-        inner_l, inner_y = [], []
-        for h2 in [x for x in run.humans if x != h]:
-            l2 = cross(f"{arm}__{h}__in_{h2}__s{run.seeds[0]}")
-            if l2 is None:
-                return None
-            m2 = scored & (r["human"] == h2)
-            inner_l.append(l2[m2])
-            inner_y.append(y_all[m2])
-        t, b = choose_point(np.concatenate(inner_l), np.concatenate(inner_y))
-        test = scored & (r["human"] == h)
-        pooled_p.append(np.mean([apply(l[test], t, b) for l in outer], axis=0))
-        pooled_y.append(y_all[test])
-        pooled_h.append(r["human"][test])
-    p, y, hh = np.concatenate(pooled_p), np.concatenate(pooled_y), np.concatenate(pooled_h)
-    sc = score(np.log(p + 1e-12), y, LABELS)
-    out = {k: sc[k] for k in ("recall", "false", "hits", "n_gesture", "false_n", "n_none")}
-    out["engine_cutting"] = other
-    out["per_human"] = {}
-    for h in run.humans:
-        m = hh == h
-        s2 = score(np.log(p[m] + 1e-12), y[m], LABELS)
-        out["per_human"][h] = (s2["hits"], s2["n_gesture"], s2["false_n"], s2["n_none"])
-    return out
-
-
 def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = True, min_peak: float | None = None,
-                 use_point: bool = True, entering_cap_s: float | None = None) -> dict[str, Any]:
-    """Replay every session of each held-out human through the engine rules with that fold's models."""
+                 use_point: bool = True, entering_cap_s: float | None = None, cut: str | None = None) -> dict[str, Any]:
+    """Replay every session of each held-out human through the engine rules with that fold's models.
+
+    `cut`: the engine's burst cutting at run time (default: the one the arm was trained on); `points` must then
+    come from operating_points(run, arm, cut).
+    """
     from .engine_replay import load_trace, replay, summarise, trial_table
 
-    r = run.tab(arm)[0]
-    variant = run.variant(arm)
+    r = run.tab(arm, cut)[0]
+    variant = cut or run.variant(arm)
     out: dict[str, Any] = {}
     all_tabs = []
     gest = (r["source"] == "gesture") & np.isin(r["label"], LABELS[1:]) & ~r["locked"]
     for h in run.humans:
-        outer = run.outer(arm, h)
+        outer = run.outer(arm, h, cut)
         if not outer or h not in points["folds"]:
             continue
         t, b = (points["folds"][h]["t"], points["folds"][h]["b"]) if use_point else (1.0, 0.0)
@@ -329,6 +301,94 @@ def miss_breakdown(run: Run, arm: str, points: dict[str, Any]) -> list[str]:
     return out
 
 
+EVENTS_KEY = "range gate off, walking-in gate 3 s"      # the MacBook start script's engine setting
+
+
+def pick_winner(run: Run, result: dict[str, Any]) -> list[str]:
+    """The model + engine cutting to ship, by the rule written down before any result existed
+    (.runs/fable_recall.progress.md, 2026-11-14 06:29). Returns report lines; stores the pick in result["_pick"]."""
+    cands = []
+    for k, arm in enumerate(run.arms):
+        pts = result.get(arm, {}).get("points", {})
+        if "nested" not in pts or len(pts["folds"]) != len(run.humans):
+            continue
+        own = run.variant(arm)
+        wide = (run.man.get("arm_specs", {}).get(arm, {}) or {}).get("features") == "wide"
+        rows = [(own, pts, result[arm].get("events", {}).get(EVENTS_KEY, {}))]
+        rows += [(cut, c["points"], c.get("events", {})) for cut, c in result[arm].get("cross", {}).items()]
+        for cut, p_, ev in rows:
+            n = p_["nested"]
+            cands.append({"arm": arm, "order": k, "trained_on": own, "cut": cut, "wide": wide, "hits": n["hits"], "n": n["n_gesture"],
+                          "recall": n["recall"], "ci": n["recall_ci"], "false": n["false"], "false_n": n["false_n"], "n_none": n["n_none"],
+                          "folds": p_["folds"], "events": ev.get("pooled"), "no_lance": n.get("no_lance"),
+                          # rule 1: its own cutting, or a recipe trained on today's cutting run with the 12 dB cutting
+                          "candidate": cut == own or (own == "std" and cut == "rel12")})
+
+    def best(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+        ok = [c for c in rows if c["false"] <= BUDGET]
+        if not ok:
+            return None
+        top = max(c["hits"] for c in ok)
+        near = [c for c in ok if c["hits"] >= top - 1]                       # rule 3: within one gesture of each other
+        return min(near, key=lambda c: (c["false"], c["cut"] != c["trained_on"], c["order"]))
+
+    elig = [c for c in cands if c["candidate"] and not c["wide"]]
+    filt_on, filt_off = best([c for c in elig if c["cut"] != "rel12nc"]), best([c for c in elig if c["cut"] == "rel12nc"])
+    pick = filt_on
+    if filt_off is not None and (filt_on is None or filt_off["hits"] >= filt_on["hits"] + 5):      # rule 4
+        pick = filt_off
+    lines = ["## 0. The pick, by the rule written before any result existed (progress file, 06:29)", ""]
+    if pick is None:
+        within = sorted(elig, key=lambda c: c["false"])[:3]
+        lines += [f"No eligible model + cutting keeps false triggers at or under {BUDGET}. Lowest: " +
+                  "; ".join(f"{c['arm']} with {c['cut']} cutting: {c['recall']:.3f} at {c['false']:.3f}" for c in within), ""]
+        return lines
+
+    def show(c: dict[str, Any]) -> str:
+        return (f"{c['hits']}/{c['n']} = {c['recall']:.3f} [{c['ci'][0]:.2f},{c['ci'][1]:.2f}] at {c['false_n']}/{c['n_none']} = {c['false']:.3f}")
+
+    bench = pick["folds"].get("mahimn")
+    met = bench is not None and bench["recall"] >= 0.70 and bench["false"] <= BUDGET
+    finals = len(list((run.dir / "jobs").glob(f"{pick['arm']}__final__s*.pt")))
+    result["_pick"] = {k: pick[k] for k in ("arm", "trained_on", "cut", "hits", "n", "recall", "false", "false_n", "n_none")}
+    result["_pick"].update(target_met_on_mahimn=bool(met), final_models_in_run=finals)
+    lines += [f"**{pick['arm']}** (trained on {pick['trained_on']} cutting), engine cutting **{pick['cut']}**: all three people, each held out in turn: "
+              f"gestures recognised {show(pick)} false triggers.", "",
+              "| held-out person | gestures recognised | non-gestures that trigger | confidence setting (temperature, none handicap) |", "|---|---|---|---|"]
+    for h in run.humans:
+        f = pick["folds"][h]
+        lines.append(f"| {h} | {round(f['recall'] * f['n_gesture'])}/{f['n_gesture']} = {f['recall']:.3f} | {round(f['false'] * f['n_none'])}/{f['n_none']} = {f['false']:.3f} | {f['t']:.2f}, {f['b']:+.2f} |")
+    nl = pick["no_lance"]
+    lines += ["", f"- Without Lance (people who gesture at the prompted pace): {nl['hits']}/{nl['n_gesture']} = {nl['recall']:.3f} at {nl['false']:.3f}." if nl else "",
+              f"- Target (0.70 or more at 0.055 or less) on the original benchmark person, Mahimn: **{'MET' if met else 'NOT met'}**"
+              + (f" ({bench['recall']:.3f} at {bench['false']:.3f})." if bench else " (no Mahimn fold in this run)."),
+              (f"- Engine level ({EVENTS_KEY}): right gesture first on {pick['events']['correct']}/{pick['events']['n_prompts']} prompts = {pick['events']['recall']:.3f}, "
+               f"{pick['events']['outside_fired']} gestures fired where nobody gestured in {pick['events']['outside_minutes']:.0f} min." if pick["events"] else "- Engine level: not computed (--no-events)."),
+              f"- Click filter: best with it on {show(filt_on) if filt_on else 'none within budget'}; best with it off {show(filt_off) if filt_off else 'none within budget'} "
+              "(off is taken only if it wins by 5 gestures or more)."]
+    if finals >= len(run.seeds):
+        lines.append(f"- Its models trained on everyone are in this run folder. Package: `.venv/bin/python -m recall.package {rel_run(run)} {pick['arm']} "
+                     f"--out models-release-mac-recall --cutting {pick['cut']} --no-range-gate --entering-gate-s 3`")
+    else:
+        lines.append(f"- Its models trained on everyone are NOT in this run folder ({finals} of {len(run.seeds)}). On the 4090, about 5 minutes: "
+                     f"`powershell -ExecutionPolicy Bypass -File scripts\\recall_suite.ps1 --stamp {run.dir.name} --finals {pick['arm']}`")
+    wide = best([c for c in cands if c["wide"] and c["cut"] == c["trained_on"]])
+    if wide is not None and wide["hits"] >= pick["hits"] + 10:
+        lines.append(f"- NOTE: {wide['arm']} (wide pictures, the engine cannot make them yet) scores {show(wide)}: 10 or more gestures better. Worth building the engine profile.")
+    others = sorted([c for c in cands if c["false"] <= BUDGET and c is not pick], key=lambda c: (-c["hits"], c["false"]))[:8]
+    lines += ["", "Next best, any recipe and any cutting (for checking the pick; \"-\" = not a candidate by rule 1, or wide):", "",
+              "| arm | trained on | engine cuts | pooled | candidate |", "|---|---|---|---|---|"]
+    lines += [f"| {c['arm']} | {c['trained_on']} | {c['cut']} | {show(c)} | {'yes' if c['candidate'] and not c['wide'] else '-'} |" for c in others]
+    return lines + [""]
+
+
+def rel_run(run: Run) -> str:
+    try:
+        return str(run.dir.resolve().relative_to(REPO))
+    except ValueError:
+        return str(run.dir)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("run")
@@ -368,7 +428,7 @@ def main() -> None:
                 continue
             result[arm]["events"] = {}
             for name, kw in (("as shipped", {}), ("range gate off", {"gate_range": False}),
-                             ("range gate off, walking-in gate 3 s", {"gate_range": False, "entering_cap_s": 3.0}),
+                             (EVENTS_KEY, {"gate_range": False, "entering_cap_s": 3.0}),
                              ("the same, weak gate 18 dB", {"gate_range": False, "entering_cap_s": 3.0, "min_peak": 18.0})):
                 ev = event_scores(run, arm, pts, **kw)
                 result[arm]["events"][name] = ev
@@ -389,17 +449,31 @@ def main() -> None:
             result[arm]["shift_average"] = sa
             n = pts["nested"]
             lines.append(f"| {arm} | {n['recall']:.3f} / {n['false']:.3f} | {sa['recall']:.3f} ({sa['hits']}/{sa['n_gesture']}) / {sa['false']:.3f} ({sa['false_n']}/{sa['n_none']}) |")
-    lines += ["", "## 2c. Trained on one burst cutting, run in an engine that cuts the other way (nested point, pooled)", "",
-              "| arm (trained on) | scored on its own cutting | scored with the other cutting at run time | per human with the other cutting |", "|---|---|---|---|"]
+    lines += ["", "## 2c. Every recipe in an engine that cuts bursts another way than it was trained on", "",
+              "Operating point chosen again on the training humans, on pictures cut the run-time way. Engine level = range gate off, "
+              "walking-in gate 3 s (the MacBook start script). The first row of each recipe is its own cutting, for comparison.", "",
+              "| arm | trained on | engine cuts | pooled recall [95% CI] / false | " + " | ".join(f"{h} recall / false" for h in run.humans) +
+              " | engine level: right gesture first | false events per min |", "|---|---|---|---|" + "---|" * len(run.humans) + "---|---|"]
     for arm in arms:
-        pts = result[arm]["points"]
-        cc = cross_cutting(run, arm) if "nested" in pts else None
-        if cc is not None:
-            result[arm]["cross_cutting"] = cc
+        if "nested" not in result[arm]["points"]:
+            continue
+        own = run.variant(arm)
+        result[arm]["cross"] = {}
+        for cut in [own] + [v for v in run.man.get("tables", ["std"]) if v != own]:
+            pts = result[arm]["points"] if cut == own else operating_points(run, arm, cut)
+            if "nested" not in pts or len(pts["folds"]) != len(run.humans):
+                continue                                           # this run holds no answers of this arm for that cutting
+            ev = {} if args.no_events else event_scores(run, arm, pts, gate_range=False, entering_cap_s=3.0, cut=cut)
+            if cut != own:
+                result[arm]["cross"][cut] = {"points": pts, "events": ev}
             n = pts["nested"]
-            per = "; ".join(f"{h} {v[0]}/{v[1]}, false {v[2]}/{v[3]}" for h, v in cc["per_human"].items())
-            lines.append(f"| {arm} ({run.variant(arm)}) | {n['recall']:.3f} / {n['false']:.3f} | {cc['engine_cutting']}: **{cc['recall']:.3f}** "
-                         f"({cc['hits']}/{cc['n_gesture']}) / {cc['false']:.3f} ({cc['false_n']}/{cc['n_none']}) | {per} |")
+            cells = [f"{f['recall']:.3f} / {f['false']:.3f}" for f in (pts["folds"][h] for h in run.humans)]
+            e = ev.get("pooled")
+            lines.append(f"| {arm} | {own} | {'**' + cut + '**' if cut != own else cut} | {n['recall']:.3f} [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] "
+                         f"({n['hits']}/{n['n_gesture']}) / {n['false']:.3f} ({n['false_n']}/{n['n_none']}) | " + " | ".join(cells) + " | " +
+                         (f"{e['recall']:.3f} ({e['correct']}/{e['n_prompts']}) | {e['false_per_min']:.2f} ({e['outside_fired']} in {e['outside_minutes']:.0f} min) |" if e else "- | - |"))
+    at = lines.index("## 1. Picture-level score (the released definition)")
+    lines[at:at] = pick_winner(run, result)
     lines += ["", "## 3. Where the held-out gestures are lost (nested point, pooled over the three humans)", ""]
     for arm in arms:
         if "nested" in result[arm]["points"]:

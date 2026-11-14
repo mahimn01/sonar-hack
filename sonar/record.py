@@ -42,11 +42,15 @@ from .dataset import AUDIO_FILE, SESSION_FILE
 from .gestures import Segment, heuristic_classify
 from .pipeline import Pipeline
 
+# Pace matters: the signal shows hand speeds up to about 2.3 m/s. A flick or a jab is faster, its echo leaves the
+# picture and the direction is lost (measured on the MacBook recordings of 2026-11-13/14).
 HOW_TO = {
-    "swipe_left": "sweep your open hand from RIGHT to LEFT across the screen, ~25 cm in front of it",
-    "swipe_right": "sweep your open hand from LEFT to RIGHT across the screen, ~25 cm in front of it",
-    "push": "push your open palm quickly TOWARDS the screen and take it straight back",
-    "pull": "reach out slowly until your palm is ~15 cm from the screen, then pull it back QUICKLY",
+    "swipe_left": "sweep your open hand from RIGHT to LEFT (towards YOUR left) across the screen, ~25 cm in front of it, "
+                  "in about half a second: smooth, not a flick",
+    "swipe_right": "sweep your open hand from LEFT to RIGHT (towards YOUR right) across the screen, ~25 cm in front of it, "
+                   "in about half a second: smooth, not a flick",
+    "push": "move your open palm TOWARDS the screen and take it straight back, about half a second each way: not a jab",
+    "pull": "reach out slowly until your palm is ~15 cm from the screen, then pull it back in about half a second",
 }
 
 
