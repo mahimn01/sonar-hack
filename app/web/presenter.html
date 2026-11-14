@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Laptop Sonar · Presenter</title>
-<meta name="description" content="Pitch slides for Laptop Sonar, driven by mid-air hand gestures detected with ultrasound.">
+<meta name="description" content="Pitch slides for Laptop Sonar, driven by mid-air hand gestures that the laptop's own sonar detects.">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/atkinson-next-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/lexend-digits.woff2" as="font" type="font/woff2" crossorigin>
@@ -29,7 +29,7 @@
     <div class="title__copy">
       <p class="wordmark"><span data-icon="ping"></span>Laptop Sonar</p>
       <h1 class="display">Camera-free care, from the laptop already in the room.</h1>
-      <p class="lede">Ultrasound from an ordinary laptop recognises hand gestures, notices who comes and goes, and measures a still person's breathing. No camera. Nothing to wear.</p>
+      <p class="lede">An ordinary laptop plays sound too high to hear and listens to the echoes. From them it measures a still person's breathing, notices when someone comes or goes, and reads hand gestures. No camera. Nothing to wear.</p>
       <p class="title__meta"><span class="privacy"><span data-icon="cameraOff"></span>Camera off <small>· no images captured</small></span><span>HackPrinceton · Healthcare track</span></p>
     </div>
     <figure class="title__art" aria-hidden="true">
@@ -66,7 +66,7 @@
 
   <!-- 3. Insight -->
   <section class="slide slide--insight" data-title="The insight">
-    <h2 class="display">Every laptop is already a sonar.</h2>
+    <h2 class="display">An ordinary laptop is already a sonar.</h2>
     <div class="insight">
       <figure class="insight__art" aria-hidden="true">
         <svg viewBox="0 0 480 260">
@@ -87,14 +87,14 @@
           <path class="chest chest--in" d="M353 136c-5 22-5 52 0 78"/>
           <text class="label" x="44" y="242">speaker</text>
           <text class="label" x="14" y="80">mic</text>
-          <text class="label" x="104" y="104">18–21.5 kHz out</text>
+          <text class="label" x="104" y="104">18.5–21.5 kHz out</text>
           <text class="label" x="246" y="246">echo back</text>
           <text class="label label--strong" x="408" y="18" text-anchor="middle">chest moves ~4 mm</text>
         </svg>
       </figure>
       <ul class="points">
-        <li><b>The speakers</b> play near-inaudible sound at 18–21.5 kHz, the top edge of human hearing and the first range to fade with age.</li>
-        <li><b>The microphone</b> hears its echoes off hands, bodies and a chest.</li>
+        <li><b>The speakers</b> play near-inaudible sound at 18.5–21.5 kHz, the top edge of human hearing and the first range to fade with age.</li>
+        <li><b>The two microphones</b> hear its echoes off hands, bodies and a chest.</li>
         <li><b>Motion</b> shifts the echo's pitch (the Doppler effect). <b>Breathing</b> shifts its timing: at 20 kHz a wave is 1.7 cm long, so a 4 mm breath moves the echo by almost half a wave.</li>
         <li><b>No new hardware.</b> The speaker, microphone and processor are already in the room.</li>
       </ul>
@@ -105,11 +105,11 @@
   <section class="slide slide--how" data-title="How it works">
     <h2 class="headline">Sound out, echoes in, numbers out.</h2>
     <ol class="pipeline">
-      <li><span class="step__n num">1</span><b>Emit</b><span>Two pilot tones (18 and 18.5 kHz) and a 19–21.5 kHz chirp, 48 kHz audio</span></li>
-      <li><span class="step__n num">2</span><b>Listen</b><span>Mic records the echoes, with Windows' voice filters switched off so ultrasound survives</span></li>
-      <li><span class="step__n num">3</span><b>Clean</b><span>Remove the speaker-to-mic leak and static room echoes</span></li>
-      <li><span class="step__n num">4</span><b>Read</b><span>Tone Doppler for hand motion; chirp echoes by distance for presence and breathing</span></li>
-      <li><span class="step__n num">5</span><b>Decide</b><span>A small CNN names the gesture and presence; filtering gives breaths per minute</span></li>
+      <li><span class="step__n num">1</span><b>Emit</b><span>A steady 18.5 kHz tone and a 19.5–21.5 kHz chirp, looping every 20 ms</span></li>
+      <li><span class="step__n num">2</span><b>Listen</b><span>Both mics record at 48 kHz in exclusive mode. Windows' normal mode filters out everything above 15 kHz</span></li>
+      <li><span class="step__n num">3</span><b>Clean</b><span>Cut speech and room noise, then the speaker-to-mic leak and still echoes</span></li>
+      <li><span class="step__n num">4</span><b>Read</b><span>Tone Doppler for hand motion. Chirp echoes by distance for presence and breathing</span></li>
+      <li><span class="step__n num">5</span><b>Decide</b><span>A small CNN names the gesture. Presence and breathing need no training</span></li>
     </ol>
     <div class="how__live" data-live-scope>
       <div class="how__strip" id="howSpectro"></div>
@@ -121,7 +121,7 @@
   <section class="slide slide--live" data-title="Live demo" data-live-scope>
     <header class="live__head">
       <h2 class="headline">Live: camera taped over, sonar on.</h2>
-      <p>Swipe to change slides. Then stand still, about an arm's length away.</p>
+      <p>Sit still about 0.6 m away: breathing shows in 10–15 s. Swipe a hand-length from the screen to change slides.</p>
     </header>
     <div class="live__grid">
       <div class="live__breath">
@@ -144,9 +144,9 @@
     <h2 class="headline">Breathing rate predicts trouble, and it is the vital sign most often missed.</h2>
     <p class="lede">In hospitals, respiratory rate is the vital sign least often recorded, yet it strongly predicts serious events such as cardiac arrest. An adult breathing over 24 times a minute is likely critically ill.</p>
     <div class="cases">
-      <article class="case"><span data-icon="breath"></span><h3>Night breathing checks</h3><p>Rate trends through the night, with pauses of 10 seconds or more flagged to a caregiver.</p></article>
-      <article class="case"><span data-icon="enter"></span><h3>Bedroom and bathroom presence</h3><p>Who came in, whether they are still there and for how long, without a single image.</p></article>
-      <article class="case"><span data-icon="ping"></span><h3>A wave as a call button</h3><p>Nothing to wear, charge or find on the floor. A hand gesture anywhere in the room can ask for help.</p></article>
+      <article class="case"><span data-icon="breath"></span><h3>Breathing watch</h3><p>Breaths per minute for a still person, and an alarm when breathing movement stops for 10 seconds.</p></article>
+      <article class="case"><span data-icon="enter"></span><h3>Bedroom and bathroom presence</h3><p>Whether someone came in, is still there, or has stopped moving, without a single image.</p></article>
+      <article class="case"><span data-icon="ping"></span><h3>A gesture as a call button</h3><p>Next: a push at the bedside device instead of a pendant to wear, charge and find. Gestures already work within arm's reach.</p></article>
     </div>
     <p class="impact__privacy"><span data-icon="cameraOff"></span>Runs on the laptop. Sends numbers, never audio or images.</p>
     <p class="sources">Cretikos et al., "Respiratory rate: the neglected vital sign", Med J Aust 2008;188(11):657–659</p>
@@ -159,31 +159,36 @@
       <div class="tech__col">
         <h3>Signal</h3>
         <ul>
-          <li>Pilot tones at 18 and 18.5 kHz, one per speaker, plus a 19–21.5 kHz chirp every 20 ms</li>
-          <li>48 kHz in WASAPI exclusive mode: in shared mode, Windows' mic processing erased every tone from 15 to 22 kHz</li>
-          <li>Measured on the demo laptop: about 55–60 dB tone SNR at 17–20 kHz</li>
+          <li>An 18.5 kHz tone on one speaker, a 19.5–21.5 kHz chirp on the other, every 20 ms</li>
+          <li>48 kHz, WASAPI exclusive mode: shared mode erases 15–22 kHz</li>
+          <li>Self-test: tone 63 dB, chirp 73 dB above noise (1 Hz), drift −0.3 ppm, no audible leak</li>
         </ul>
       </div>
       <div class="tech__col">
         <h3>Processing</h3>
         <ul>
-          <li>Speaker-to-mic leak and static echoes removed</li>
-          <li>64-bin Doppler spectrogram per tone and mic (about ±2.3 m/s), 50 frames a second</li>
-          <li>Echoes in 5 cm steps out to 2.6 m; breathing from the echo phase at the chest, band-passed to 0.1–0.6 Hz</li>
+          <li>Speech filtered out first, then the speaker-to-mic leak and still echoes</li>
+          <li>64-bin Doppler picture per mic (about ±2.3 m/s), 50 frames a second</li>
+          <li>Distance in 2.7 cm steps to 2.6 m. Breathing from echo phase: 1 mm of chest = 43°</li>
         </ul>
       </div>
       <div class="tech__col">
-        <h3>Model</h3>
+        <h3>Decisions</h3>
         <ul>
-          <li>Small CNN on Doppler spectrograms from 2 tones × 2 mics: four gestures plus "no gesture"</li>
-          <li>Presence from echo motion: empty, entering, present</li>
-          <li>ONNX on the laptop CPU, no GPU; calibration, thresholds and debouncing keep the live demo steady</li>
+          <li>Gestures: a small CNN, pre-trained on simulated physics, fine-tuned on real recordings</li>
+          <li>Left and right from the two mics: both speaker channels reach them within 4 µs</li>
+          <li>Presence and breathing: signal processing, no training. Everything on the laptop CPU</li>
         </ul>
       </div>
     </div>
-    <!-- Model results go here once training finishes. Remove `hidden` and add one block per number, e.g.
-         <div class="metric"><b class="num">NN%</b><span>gesture accuracy on held-out sessions</span></div> -->
-    <div class="metrics" hidden></div>
+    <!-- Results slot. Keep `hidden` until BOTH numbers are real, then replace the brackets and remove `hidden`.
+         [HONEST SCORE] = gesture accuracy on held-out people (never the presenter), from models-release/TRAINING_RUN.json.
+         [LIVE BREATHING CHECK] = rate shown vs counted, seated at 0.6 m (docs/DEMO_RUNBOOK.md, section 1).
+         Check the slide still fits at 1280x720 after editing. -->
+    <div class="metrics" hidden>
+      <div class="metric"><b class="num">[HONEST SCORE]</b><span>gesture accuracy on people the model never saw</span></div>
+      <div class="metric"><b class="num">[LIVE BREATHING CHECK]</b><span>breathing rate shown vs counted, seated at 0.6 m</span></div>
+    </div>
     <div class="tech__live" data-live-scope>
       <p class="tech__live-label"><span data-icon="ping"></span>Live from the engine, right now</p>
       <div id="techSignal"></div>
@@ -194,11 +199,11 @@
   <section class="slide slide--roadmap" data-title="What's next">
     <h2 class="headline">From one laptop to every room</h2>
     <ul class="road">
-      <li><b><span data-icon="alert"></span>Fall detection</b><span>The Doppler signature of a fall: a fast downward rush, then stillness near the floor.</span></li>
-      <li><b><span data-icon="breath"></span>Overnight breathing</b><span>Rate trends and pauses through the night, building on contactless sleep apnea research such as UW's ApneaApp (MobiSys 2015).</span></li>
-      <li><b><span data-icon="ping"></span>Any speaker and mic</b><span>Smart speakers, TVs and tablets that are already in the room.</span></li>
+      <li><b><span data-icon="check"></span>Clinical validation</b><span>Breathing rate against a respiration belt and nurse counts, across ages, chairs and beds.</span></li>
+      <li><b><span data-icon="breath"></span>Overnight breathing</b><span>At the bedside, lying down and under a blanket, building on contactless sleep apnea research such as UW's ApneaApp (MobiSys 2015).</span></li>
+      <li><b><span data-icon="alert"></span>Fall detection</b><span>A fast movement whose distance changes by more than half a metre in under a second, then stillness.</span></li>
       <li><b><span data-icon="person"></span>Caregiver alerts</b><span>Alerts and trends on a family member's or nurse's phone. Never footage.</span></li>
-      <li><b><span data-icon="check"></span>Clinical validation</b><span>Against a respiration belt and nurse counts, across ages, rooms and beds.</span></li>
+      <li><b><span data-icon="ping"></span>Any speaker and mic</b><span>Tablets, smart speakers and TVs already in the room, with the sonar inside the audio driver so it can share the speaker.</span></li>
     </ul>
   </section>
 
@@ -208,8 +213,9 @@
     <!-- Add teammates as more <li> rows: <li><b>Name</b><span>School</span></li> -->
     <ul class="team">
       <li><b>Mahimn Patel</b><span>University of Toronto</span></li>
+      <li><b>Lance Li</b><!-- add Lance's school as <span>School</span> --></li>
     </ul>
-    <p class="team__cta">Try it at our table: wave at the laptop, then hold your breath.</p>
+    <p class="team__cta">Try it at our table: sit down, watch your own breathing, then hold your breath.</p>
     <p class="team__note">Built in 36 hours at HackPrinceton.</p>
     <figure class="team__art" aria-hidden="true">
       <svg viewBox="0 0 300 300"><g class="rings"><circle cx="150" cy="150" r="70"/><circle cx="150" cy="150" r="70"/><circle cx="150" cy="150" r="70"/></g><circle class="team__dot" cx="150" cy="150" r="16"/></svg>

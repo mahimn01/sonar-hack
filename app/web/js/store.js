@@ -230,7 +230,7 @@
 
     function ingestStatus(s) {
       S.status = s;
-      if (s.source && /mock|sim|fake|replay/i.test(s.source)) S.simulated = true;
+      if (s.source && /mock|sim|fake|replay|file/i.test(s.source)) S.simulated = true;
       var cal = s.calibrating === true;
       if (cal !== S.alerts.calibrating) {
         S.alerts.calibrating = cal;
@@ -259,7 +259,7 @@
 
     function ingestHello(h) {
       S.hello = h;
-      if (h.source && /mock|sim|fake|replay/i.test(h.source)) S.simulated = true;
+      if (h.source && /mock|sim|fake|replay|file/i.test(h.source)) S.simulated = true;
       emit('hello', h);
     }
 
