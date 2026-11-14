@@ -211,6 +211,23 @@ def fit_heuristic(x: np.ndarray, y: np.ndarray, labels: list[str], cfg: SonarCon
     return out
 
 
+WEAK_SOURCES = ("pseudo", "rescued", "aux", "hardneg", "retimed")      # examples made by weaklabel.py
+
+
+def example_weights(y: np.ndarray, w: np.ndarray, n_classes: int) -> np.ndarray:
+    """Sampling weight per example when the data has a confidence column: every class is still drawn
+    equally often, and inside a class each example in proportion to its weight."""
+    total = np.bincount(y, weights=w, minlength=n_classes)
+    return w / np.maximum(total[y], 1e-12)
+
+
+def keep_weak_out_of_validation(data: dict[str, np.ndarray], val_idx: np.ndarray) -> np.ndarray:
+    """Weakly labelled examples never count in the score: the model itself helped to pick or label them,
+    and the validation set must be the same with and without them. (Those of held-out people are thereby
+    not used at all, which also keeps them out of training.)"""
+    return val_idx[~np.isin(data["source"][val_idx], WEAK_SOURCES)]
+
+
 def epoch_score(entry: dict[str, float]) -> float:
     """How the best epoch is chosen: macro-F1 on the validation data, accuracy breaks ties, later epochs win ties."""
     return entry["val_f1"] + 1e-3 * entry["val_acc"] + 1e-6 * (entry["epoch"] - 1)
@@ -365,6 +382,8 @@ def train_model(
     # Class-balanced sampling: every class is drawn equally often.
     counts = np.bincount(y_all[train_idx], minlength=len(labels)).astype(float)
     weights = 1.0 / np.maximum(counts[y_all[train_idx]], 1.0)
+    if "weight" in data:                                    # confidence of weakly labelled examples (weaklabel.py)
+        weights = example_weights(y_all[train_idx], np.asarray(data["weight"], dtype=float)[train_idx], len(labels))
     weights /= weights.sum()
     steps = max(20, int(np.ceil(len(train_idx) / batch)))
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-3, **({"fused": True} if cuda else {}))
@@ -545,6 +564,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg = SonarConfig.from_dict(json.loads(str(data["config"])))
         labels = [str(s) for s in data["labels"]]
         train_idx, val_idx, how = split_by_group(data, args.val_person, args.val_fraction, args.seed)
+        val_idx = keep_weak_out_of_validation(data, val_idx)
     except (ValueError, FileNotFoundError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

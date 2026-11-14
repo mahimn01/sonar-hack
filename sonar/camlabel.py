@@ -149,6 +149,7 @@ class LabelConfig:
     pull_min_speed: float = 0.80       # a pull is a QUICK move away; slower ones are the hand going back
     max_stroke_s: float = 1.4          # anything longer is not one gesture stroke
     review_below: float = 0.5          # events with less confidence than this are marked for review
+    clean_gesture: float = 0.8         # in a no-gesture part, strokes at least this clean are set aside instead of used as background
     hand_len_m: float = 0.095          # wrist to middle knuckle, used only when the tracker gives no metric hand shape
     sync_max_lag_s: float = 0.6        # the clock offset is searched within +- this
     sync_min_corr: float = 0.30        # below this the two curves do not match well enough to trust the offset
@@ -524,11 +525,15 @@ def label_strokes(strokes: list[Stroke], intents: list[Intent] | None = None, cf
                     label, kind, cand = phys, "review", phys
                     conf, note = min(conf, 0.45), f"looked like {phys} while the prompt asked for {want}"
             elif want == "none":
-                if phys in GESTURES:
+                if phys in GESTURES and conf >= cfg.clean_gesture:
+                    # a quick, straight, well-seen stroke: probably a real gesture done at the wrong moment
                     label, kind, cand = phys, "review", phys
-                    conf, note = min(conf, 0.45), f"looked like {phys} in a part where no gesture was asked for"
+                    conf, note = min(conf, 0.45), f"looked like a clean {phys} in a part where no gesture was asked for"
                 elif phys in ("return", "reach"):
                     label = "return"
+                elif phys in GESTURES:
+                    # an unhurried reach that only resembles a gesture: exactly the background the model must learn to ignore
+                    note = f"resembles {phys} but is slow or crooked: kept as background"
             elif phys in ("return", "reach"):                    # no prompt: the camera decides alone
                 label = "return"
             else:

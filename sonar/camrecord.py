@@ -22,6 +22,7 @@ Sessions you can record (`--script`):
                 the timing (this is also what runs when no camera or tracker is available)
     negatives   about 60 s of everyday movement that is NOT a gesture: typing, reaching
                 for a cup, fidgeting, leaning, walking off and back. All labelled background
+                (no gesture at all in it, so it also serves as a real background recording)
     calibrate   "each gesture 3 times" at the demo table, for sonar/adapt.py
 
 How to run:
@@ -568,8 +569,12 @@ class Station:
         start = rec.n_samples
         self.skip = False
         end_at = start + int(seconds * self.fs)
+        next_sim = start + int(0.5 * self.fs)
         while rec.n_samples < end_at and not (self.skip or self.quit):
             self.view["progress"] = (rec.n_samples - start) / max(end_at - start, 1)
+            if self.sim is not None and next_sim <= rec.n_samples < end_at - int(3.2 * self.fs):
+                self.sim.fidget()
+                next_sim = rec.n_samples + int(3.4 * self.fs)
             yield
         self.view.pop("progress", None)
         end = rec.n_samples
@@ -635,9 +640,10 @@ def script_trials(st: Station, gestures: list[str], reps: int, rng: np.random.Ge
 
 
 def script_negatives(st: Station, scale: float = 1.0) -> Iterator[None]:
+    # No clock-sync pushes here: this session must hold no gesture at all (it is also used as a real
+    # background for synthetic gestures). The clock offset comes from whatever hand movement the camera
+    # sees, or else from the offset measured in this station's earlier sessions (camsync.json).
     yield from st.calibrate()
-    if st.has_camera:
-        yield from st.block("push", 2, sync=True)
     for name, seconds, text in NEGATIVES:
         if st.quit:
             return
@@ -835,6 +841,21 @@ class SimVolunteer:
 
     def perform(self, label: str) -> None:
         self.backend.perform(label)
+
+    def fidget(self) -> None:
+        """A reach that is not a gesture: the hand goes somewhere unhurriedly, rests, and comes back."""
+        from .sim import HAND_REST
+
+        hand, lock = getattr(self.backend, "_hand", None), getattr(self.backend, "_lock", None)
+        if hand is None or lock is None:
+            return
+        self._n = getattr(self, "_n", 0) + 1
+        target = [(0.30, 0.34, 0.06), (-0.12, 0.30, 0.12), (0.06, 0.24, 0.05), (0.22, 0.44, 0.20)][self._n % 4]
+        with lock:
+            t0 = max(self.backend.now_s + 0.3, hand.times[-1] + 0.05)
+            for t, p in ((t0, HAND_REST), (t0 + 1.0, target), (t0 + 1.5, target), (t0 + 2.6, HAND_REST)):
+                if t > hand.times[-1]:
+                    hand.append(t, p)
 
 
 def next_volunteer(out: Path) -> str:

@@ -231,6 +231,10 @@ def merge(datasets: list[dict[str, np.ndarray]]) -> dict[str, np.ndarray]:
             raise ValueError("datasets have different labels or picture shapes")
     out = {k: np.concatenate([d[k] for d in datasets]) for k in ("X", "y", "group", "person", "source", "peak_db")}
     out.update({k: first[k] for k in ("labels", "pad", "config")})
+    if any("weight" in d for d in datasets):
+        # weakly labelled examples (weaklabel.py) carry a confidence weight; every other example counts 1
+        out["weight"] = np.concatenate([np.asarray(d["weight"], dtype=np.float32) if "weight" in d
+                                        else np.ones(len(d["y"]), dtype=np.float32) for d in datasets])
     return out
 
 

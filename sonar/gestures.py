@@ -251,7 +251,9 @@ class GestureSegmenter:
         self._long_active += 1
         self._peak = max(self._peak, act)
         self._energy += max(act, 0.0)
-        if act >= self.off_thr:
+        # "Still moving" = above the absolute level, or (if switched on) within seg_rel_off_db of this burst's own peak.
+        off = self.off_thr if cfg.seg_rel_off_db <= 0 else max(self.off_thr, self._peak - cfg.seg_rel_off_db)
+        if act >= off:
             self._last_loud = index
         quiet = index - self._last_loud
         too_long = index - self._start + 1 >= cfg.seg_max_frames

@@ -189,17 +189,20 @@ def test_without_mediapipe_it_says_so_and_falls_back(cfg, tmp_path, capsys, monk
 
 @pytest.mark.slow
 def test_negatives_session_is_all_background(cfg, tmp_path):
-    assert record(tmp_path, "--person", "v05", "--script", "negatives", "--negatives-scale", "0.25", "--seed", "8") == 0
+    assert record(tmp_path, "--person", "v05", "--script", "negatives", "--negatives-scale", "0.6", "--seed", "8") == 0
     folder = only_session(tmp_path, "negatives")
     meta = json.loads((folder / "session.json").read_text())
     scenes = [e for e in meta["events"] if e["kind"] == "scene"]
     assert [e["activity"] for e in scenes] == ["typing", "reach", "fidget", "lean", "point", "walk"]
     assert all(e["label"] == "distractor" for e in scenes)             # a label the trainer already treats as "none"
-    pushes = [e for e in meta["events"] if e["kind"] == "gesture"]
-    assert [e["label"] for e in pushes] == ["push", "push"]            # only the two clock-sync pushes at the start
-    assert all(e["end"] < scenes[0]["start"] for e in pushes) and meta["sync"]["method"] == "motion"
+    # not a single gesture in it: the simulated volunteer only reaches around, and that is what the labels say
+    assert not [e for e in meta["events"] if e["kind"] in ("gesture", "block")]
+    moves = [e for e in meta["events"] if e["kind"] == "motion"]
+    assert len(moves) >= 4 and all(e["label"] in ("other", "return") for e in moves)
     examples, report = session_examples(folder)
-    assert report["gestures"] == 2 and all(e.label in ("none", "push") for e in examples)
+    assert report["gestures"] == 0 and report["none"] >= 3 and all(e.label == "none" for e in examples)
+    # the clock offset is still measured, from the reaching movements the camera and the sonar both saw
+    assert meta["sync"]["method"] == "motion" and meta["sync"]["offset_ms"] == pytest.approx(90.0, abs=30.0)
 
 
 def test_audio_clock_follows_late_blocks_and_recovers_after_a_dropout():

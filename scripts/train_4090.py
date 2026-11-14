@@ -49,7 +49,8 @@ REPO = Path(__file__).resolve().parent.parent
 PY = sys.executable
 LABELS = "swipe_left,swipe_right,push"          # DATA_STRATEGY.md section 6: three gestures, pull is left out
 RELEASE_FILES = ("gesture.onnx", "gesture.json", "gesture.pt", "metrics.json", "confusion.txt")
-BACKGROUND_SCRIPTS = ("scene", "breathing")      # recordings with nobody gesturing: real backgrounds for datagen
+BACKGROUND_SCRIPTS = ("scene", "breathing", "negatives")   # recordings with nobody gesturing: real backgrounds for datagen
+#                    ("negatives" = the gesture-free sessions of the camera recorder, sonar/camrecord.py)
 
 # Sizes. "full" is ~3x the 650-per-class set of the Mac (12,000 clips, ~20,000 pictures).
 PRESETS: dict[str, dict[str, Any]] = {
@@ -396,6 +397,57 @@ def pick_val_people(rows: list[dict[str, Any]], log: Log) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# --weak: extra confidence-weighted examples (sonar/weaklabel.py)
+# ---------------------------------------------------------------------------
+def weak_roots(args: argparse.Namespace, data_root: Path) -> list[str]:
+    cmd = [str(data_root)]
+    if args.weak_data:
+        cmd += ["--unlabelled", *[str((REPO / d).resolve()) for d in args.weak_data.split(",") if d]]
+    return cmd + ["--profile", args.profile] + ([] if args.allow_sim_sessions else ["--no-sim-sessions"])
+
+
+def weak_tables_start(args: argparse.Namespace, work: Path, data_root: Path, log: Log) -> "subprocess.Popen[str]":
+    """Step 1 of --weak, in the background: cut every session into movement bursts (cached per session) while
+    the synthetic data is made and the model pre-trains. With a GPU front end in this checkout the signal
+    processing runs on the GPU; the bursts are finished by worker processes on half the CPU cores."""
+    cmd = [PY, "-m", "sonar.weaklabel", *weak_roots(args, data_root), "--tables-only", "--cache", str(work / "weak_cache"),
+           "--device", args.device, "--workers", str(max(1, args.workers // 2))]
+    log(f"\n$ {show(cmd)}      (in the background; its output: {rel(work / 'weak_tables.log')})")
+    out = open(work / "weak_tables.log", "w", encoding="utf-8")
+    return subprocess.Popen(cmd, cwd=REPO, stdout=out, stderr=subprocess.STDOUT, env=child_env(single_thread_math=True), text=True)
+
+
+def weak_examples(args: argparse.Namespace, work: Path, data_root: Path, models_dir: Path, fallback_model: Path,
+                  tables: "subprocess.Popen[str] | None", log: Log) -> tuple[list[Path], dict[str, Any]]:
+    """Steps 2 and 3 of --weak: every burst of every session judged in one batched pass on the training device
+    by the physics rules and by the current model (models/gesture.onnx of an earlier run; the first time, this
+    run's pre-trained model), then turned into weighted examples: hard negatives, non-gesture hand movements
+    the camera saw, camera readings confirmed by model or physics, pseudo-labels for --weak-data."""
+    if tables is not None:
+        code = tables.wait()
+        log.raw((work / "weak_tables.log").read_text(encoding="utf-8", errors="replace"))
+        if code != 0:
+            log(f"WARNING: the background burst step ended with code {code}; the sessions are cut again now")
+    model = Path(args.weak_model) if args.weak_model else models_dir / "gesture.onnx"
+    if not model.exists():
+        model = fallback_model
+    folder = work / "weak"
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    out = folder / "weak.npz"
+    cmd = [PY, "-m", "sonar.weaklabel", *weak_roots(args, data_root), "--out", str(out), "--model", str(model), "--labels", args.labels,
+           "--report", str(folder / "weak.json"), "--hard-negatives", str(folder / "hard_negatives.npz"),
+           "--cache", str(work / "weak_cache"), "--device", args.device, "--workers", str(args.workers)]
+    run(cmd, log, env=child_env(single_thread_math=True))
+    info: dict[str, Any] = {"labelled_by": rel(model), "examples": 0}
+    if (folder / "weak.json").exists():
+        info.update({k: v for k, v in json.loads((folder / "weak.json").read_text())["summary"].items()
+                     if k in ("examples", "by_tag", "by_label", "classifier", "sessions", "timing")})
+    return ([out] if out.exists() else []), info
+
+
+# ---------------------------------------------------------------------------
 # 4-6. Training
 # ---------------------------------------------------------------------------
 def train_cmd(datasets: list[Path], out: Path, args: argparse.Namespace, width: int, seed: int, epochs: int,
@@ -530,6 +582,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--workers", type=int, default=default_workers(), help="CPU processes for data generation (default all)")
     ap.add_argument("--swap", default="auto", choices=["auto", "none", "mics", "speakers", "both"],
                     help="left/right channel wiring for the synthetic data (auto: measured from recorded swipes)")
+    ap.add_argument("--weak", action="store_true",
+                    help="also fine-tune on confidence-weighted extra examples (sonar/weaklabel.py): hard negatives the current "
+                         "model fires on, non-gesture hand movements the camera saw, camera readings confirmed by model or physics")
+    ap.add_argument("--weak-data", default="",
+                    help="folder(s), comma-separated, of UNLABELLED continuous recordings to pseudo-label and add (implies --weak); "
+                         "keep them outside --data, which would use all of them as 'none'")
+    ap.add_argument("--weak-model", default="", help="model that labels them (default: the current models/gesture.onnx, "
+                                                     "else this run's pre-trained model)")
     ap.add_argument("--allow-sim-sessions", action="store_true", help="also use simulator recordings (smoke tests)")
     ap.add_argument("--mixed-devices", action="store_true", help="accept recordings made under different input device names")
     ap.add_argument("--mics", type=int, help="microphone channels of the target laptop when there are no recordings yet "
@@ -560,6 +620,7 @@ def main(argv: list[str] | None = None) -> int:
     times: dict[str, float] = {}
     summary: dict[str, Any] = {"started": stamp, "argv": sys.argv[1:], "size": args.size, "preset": preset,
                                "labels": args.labels, "widths": widths, "seeds": seeds, "git": git_state()}
+    weak_tables: "subprocess.Popen[str] | None" = None
     try:
         log(f"=== gesture training run {stamp} ({args.size}, device {args.device}); log: {rel(run_dir / 'log.txt')}")
         summary["machine"] = check_machine(args.device, log)
@@ -600,6 +661,9 @@ def main(argv: list[str] | None = None) -> int:
         summary["microphones"] = mics
         if mics == 1:
             log("one microphone channel (a MacBook): no two-microphone direction cue; left/right swipes rely on the two speakers")
+
+        if real_files and (args.weak or args.weak_data):
+            weak_tables = weak_tables_start(args, work, data_root, log)
 
         # 2. synthetic data (pure), 3b. synthetic gestures on real backgrounds
         log("\n=== synthetic data")
@@ -649,7 +713,16 @@ def main(argv: list[str] | None = None) -> int:
         # 5. fine-tune sweep on the real recordings
         if real_files:
             val = ",".join(val_people)
-            tune_sets = real_files + [synth_bg or synth]
+            weak_files: list[Path] = []
+            if args.weak or args.weak_data:
+                log("\n=== extra weighted examples (--weak): hard negatives, camera-confirmed non-gestures, pseudo-labels")
+                t0 = time.time()
+                weak_files, summary["weak"] = weak_examples(args, work, data_root, models_dir,
+                                                            pretrained[widths[0]].with_suffix(".onnx"), weak_tables, log)
+                times["weak labels"] = time.time() - t0
+                if not weak_files:
+                    log("no extra examples were found; training goes on with the usual data")
+            tune_sets = real_files + weak_files + [synth_bg or synth]
             log(f"\n=== fine-tuning on {len(real_files)} recorded session(s) + {rel(Path(tune_sets[-1]).parent)}")
             sweep_rows = []
             t0 = time.time()
@@ -671,7 +744,7 @@ def main(argv: list[str] | None = None) -> int:
                 log(f"\n=== retraining the winner on everyone, {', '.join(val_people)} included (--no-refit to skip)")
                 final = run_dir / "final"
                 t0 = time.time()
-                run(train_cmd(real_files + [synth_bg_all or synth], final, args, best["width"], best["seed"], preset["finetune_epochs"],
+                run(train_cmd(real_files + weak_files + [synth_bg_all or synth], final, args, best["width"], best["seed"], preset["finetune_epochs"],
                               init=pretrained[best["width"]], extra=["--val-fraction", "0", "--temperature", f"{best['temperature']:.4f}"]), log)
                 times["refit on everyone"] = time.time() - t0
             honest = best
@@ -733,6 +806,9 @@ def main(argv: list[str] | None = None) -> int:
         log(f"\nSTOPPED by an unexpected error (please send this log):\n{traceback.format_exc()}")
         log(f"Full log: {rel(run_dir / 'log.txt')}")
         raise
+    finally:
+        if weak_tables is not None and weak_tables.poll() is None:
+            weak_tables.kill()
 
 
 if __name__ == "__main__":
