@@ -1,0 +1,4 @@
+
+engine check: loaded models-candidate-mac-calm50/gesture.onnx (classes ['none', 'swipe_left', 'swipe_right', 'push'], temperature 1.00); ran 25 s of the simulated demo visitor through it
+  movement bursts the model classified: 8 (3 none, 2 push, 1 swipe_left, 2 swipe_right); gestures the engine reported: ['push 0.95', 'swipe_right 1.00', 'push 0.98', 'swipe_left 1.00']
+  (the simulator's visitor is not real data: this proves the model loads and runs, not how accurate it is)

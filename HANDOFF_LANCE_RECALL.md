@@ -133,6 +133,9 @@ third candidate, `share75_aux`, is weak over three people (120/206) and is not w
 
 ## Step C — add the recipes on the fitted simulator (GPU, about 1.5 to 2 hours with nothing else on the GPU)
 
+**DONE on 2026-11-14 16:19** (branch `recall-results-3`, 953a651: all 13 recipes, 215 training runs, 0 failed,
+133 minutes at 4 runs at a time). Nothing below needs running again. Thank you, Lance.
+
 **State on 2026-11-14 14:17.** All 20 fitted sets exist: Lance built 12 at 13:15-13:40 (`780ae3a`,
 `round3/r3_sets.log`) and the 8 `_rel12` sets at 13:43-13:59 (`19dedf0`, `round3/r3_sets_rel12.log`), in
 `C:\Users\lance\sonar-hack\train_out\synth_cal`. So all 13 recipes train in one pass.
