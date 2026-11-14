@@ -99,6 +99,13 @@ ARMS: dict[str, dict[str, Any]] = {
     "share50_aux_rel12":    {"real": "aux_none", "synth": "old_bg", "mix": 0.50, "init": "old", "table": "rel12"},
     "share75_aux_rel12":    {"real": "aux_none", "synth": "old_bg", "mix": 0.75, "init": "old", "table": "rel12"},
     "real_aux_wide_rel12":  {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": None, "features": "wide", "table": "rel12"},
+    # --- the same, and the segmenter's click rejection switched off ("rel12nc"). That test also fires on very fast hands:
+    #     with it on, the loudest moment of the trial is outside the labelled burst for 27 of lance's 80 gestures and 8 of
+    #     mahimn's 45 fast ones; with it off for 1 and 1, and the stroke's peak sits 11-13 frames before the picture's end.
+    "real_aux_rel12nc":     {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": None, "table": "rel12nc"},
+    "real_pre_aux_rel12nc": {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": "old", "table": "rel12nc"},
+    "share50_aux_rel12nc":  {"real": "aux_none", "synth": "old_bg", "mix": 0.50, "init": "old", "table": "rel12nc"},
+    "share75_aux_rel12nc":  {"real": "aux_none", "synth": "old_bg", "mix": 0.75, "init": "old", "table": "rel12nc"},
     # --- the simulator fitted to this MacBook (train_out/synth_cal/<family>/<fold>/dataset.npz, made by the simulator
     #     session's handoff). "CAL" = the newest family there (macbook_v2, else macbook_v1); "{fold}" = the set that
     #     leaves out the held-out human. Skipped automatically while the files are missing.
@@ -111,6 +118,12 @@ ARMS: dict[str, dict[str, Any]] = {
     "calbg50":         {"real": "official", "synth": "CAL_bg_{fold}", "mix": 0.50, "init": "cal:CAL_bg"},
     "calbg50_aux":     {"real": "aux_none", "synth": "CAL_bg_{fold}", "mix": 0.50, "init": "cal:CAL_bg"},
     "calbg25_aux":     {"real": "aux_none", "synth": "CAL_bg_{fold}", "mix": 0.25, "init": "cal:CAL_bg"},
+    # --- both together: recordings AND calibrated synthetic clips cut with the peak-relative rule (sets generated with
+    #     SONAR_SEG_REL_OFF_DB=12 into train_out/synth_cal/<family>_rel12/ and <family>_bg_rel12/)
+    "calbg50_aux_rel12": {"real": "aux_none", "synth": "CAL_bg_rel12_{fold}", "mix": 0.50, "init": "cal:CAL_bg_rel12", "table": "rel12"},
+    "calbg25_aux_rel12": {"real": "aux_none", "synth": "CAL_bg_rel12_{fold}", "mix": 0.25, "init": "cal:CAL_bg_rel12", "table": "rel12"},
+    "calbg75_aux_rel12": {"real": "aux_none", "synth": "CAL_bg_rel12_{fold}", "mix": 0.75, "init": "cal:CAL_bg_rel12", "table": "rel12"},
+    "cal50_aux_rel12":   {"real": "aux_none", "synth": "CAL_rel12_{fold}", "mix": 0.50, "init": "cal:CAL_rel12", "table": "rel12"},
 }
 SIZES = {
     "full": {"per_class": 2000, "bg_per_class": 500, "epochs": 60, "pre_epochs": 60, "seeds": (0, 1, 2), "parity_clips": 1000},
@@ -190,8 +203,9 @@ def build_table(data_root: Path, run_dir: Path, locked: list[str], fh: Any, flip
     elif variant.startswith("rel"):                            # bursts ended N dB below their own peak (recall/relcut.py)
         from . import relcut
 
-        relcut.main_for(data_root, float(variant[3:]))
-        sessions = load_sessions(root=relcut.out_dir(float(variant[3:])))
+        rel_db, clicks = relcut.parse(variant)
+        relcut.main_for(data_root, rel_db, clicks)
+        sessions = load_sessions(root=relcut.out_dir(rel_db, clicks))
     else:
         raise ValueError(f"unknown table variant {variant!r}")
     present = {str(p.parent.name) for p in data_root.rglob("session.json")}
@@ -475,8 +489,16 @@ def run_job(bank: Bank, job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     # side): lets the analysis test "average over small time shifts" without the GPU
     key = "X_wide" if job.get("features") == "wide" else "X"
     shifted = np.stack([logits_of(model, tab["real"][key], pad=8 + k, device=str(bank.dev)) for k in SHIFTS])
+    # ... and its answers on the SAME recordings cut the other way (engine cutting <-> peak-relative), when this run has
+    # both tables: a model trained on one cutting can then be scored as it would run in an engine using the other
+    cross = {}
+    for variant in bank.man.get("tables", []):
+        if variant != (job.get("table") or "std"):
+            other = bank.table(variant)["real"]
+            if key in other:
+                cross[f"logits__{variant}"] = logits_of(model, other[key], device=str(bank.dev)).astype(np.float32)
     np.savez_compressed(out_dir / f"{job['id']}.npz", logits=logits.astype(np.float32), logits_shifted=shifted.astype(np.float16),
-                        shifts=np.array(SHIFTS))
+                        shifts=np.array(SHIFTS), **cross)
     info = {"id": job["id"], "seconds": round(time.time() - t0, 1), "n_train": int((w > 0).sum()),
             "real_share": float(w[:n_real].sum())}
     if job.get("save_model"):
@@ -527,6 +549,10 @@ def run_jobs(run_dir: Path, jobs: list[dict[str, Any]], device: str, workers: in
         fh.write((run_dir / f"worker_{tag}_{k}.txt").read_text(encoding="utf-8", errors="replace"))
     errors = sorted((run_dir / "jobs").glob("*.error.txt"))
     log(f"{tag}: finished in {time.time() - t0:.0f} s; {len(errors)} failed run(s)" + (f": {[e.name for e in errors[:5]]}" if errors else ""), fh)
+    lost = [j["id"] for j in todo if not (run_dir / "jobs" / f"{j['id']}.npz").exists()]
+    if lost:              # a worker process died (out of GPU memory, killed): say so instead of reporting on half the runs
+        log(f"WARNING: {len(lost)} of these runs produced no result (first: {lost[:3]}). Run the same command again with "
+            f"--stamp {run_dir.name.replace('smoke_', '')}: it only does what is missing.", fh)
 
 
 # ---------------------------------------------------------------------------
@@ -760,7 +786,8 @@ def export_final(run_dir: Path, arm: str, results: dict[str, Any], fh: Any) -> N
     }
     if wide or variant != "std":
         meta["needs"] = {"doppler_window": "+-750 Hz (decim 12, stft_win 256, stft_fft 512, doppler_bins 192, demod_pass_hz 800)" if wide else "engine default",
-                         "burst_cutting": f"ends {variant[3:]} dB below the burst's own peak" if variant != "std" else "engine default",
+                         "burst_cutting": (f"ends {variant[3:].replace('nc', '')} dB below the burst's own peak"
+                                           + (", click rejection off" if variant.endswith("nc") else "")) if variant != "std" else "engine default",
                          "note": "the engine cannot produce this input yet; see recall/wide.py and recall/relcut.py"}
     (out / "gesture.json").write_text(json.dumps(meta, indent=1, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)))
     log(f"exported {rel(out)}: input {list(in_shape)}, ONNX vs PyTorch max logit difference {diff:.2e}, "
@@ -784,11 +811,19 @@ def main_run(args: argparse.Namespace) -> int:
         gen_device = args.gen_device if args.gen_device != "auto" else ("cuda" if args.device == "cuda" else "cpu")
         workers = args.workers or (4 if args.device == "cuda" else 1)
         cpu_workers = args.cpu_workers or min(os.cpu_count() or 4, 61)
+        if os.environ.pop("SONAR_SEG_REL_OFF_DB", None) is not None:      # this suite sets the burst cutting per recipe itself
+            log("NOTE: SONAR_SEG_REL_OFF_DB was set in this shell; ignored here (the rel12 recipes cut their own pictures)", fh)
         if gen_device != "cpu" and not args.skip_parity:
             ns = argparse.Namespace(size="tiny" if args.smoke else "full", gen_device=gen_device, gen_precision="auto", profile="default",
                                     recheck_parity=False, workers=cpu_workers, data=args.data)
-            t4.parity_gate(ns, info, REPO / "train_out", t4.Log(run_dir / "parity.txt"))
-            log("GPU-against-CPU picture check: passed (see parity.txt)", fh)
+            try:
+                t4.parity_gate(ns, info, REPO / "train_out", t4.Log(run_dir / "parity.txt"))
+                log("GPU-against-CPU picture check: passed (see parity.txt)", fh)
+            except t4.StepFailed as exc:
+                # never train on GPU-made data that failed the check; the CPU generator is the reference, only slower
+                log(f"GPU-against-CPU picture check did NOT pass ({str(exc).splitlines()[0]}). The synthetic data is made with the "
+                    "CPU generator instead (about 15 minutes longer). Please send parity.txt back with the results.", fh)
+                gen_device = "cpu"
 
         from .common import HUMAN
 
@@ -798,11 +833,14 @@ def main_run(args: argparse.Namespace) -> int:
         want = [a for a in (args.arms.split(",") if args.arms else ARMS) if a in ARMS]
         if args.smoke and not args.arms:
             want = [a for a in ARMS if a in ("released", "real_aux_wide", "share50_aux_rel12", "real_aux_wide_rel12")]
-        cols = build_table(data_root, run_dir, locked, fh, flip, wide=any(ARMS[a].get("features") == "wide" for a in want) or args.smoke)
+        def wants_wide(variant: str | None) -> bool:           # the +-750 Hz pictures are only cut where a recipe uses them
+            return args.smoke or any(ARMS[a].get("features") == "wide" and ARMS[a].get("table") == variant for a in want)
+
+        cols = build_table(data_root, run_dir, locked, fh, flip, wide=wants_wide(None))
         flip = sorted({str(v) for v in cols["session"][cols["flipped"]]})            # what "auto" found; the other cuttings use the same
-        for variant in sorted({ARMS[a]["table"] for a in want if ARMS[a].get("table")}):
-            build_table(data_root, run_dir, locked, fh, flip, variant=variant,
-                        wide=any(ARMS[a].get("features") == "wide" and ARMS[a].get("table") == variant for a in want))
+        variants = sorted({ARMS[a]["table"] for a in want if ARMS[a].get("table")})
+        for variant in variants:
+            build_table(data_root, run_dir, locked, fh, flip, variant=variant, wide=wants_wide(variant))
         label_audit(cols, run_dir, fh)
         humans = [h for h in ("lance", "aarsh", "mahimn") if h in set(cols["human"][~cols["locked"]])]
         humans += sorted(set(cols["human"][~cols["locked"]]) - set(humans))
@@ -825,7 +863,7 @@ def main_run(args: argparse.Namespace) -> int:
         cal_root = REPO / "train_out" / "synth_cal"
         versions = sorted({int(d.name.split("_")[1][1:]) for d in cal_root.glob("macbook_v*") if d.is_dir() and d.name.split("_")[1][1:].isdigit()})
         cal = f"macbook_v{versions[-1]}" if versions else "macbook_v1"
-        for fam in (cal, f"{cal}_motion", f"{cal}_bg"):
+        for fam in (cal, f"{cal}_motion", f"{cal}_bg", f"{cal}_rel12", f"{cal}_bg_rel12", f"{cal}_motion_rel12"):
             for fold in ["all"] + [f"no_{h}" for h in humans]:
                 p = cal_root / fam / fold / "dataset.npz"
                 if p.exists():
@@ -866,7 +904,8 @@ def main_run(args: argparse.Namespace) -> int:
                     log(f"this run folder already holds {sorted(keep)}: kept in the report", fh)
                 arms = {**keep, **arms}
         man = {"stamp": stamp, "humans": humans, "seeds": seeds, "arms": list(arms), "arm_specs": arms, "synth": synth,
-               "labels": list(LABELS), "locked": locked, "flip": flip, "size": size, "machine": info, "git": t4.git_state()}
+               "labels": list(LABELS), "locked": locked, "flip": flip, "size": size, "machine": info, "git": t4.git_state(),
+               "tables": ["std"] + sorted({sp["table"] for sp in arms.values() if sp.get("table")} | set(variants))}
         (run_dir / "manifest.json").write_text(json.dumps(man, indent=1, default=str))
 
         # pre-training on the plain synthetic set, once per width
@@ -906,6 +945,7 @@ def main_run(args: argparse.Namespace) -> int:
         # wide window or the peak-relative cutting (their weights then come back too, so no second round trip)
         ready = pick_finalists({a: r for a, r in results.items() if arms[a].get("features") != "wide" and not arms[a].get("table")})
         finalists = ready + [a for a in pick_finalists(results, n=2) if a not in ready]
+        finalists += [a for a in args.finals.split(",") if a in arms and a not in finalists]        # asked for by name
         log(f"\n=== finalists (rule: highest pooled recall with pooled false <= {BUDGET}; 'released' always): {finalists}", fh)
         run_jobs(run_dir, [job(a, arms[a], None, None, s, final=True) for a in finalists for s in seeds], args.device, workers, fh, "final")
         for a in finalists:
@@ -934,6 +974,7 @@ def main(argv: list[str] | None = None) -> int:
                         "auto (default) = the sessions the label audit finds opposite, t below -4 (today: mahimn's first "
                         "session, t = -7.1); or session names, comma-separated; or none")
     r.add_argument("--arms", default="", help="only these arms (comma-separated; default: all)")
+    r.add_argument("--finals", default="", help="also train and export these arms on everyone (comma-separated), whatever their rank")
     r.add_argument("--workers", type=int, default=0, help="training runs sharing the GPU (default 4 on CUDA, else 1)")
     r.add_argument("--cpu-workers", type=int, default=0, help="CPU processes for the generator's random draws (default: all cores)")
     r.add_argument("--stamp", default="", help="reuse a run folder (finishes what is missing)")

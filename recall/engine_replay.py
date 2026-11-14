@@ -58,11 +58,16 @@ def build_trace(name: str, data_root: Path | None = None, variant: str = "std") 
                 root = alt
                 break
     meta, audio, cfg = load_session(root / name)
-    pipe = Pipeline(cfg, n_mics=audio.shape[1])
+    rel_db, clicks = 0.0, True
     if variant.startswith("rel"):
-        from .relcut import RelSegmenter
+        from .relcut import NO_CLICKS, RelSegmenter, parse
 
-        pipe.segmenter = RelSegmenter(pipe.cfg, float(variant[3:]))
+        rel_db, clicks = parse(variant)
+        if not clicks:
+            cfg = cfg.with_(impulse_ratio=NO_CLICKS)
+    pipe = Pipeline(cfg, n_mics=audio.shape[1])
+    if rel_db > 0:
+        pipe.segmenter = RelSegmenter(pipe.cfg, rel_db)
     state, near, far, active, segs, windows = [], [], [], [], [], []
     for i in range(0, len(audio), 1920):
         for fr in pipe.process(audio[i:i + 1920]):

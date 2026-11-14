@@ -17,6 +17,7 @@ Read-only module: no files, no audio devices.
 
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass, fields, replace
 from typing import Any
 
@@ -91,6 +92,10 @@ class SonarConfig:
     seg_band_hz: tuple[float, float] = (20.0, 235.0)   # Doppler band that counts as "hand motion"
     seg_on_db: float = 1.5          # in-band power this many dB above the noise floor opens a segment
     seg_off_db: float = 0.7         # ... and below this it closes
+    seg_rel_off_db: float = 0.0     # > 0: a burst is also over once the movement is this many dB below the burst's OWN peak.
+                                    # For laptops with very loud echoes, where the movement level never falls back to
+                                    # seg_off_db between the wind-up, the stroke and the hand going back, so everything
+                                    # becomes one long burst that is chopped at seg_max_frames. 0 = off (as before).
     seg_min_peak_db: float = 3.0    # bursts that never get this strong are ignored
     seg_min_frames: int = 6         # shorter bursts are ignored (0.12 s)
     seg_max_frames: int = 70        # longer motion is cut and classified anyway (1.4 s)
@@ -261,6 +266,7 @@ class SonarConfig:
             if k not in known:
                 continue  # written by a newer/older version; ignore unknown keys
             kwargs[k] = tuple(v) if isinstance(v, list) else v
+        kwargs.update(experiment_overrides())
         cfg = cls(**kwargs)
         cfg.validate()
         return cfg
@@ -315,9 +321,20 @@ def get_profile(name: str = "default", **overrides: Any) -> SonarConfig:
     """Return a validated config for a named profile, with optional overrides."""
     if name not in _PROFILES:
         raise KeyError(f"unknown profile {name!r}; choose from {sorted(_PROFILES)}")
-    cfg = SonarConfig(**{**_PROFILES[name], **overrides})
+    cfg = SonarConfig(**{**_PROFILES[name], **experiment_overrides(), **overrides})
     cfg.validate()
     return cfg
+
+
+def experiment_overrides() -> dict[str, Any]:
+    """Settings switched by an environment variable, for A/B runs on recordings that already exist.
+
+    SONAR_SEG_REL_OFF_DB=12 turns the peak-relative burst closing (seg_rel_off_db) on in every tool at once:
+    recorder, dataset builder, synthetic generator, trainer checks and engine. Unset = nothing changes.
+    Use a fresh working folder (train_4090.py --out) for such a run: its caches do not know about this switch.
+    """
+    raw = os.environ.get("SONAR_SEG_REL_OFF_DB", "").strip()
+    return {"seg_rel_off_db": float(raw)} if raw else {}
 
 
 def default_config() -> SonarConfig:

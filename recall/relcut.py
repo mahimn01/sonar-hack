@@ -13,7 +13,7 @@ burst of its own.
 How: the engine's own Pipeline with its segmenter replaced by `RelSegmenter` (the engine's segmenter with that one
 line changed). Cached per session in the same format as recall.cache_streams.
 
-How to run:   .venv/bin/python -m recall.relcut [folder] [N]     (default: every session under mac/data, N = 12)
+How to run:   .venv/bin/python -m recall.relcut [folder] [rel12 | rel12nc]     (default: every session under mac/data, rel12)
 What it changes: writes train_out/recall/streams_rel12/<session>.npz (+ .json). Read-only on the recordings.
 """
 
@@ -34,8 +34,17 @@ sys.path.insert(0, str(REPO))
 from sonar.gestures import GestureSegmenter, Segment  # noqa: E402
 
 
-def out_dir(rel_db: float) -> Path:
-    return REPO / "train_out" / "recall" / f"streams_rel{int(rel_db)}"
+NO_CLICKS = 1e9      # impulse_ratio out of reach: the segmenter's click test can then never be true
+
+
+def parse(variant: str) -> tuple[float, bool]:
+    """"rel12" -> (12.0, click rejection on); "rel12nc" -> (12.0, click rejection off)."""
+    clicks = not variant.endswith("nc")
+    return float(variant[3:-2] if not clicks else variant[3:]), clicks
+
+
+def out_dir(rel_db: float, clicks: bool = True) -> Path:
+    return REPO / "train_out" / "recall" / f"streams_rel{int(rel_db)}{'' if clicks else 'nc'}"
 
 
 class RelSegmenter(GestureSegmenter):
@@ -90,8 +99,14 @@ class RelSegmenter(GestureSegmenter):
         return seg
 
 
-def one(folder: str, rel_db: float = 12.0) -> str:
-    """One session through the engine's Pipeline with the peak-relative segmenter; cached like cache_streams."""
+def one(folder: str, rel_db: float = 12.0, clicks: bool = True) -> str:
+    """One session through the engine's Pipeline with the peak-relative segmenter; cached like cache_streams.
+
+    clicks=False also switches the segmenter's click rejection off. That test (energy flat across Doppler and
+    equal on both signs) fires on very fast hands too: with it on, the loudest moment of the trial is NOT inside
+    the labelled burst for 10/35 and 17/45 of lance's gestures and 8/45 of mahimn's fast session; with it off,
+    for 0, 1 and 1, and the stroke's peak sits 11-13 frames before the end of the picture for everybody.
+    """
     for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
         os.environ[k] = "1"
     from sonar.dataset import load_session
@@ -99,6 +114,8 @@ def one(folder: str, rel_db: float = 12.0) -> str:
 
     meta, audio, cfg = load_session(folder)
     name = meta.get("session_id", Path(folder).name)
+    if not clicks:
+        cfg = cfg.with_(impulse_ratio=NO_CLICKS)
     pipe = Pipeline(cfg, n_mics=audio.shape[1])
     pipe.segmenter = RelSegmenter(pipe.cfg, rel_db)
     cfg = pipe.cfg
@@ -115,28 +132,30 @@ def one(folder: str, rel_db: float = 12.0) -> str:
                 segs.append([s.start, s.end, s.decided, s.peak_db, s.energy_db, int(s.forced)])
                 nb.append(prev_end)
                 prev_end = s.end + 1
-    out = out_dir(rel_db)
+    out = out_dir(rel_db, clicks)
     out.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out / f"{name}.npz", feat=np.stack(feats).astype(np.float16), ready=np.array(ready),
                         activity_db=np.array(act, np.float32), segments=np.array(segs, np.float64).reshape(-1, 6),
                         not_before=np.array(nb, np.int64), presence=np.array([""]))
-    (out / f"{name}.json").write_text(json.dumps({"meta": meta, "config": cfg.to_dict(), "seg_rel_off_db": rel_db}, indent=1))
+    (out / f"{name}.json").write_text(json.dumps({"meta": meta, "config": cfg.to_dict(), "seg_rel_off_db": rel_db, "click_rejection": clicks}, indent=1))
     forced = int(sum(s[5] for s in segs))
-    return f"{name}: peak-relative cutting {rel_db:.0f} dB: {len(segs)} bursts, {forced} cut by the 1.4 s limit"
+    return f"{name}: peak-relative cutting {rel_db:.0f} dB{'' if clicks else ', click rejection off'}: {len(segs)} bursts, {forced} cut by the 1.4 s limit"
 
 
-def main_for(root: Path, rel_db: float = 12.0, workers: int = 4) -> None:
-    out = out_dir(rel_db)
+def main_for(root: Path, rel_db: float = 12.0, clicks: bool = True, workers: int = 4) -> None:
+    out = out_dir(rel_db, clicks)
     out.mkdir(parents=True, exist_ok=True)
     folders = sorted(str(p.parent) for p in Path(root).rglob("session.json"))
     todo = [f for f in folders if not (out / f"{Path(f).name}.npz").exists()]
-    print(f"peak-relative cutting ({rel_db:.0f} dB): {len(folders)} sessions under {root}, {len(todo)} to cut", flush=True)
+    print(f"peak-relative cutting ({rel_db:.0f} dB{'' if clicks else ', click rejection off'}): {len(folders)} sessions under {root}, "
+          f"{len(todo)} to cut", flush=True)
     if todo:
         with ProcessPoolExecutor(max_workers=min(workers, len(todo))) as pool:
-            for line in pool.map(partial(one, rel_db=rel_db), todo):
+            for line in pool.map(partial(one, rel_db=rel_db, clicks=clicks), todo):
                 print(line, flush=True)
 
 
 if __name__ == "__main__":
-    # python -m recall.relcut [folder with sessions] [dB]
-    main_for(Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "mac" / "data", float(sys.argv[2]) if len(sys.argv) > 2 else 12.0)
+    # python -m recall.relcut [folder with sessions] [variant: rel12 | rel12nc]
+    _db, _clicks = parse(sys.argv[2]) if len(sys.argv) > 2 else (12.0, True)
+    main_for(Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "mac" / "data", _db, _clicks)

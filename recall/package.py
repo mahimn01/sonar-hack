@@ -14,7 +14,8 @@ What it does:
 
 How to run:
     .venv/bin/python -m recall.package <run folder> <arm> --out models-release-mac-recall [--temperature T --handicap B --peak-p10 P]
-Without --temperature / --handicap the point is the median of the per-fold nested choices in analysis.json.
+Without --temperature / --handicap the point is the one recall.analyze chose on all three humans' held-out answers
+(analysis.json, "final_point"); run `python -m recall.analyze <run folder>` first.
 What it changes: writes gesture.onnx / gesture.json / gesture.pt / metrics.json into --out. Nothing else.
 """
 
@@ -60,8 +61,12 @@ def main() -> int:
     t, b = args.temperature, args.handicap
     analysis = run / "analysis.json"
     if (t is None or b is None) and analysis.exists():
-        folds = json.loads(analysis.read_text()).get(args.arm, {}).get("points", {}).get("folds", {})
-        if folds:
+        pts = json.loads(analysis.read_text()).get(args.arm, {}).get("points", {})
+        fp, folds = pts.get("final_point"), pts.get("folds", {})
+        if fp:                               # chosen on all three humans' held-out answers (recall.analyze)
+            t = float(fp["t"]) if t is None else t
+            b = float(fp["b"]) if b is None else b
+        elif folds:
             t = float(np.median([f["t"] for f in folds.values()])) if t is None else t
             b = float(np.median([f["b"] for f in folds.values()])) if b is None else b
     t = 1.0 if t is None else t

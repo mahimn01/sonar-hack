@@ -107,23 +107,39 @@
   "what": "released recipe at small size (300 synthetic clips per gesture, 150 per gesture over real backgrounds, 20 + 30 epochs), trained on lance, lance2 and aarsh; mahimn was held out and is NOT in this model",
   "honest_score_held_out_mahimn": {
    "test": "both of mahimn's gesture sessions (81 gestures; first session's left/right labels exchanged, verified on the audio) and all his non-gesture examples (109)",
-   "gestures_recognised_at_0.6": 0.654,
-   "hits": 53,
-   "n_gestures": 81,
-   "non_gestures_that_trigger_at_0.6": 0.055,
-   "false": 6,
-   "n_non_gestures": 109,
-   "per_session": {
-    "20261114-025724_mahimn_gestures": "28/36",
-    "20261114-001248_mahimn_gestures": "25/45 (push 2/15)"
+   "with_peak_relative_cutting_12dB (what scripts/run_best_mac.sh uses)": {
+    "gestures_recognised_at_0.6": 0.728,
+    "hits": 59,
+    "n_gestures": 81,
+    "non_gestures_that_trigger_at_0.6": 0.044,
+    "false": 5,
+    "n_non_gestures": 114,
+    "per_session": {
+     "20261114-025724_mahimn_gestures": "30/36",
+     "20261114-001248_mahimn_gestures": "29/45"
+    },
+    "engine_level_replay": "--no-range-gate --entering-gate-s 3: the right gesture fires first on 60/81 prompts, 1 false event in 5.8 min (real engine checked identical to the replay)",
+    "note": "the model itself was trained on pictures cut the old way; only the cutting at run time changed"
    },
-   "engine_level_replay": {
-    "as shipped": "47/81 prompts fire the right gesture first, 0 false events in 5.8 min",
-    "--no-range-gate --entering-gate-s 3": "54/81, 2 false events in 5.8 min"
+   "with_the_engine_old_cutting": {
+    "gestures_recognised_at_0.6": 0.654,
+    "hits": 53,
+    "n_gestures": 81,
+    "non_gestures_that_trigger_at_0.6": 0.055,
+    "false": 6,
+    "n_non_gestures": 109,
+    "per_session": {
+     "20261114-025724_mahimn_gestures": "28/36",
+     "20261114-001248_mahimn_gestures": "25/45 (push 2/15)"
+    },
+    "engine_level_replay": {
+     "as shipped": "47/81 prompts fire the right gesture first, 0 false events in 5.8 min",
+     "--no-range-gate --entering-gate-s 3": "54/81, 2 false events in 5.8 min"
+    }
    },
    "note": "picked among two held-out candidates by this same test, so it flatters a little; temperature 1.0"
   },
-  "engine_flags": "--mics 1 --no-range-gate --entering-gate-s 3",
+  "engine_flags": "SONAR_SEG_REL_OFF_DB=12 (environment) --mics 1 --no-range-gate --entering-gate-s 3",
   "device": "trained on recordings of ONE laptop: 'MacBook Pro Microphone' / 'MacBook Pro Speakers' (one microphone channel)",
   "source": "train_out/recall/baseline/models (python scripts/train_4090.py --device cpu --size small --data mac --val-person mahimn --no-refit, 2026-11-14 03:39)"
  },

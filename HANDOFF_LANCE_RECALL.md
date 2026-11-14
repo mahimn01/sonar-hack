@@ -45,9 +45,9 @@ below, which exchanges that session's left/right labels itself).
 
 ---
 
-## Step B — the leave-one-person-out experiment suite (GPU, about an hour)
+## Step B — the leave-one-person-out experiment suite (GPU, about 70 minutes)
 
-What it does: trains 32 recipes ("arms"), each one three times over with a different person held out
+What it does: trains 36 recipes ("arms"), each one three times over with a different person held out
 (lance+lance2 count as one person), 3 seeds each, and scores every one the same honest way. It checks every
 session's left/right labels against the others and exchanges them where the swipes measurably go the
 opposite way to the prompts (today that is mahimn's first session only; the log's "label audit" block shows
@@ -56,9 +56,13 @@ every session), and exports the best recipes as engine-ready models. It is one c
 is made on the GPU with the unchanged generator (the picture check that already passed on this box is reused,
 so it should not run again).
 
-Nine more recipes use the simulator fitted to this MacBook. They run by themselves if
+Thirteen more recipes use the simulator fitted to this MacBook. They run by themselves if
 `train_out\synth_cal\macbook_v*\` already exists (the simulator handoff, `HANDOFF_LANCE_CALIBRATION.md`,
 makes it) and are skipped otherwise; Step C adds them later.
+
+The GPU-against-CPU picture check runs again this time (two engine files it covers gained an option that is off
+by default; about 5 minutes). If it does not pass, the suite says so, makes its synthetic data with the CPU
+generator instead (about 15 minutes longer) and carries on: please send `parity.txt` back with the results.
 
 Needs branch `recall` (Mahimn pushes it).
 
@@ -75,7 +79,7 @@ dir mac\data, mac\excluded        # expect 12 session folders + 1 (20261114-0012
 # 2-minute self-test on the CPU first (its numbers mean nothing; it must end with "DONE")
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --device cpu --smoke
 
-# the real run (about an hour: ~10 min making data, ~45 min training 490 small models 4 at a time, ~2 min export)
+# the real run (about 70 minutes: ~10 min making data, ~55 min training 560 small models 4 at a time, ~2 min export)
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1
 ```
 
@@ -101,7 +105,7 @@ folder `final\` (three or four sub-folders, each with `gesture.onnx`, `gesture.j
 
 Also paste into the chat: the first table of `report.md` and the "label audit" block near the top of `log.txt`.
 
-Run time measured here: the self-test takes 2 minutes on a Mac CPU. The hour for the full run is an
+Run time measured here: the self-test takes 2-3 minutes on a Mac CPU. The 70 minutes for the full run is an
 estimate from the earlier 4090 timings (12,000 clips in 5.7 min, one fine-tuning run in 19 s); it has not been
 run on a 4090.
 

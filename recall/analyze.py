@@ -153,6 +153,11 @@ def operating_points(run: Run, arm: str) -> dict[str, Any]:
         pooled["h"].append(r_["human"][test])
     if pooled["y"]:
         y, hh = np.concatenate(pooled["y"]), np.concatenate(pooled["h"])
+        # The operating point for the model that SHIPS (trained on everyone): chosen on all three humans' held-out
+        # answers at once (each human answered by models that never saw them). It is not used for any score above.
+        ft, fb = choose_point(np.log(np.concatenate(pooled["t1"]) + 1e-12), y)
+        rf, ff = rates(apply(np.log(np.concatenate(pooled["t1"]) + 1e-12), ft, fb), y)
+        out["final_point"] = {"t": ft, "b": fb, "recall_on_the_data_it_was_chosen_on": rf, "false_on_the_data_it_was_chosen_on": ff}
         for key in ("t1", "nested"):
             p = np.concatenate(pooled[key])
             s = score(np.log(p + 1e-12), y, LABELS)
@@ -191,6 +196,58 @@ def shift_average(run: Run, arm: str) -> dict[str, Any] | None:
     p, y = np.concatenate(pooled_p), np.concatenate(pooled_y)
     sc = score(np.log(p + 1e-12), y, LABELS)
     return {k: sc[k] for k in ("recall", "false", "hits", "n_gesture", "false_n", "n_none")}
+
+
+def cross_cutting(run: Run, arm: str) -> dict[str, Any] | None:
+    """The honest score of an arm when the ENGINE cuts the other way than the arm was trained on (the nested
+    operating point is chosen on the training humans' pictures cut that same other way)."""
+    own = run.variant(arm)
+    others = [v for v in run.man.get("tables", ["std"]) if v != own]
+    if not others:
+        return None
+    other = others[0]
+    name = "table.npz" if other == "std" else f"table_{other}.npz"
+    with np.load(run.dir / name, allow_pickle=False) as z:
+        r = {k: z[k] for k in ("label", "source", "human", "locked")}
+    lut = {n: i for i, n in enumerate(LABELS)}
+    y_all = np.array([lut.get(str(x), 0) for x in r["label"]], dtype=np.int64)
+    scored = np.isin(r["source"], ["gesture", "burst", "idle"]) & ~r["locked"]
+
+    def cross(job: str) -> np.ndarray | None:
+        p = run.dir / "jobs" / f"{job}.npz"
+        if not p.exists():
+            return None
+        with np.load(p) as z:
+            return z[f"logits__{other}"].astype(np.float64) if f"logits__{other}" in z.files else None
+
+    pooled_p, pooled_y, pooled_h = [], [], []
+    for h in run.humans:
+        outer = [cross(f"{arm}__{h}__s{s}") for s in run.seeds]
+        if any(l is None for l in outer):
+            return None
+        inner_l, inner_y = [], []
+        for h2 in [x for x in run.humans if x != h]:
+            l2 = cross(f"{arm}__{h}__in_{h2}__s{run.seeds[0]}")
+            if l2 is None:
+                return None
+            m2 = scored & (r["human"] == h2)
+            inner_l.append(l2[m2])
+            inner_y.append(y_all[m2])
+        t, b = choose_point(np.concatenate(inner_l), np.concatenate(inner_y))
+        test = scored & (r["human"] == h)
+        pooled_p.append(np.mean([apply(l[test], t, b) for l in outer], axis=0))
+        pooled_y.append(y_all[test])
+        pooled_h.append(r["human"][test])
+    p, y, hh = np.concatenate(pooled_p), np.concatenate(pooled_y), np.concatenate(pooled_h)
+    sc = score(np.log(p + 1e-12), y, LABELS)
+    out = {k: sc[k] for k in ("recall", "false", "hits", "n_gesture", "false_n", "n_none")}
+    out["engine_cutting"] = other
+    out["per_human"] = {}
+    for h in run.humans:
+        m = hh == h
+        s2 = score(np.log(p[m] + 1e-12), y[m], LABELS)
+        out["per_human"][h] = (s2["hits"], s2["n_gesture"], s2["false_n"], s2["n_none"])
+    return out
 
 
 def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = True, min_peak: float | None = None,
@@ -332,6 +389,17 @@ def main() -> None:
             result[arm]["shift_average"] = sa
             n = pts["nested"]
             lines.append(f"| {arm} | {n['recall']:.3f} / {n['false']:.3f} | {sa['recall']:.3f} ({sa['hits']}/{sa['n_gesture']}) / {sa['false']:.3f} ({sa['false_n']}/{sa['n_none']}) |")
+    lines += ["", "## 2c. Trained on one burst cutting, run in an engine that cuts the other way (nested point, pooled)", "",
+              "| arm (trained on) | scored on its own cutting | scored with the other cutting at run time | per human with the other cutting |", "|---|---|---|---|"]
+    for arm in arms:
+        pts = result[arm]["points"]
+        cc = cross_cutting(run, arm) if "nested" in pts else None
+        if cc is not None:
+            result[arm]["cross_cutting"] = cc
+            n = pts["nested"]
+            per = "; ".join(f"{h} {v[0]}/{v[1]}, false {v[2]}/{v[3]}" for h, v in cc["per_human"].items())
+            lines.append(f"| {arm} ({run.variant(arm)}) | {n['recall']:.3f} / {n['false']:.3f} | {cc['engine_cutting']}: **{cc['recall']:.3f}** "
+                         f"({cc['hits']}/{cc['n_gesture']}) / {cc['false']:.3f} ({cc['false_n']}/{cc['n_none']}) | {per} |")
     lines += ["", "## 3. Where the held-out gestures are lost (nested point, pooled over the three humans)", ""]
     for arm in arms:
         if "nested" in result[arm]["points"]:
