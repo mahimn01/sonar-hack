@@ -65,9 +65,11 @@ FEATURE_CODE = ["sonar/config.py", "sonar/tx.py", "sonar/dsp.py", "sonar/fronten
                 "sonar/features.py", "sonar/pipeline.py", "sonar/presence.py", "sonar/breathing.py", "sonar/dataset.py"]
 GENERATOR_CODE = ["datagen/adapter.py", "datagen/background.py", "datagen/generate.py", "datagen/hardware.py",
                   "datagen/kinematics.py", "datagen/physics.py", "datagen/quicklook.py", "datagen/render.py",
-                  "datagen/scenes.py"]
+                  "datagen/scenes.py", "datagen/motion.py"]
+MOTION_LIBRARY = "datagen/motion_library/unica_v1.npz"   # real tracked hand paths (see datagen/motion_library/README.md)
 # The GPU versions of the two lists above (only part of a cache key when the GPU path is used).
-GPU_CODE = ["datagen/plan.py", "datagen/render_torch.py", "datagen/gpu_pipeline.py", "sonar/features_torch.py"]
+GPU_CODE = ["datagen/plan.py", "datagen/render_torch.py", "datagen/gpu_pipeline.py", "sonar/features_torch.py",
+            "datagen/echo_kernel.py", "datagen/echo_paths.c"]
 PARITY_CODE = ["datagen/parity.py", "scripts/check_gpu_parity.py"]
 TRAIN_CODE = ["sonar/train.py", "sonar/model.py", "sonar/batch_augment.py"]
 
@@ -275,7 +277,9 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
     """datagen.generate into a cached folder named after everything that shapes the data."""
     bg_ids = [(p, os.path.getsize(p), int(os.path.getmtime(p))) for p in backgrounds or []]
     on_gpu = args.gen_device != "cpu"
-    how = [code_hash(GPU_CODE), args.gen_device.split(":")[0], args.gen_precision] if on_gpu else []   # CPU keys are as before
+    how = [code_hash(GPU_CODE), args.gen_device.split(":")[0], args.gen_precision, args.gen_kernel] if on_gpu else []   # CPU keys are as before
+    if args.motion:                                          # real hand paths for a share of the gestures
+        how += ["motion", os.path.getsize(args.motion), hashlib.sha256(Path(args.motion).read_bytes()).hexdigest()[:12], args.motion_share]
     key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE), per_class, negatives, args.profile, seed, swap, mics, bg_ids, *how)
     folder = out / key
     if cached(folder) and not args.force_synth:
@@ -294,8 +298,10 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
         cmd.append("--swap-speakers")
     if mics != 2:
         cmd += ["--mics", str(mics)]
+    if args.motion:
+        cmd += ["--motion", args.motion, "--motion-share", str(args.motion_share)]
     if on_gpu:
-        cmd += ["--gen-device", args.gen_device, "--gen-precision", args.gen_precision]
+        cmd += ["--gen-device", args.gen_device, "--gen-precision", args.gen_precision, "--gen-kernel", args.gen_kernel]
         if gen_batch or args.gen_batch:
             cmd += ["--gen-batch", str(gen_batch or args.gen_batch)]
         if args.gen_gpus:
@@ -319,7 +325,7 @@ def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log:
     """
     clips = 100 if args.size == "tiny" else 1000
     key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE + GPU_CODE + PARITY_CODE), info.get("torch"), info.get("gpu"),
-                 args.gen_device, args.gen_precision, args.profile, clips)
+                 args.gen_device, args.gen_precision, args.gen_kernel, args.profile, clips)
     marker = work / "parity" / f"passed_{key}.json"
     if marker.exists() and not args.recheck_parity:
         old = json.loads(marker.read_text())
@@ -330,7 +336,7 @@ def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log:
     report = work / "parity" / f"last_{key}.json"
     cmd = [PY, "scripts/check_gpu_parity.py", "--device", args.gen_device, "--precision", args.gen_precision,
            "--clips", str(clips), "--workers", str(args.workers), "--work", str(work / "parity"), "--data", args.data,
-           "--json", str(report)]
+           "--json", str(report), "--kernel", args.gen_kernel]
     if args.profile != "default":
         cmd += ["--profile", args.profile]
     try:
@@ -659,6 +665,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--mics", type=int, help="microphone channels of the target laptop when there are no recordings yet "
                                              "(default: taken from the recordings, else 2 = the HP)")
     ap.add_argument("--force-synth", action="store_true", help="make the synthetic data again even if a cached copy exists")
+    ap.add_argument("--motion", default="auto",
+                    help="real tracked hand paths for part of the synthetic gestures: auto = " + MOTION_LIBRARY +
+                         " if it exists, none = every gesture from the formulas (the old behaviour), or a library file")
+    ap.add_argument("--motion-share", type=float, default=0.5, help="share of synthetic gestures that replay a real hand path (default 0.5)")
     ap.add_argument("--gen-device", default="auto", choices=["auto", "cpu", "cuda", "mps", "torch-cpu"],
                     help="where the synthetic clips and session pictures are computed: auto = cuda when training on cuda, "
                          "else cpu; cpu = the original numpy code on every core (the reference); torch-cpu = the GPU code "
@@ -667,6 +677,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="GPU number format (default ref: float64 where the CPU code uses it; fast: float32 FFTs)")
     ap.add_argument("--gen-batch", type=int, default=0, help="clips per GPU batch (default: fills the GPU's memory)")
     ap.add_argument("--gen-gpus", type=int, default=0, help="GPUs used for making data and for the training runs (default: all)")
+    ap.add_argument("--gen-kernel", default="auto", choices=["auto", "on", "off"],
+                    help="echo loop on CUDA: auto = the fused CUDA kernel if its self-check passes on this GPU (else PyTorch "
+                         "operations, automatically); off = PyTorch operations")
     ap.add_argument("--skip-parity", action="store_true", help="do not run the GPU-against-CPU picture check before making data on a GPU")
     ap.add_argument("--recheck-parity", action="store_true", help="run that check again even if it already passed for this code")
     ap.add_argument("--sweep-jobs", type=int, default=0,
@@ -707,6 +720,15 @@ def main(argv: list[str] | None = None) -> int:
             raise StepFailed("--gen-device cuda, but PyTorch cannot see a CUDA GPU; use --gen-device cpu")
         if args.gen_device == "mps" and not info.get("mps"):
             raise StepFailed("--gen-device mps, but Apple MPS is not available here; use --gen-device cpu")
+        if args.motion == "auto":
+            args.motion = str(REPO / MOTION_LIBRARY) if (REPO / MOTION_LIBRARY).exists() else ""
+        elif args.motion == "none":
+            args.motion = ""
+        elif not Path(args.motion).exists():
+            raise StepFailed(f"--motion {args.motion}: no such file")
+        summary["motion"] = {"library": rel(Path(args.motion)) if args.motion else None, "share": args.motion_share if args.motion else 0.0}
+        log("synthetic gestures: " + (f"{args.motion_share:.0%} replay real hand paths from {rel(Path(args.motion))}, the rest use the formulas "
+                                      "(--motion none: formulas only)" if args.motion else "from the formulas in datagen/kinematics.py"))
         on_cuda = args.device == "cuda"
         n_gpus = max(1, min(int(info.get("gpu_count", 1)), args.gen_gpus or 10**6)) if on_cuda else 1
         sweep_jobs = args.sweep_jobs or (4 * n_gpus if on_cuda else 1)

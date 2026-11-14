@@ -48,11 +48,52 @@ def overlay_tx(core: ad.Core, n: int) -> tuple[np.ndarray, int]:
     return _TX_OVERLAY[key]
 
 
+_BIG = ("noise", "gain", "pos", "rho", "nrm", "real")     # the arrays that make a plan several megabytes
+SLOT_BYTES = 12 * 2**20                                   # one shared-memory slot (a plan that does not fit is pickled as before)
+
+
+def _to_slot(plan, slot: str | None) -> None:
+    """Worker: move the plan's big arrays into the main process's shared-memory slot, leaving only where they are.
+
+    Why: on Windows every result of a worker is pickled through one pipe that a single thread reads (about
+    700 MB/s on Lance's PC = 100 plans a second, the limit of the whole pipeline). Shared memory has no such limit.
+    """
+    plan.shm = None
+    if not slot:
+        return
+    from multiprocessing import shared_memory
+
+    arrays = [(name, np.ascontiguousarray(getattr(plan, name))) for name in _BIG if getattr(plan, name) is not None]
+    if sum(a.nbytes for _, a in arrays) > SLOT_BYTES:
+        return
+    try:
+        shm = shared_memory.SharedMemory(name=slot)
+    except (OSError, ValueError):
+        return
+    try:                                                  # (the block stays the main process's: it creates and removes it)
+        where, offset = [], 0
+        for name, a in arrays:
+            np.ndarray(a.shape, a.dtype, buffer=shm.buf, offset=offset)[...] = a
+            where.append((name, a.dtype.str, a.shape, offset))
+            offset += a.nbytes
+            setattr(plan, name, None)
+        plan.shm = where
+    finally:
+        shm.close()
+
+
+def _from_slot(plan, shm) -> None:
+    """Main process: the plan's big arrays as views into its slot (valid until the slot is handed out again)."""
+    for name, dtype, shape, offset in plan.shm or []:
+        setattr(plan, name, np.ndarray(shape, np.dtype(dtype), buffer=shm.buf, offset=offset))
+
+
 def plan_clip(task: tuple) -> dict:
     """Worker: the random half of one attempt at a clip (see the file header)."""
     from .plan import make_plan
 
-    job, attempt, carry, noise64 = task
+    job, attempt, carry, noise64 = task[:4]
+    slot = task[4] if len(task) > 4 else None
     j = g.unpack_job(job)
     core, (tx, pre, n) = g._setup(j["profile"])
     hw_profile = Profile(band_hz=core.band, swap_mics=j["swap_mics"], swap_speakers=j["swap_speakers"])
@@ -72,6 +113,7 @@ def plan_clip(task: tuple) -> dict:
     else:
         plan = make_plan(tx, hw, scene, n, rng, pre, core.band, noise_dtype=dtype)
     meta = g.clip_meta(j, scene, hw, float("nan"), use_real, 0)       # echo_snr_db and n_mics are filled in after the GPU
+    _to_slot(plan, slot)
     return {"plan": plan, "state": {"rng": rng.bit_generator.state, "use_real": use_real, "meta": meta}}
 
 
@@ -119,13 +161,16 @@ def default_batch(device, precision: str) -> int:
     dev = torch.device(device)
     if dev.type == "cuda":
         return batch_for_memory(torch.cuda.mem_get_info(dev)[0] / 2**30, precision)
-    return 16 if dev.type == "mps" else 8
+    return 16 if dev.type == "mps" else 8                  # Apple GPUs share the computer's memory: stay modest
 
 
 class GpuRenderer:
     """Holds the per-run tables on the device; turns plans into audio and Doppler columns."""
 
-    def __init__(self, profile: str | None, device: str, precision: str = "auto", synth: Callable | None = None) -> None:
+    def __init__(self, profile: str | None, device: str, precision: str = "auto", synth: Callable | None = None,
+                 kernel: str = "auto") -> None:
+        """kernel: "auto" = use the fused CUDA kernel for the echo loop if its probe passes on this GPU (else the
+        PyTorch operations), "off" = PyTorch operations, "on" = the kernel without asking the probe."""
         import torch
 
         from .render_torch import pick_precision
@@ -137,6 +182,19 @@ class GpuRenderer:
         self.device = torch.device(device)
         self.precision = pick_precision(self.device, precision).name
         self.synth = synth
+        self.echo_impl = "PyTorch operations" if synth is None else getattr(synth, "__name__", "custom")
+        self.kernel_note = ""
+        if synth is None and kernel == "host":               # tests: the kernel's C code compiled for the CPU
+            from . import echo_kernel
+
+            self.synth, self.echo_impl = echo_kernel.synth_paths_host, "the kernel's C code on the CPU (test build)"
+        elif synth is None and kernel != "off" and self.device.type == "cuda" and self.precision != "single":
+            from . import echo_kernel
+
+            ok, why = (True, "not probed (--gen-kernel on)") if kernel == "on" else echo_kernel.usable(self.device)
+            if ok:
+                self.synth, self.echo_impl = echo_kernel.synth_paths_cuda, "fused CUDA kernel"
+            self.kernel_note = why
         self.oom_splits = 0                  # batches that did not fit in memory and were split
         self._ctx: dict = {}
         self._fe: dict = {}
@@ -168,7 +226,15 @@ class GpuRenderer:
             with torch.no_grad():
                 return render_batch(self.context(plans[0]), plans, want_parts=want_parts, synth=self.synth, timings=timings)
         except RuntimeError as exc:
-            if "out of memory" not in str(exc).lower() or len(plans) < 2:
+            if "out of memory" not in str(exc).lower():
+                if self.echo_impl != "fused CUDA kernel":
+                    raise
+                # the kernel failed while running: carry on with the PyTorch operations (same numbers, slower)
+                self.synth, self.echo_impl = None, "PyTorch operations"
+                self.kernel_note = f"the fused kernel failed at run time and was switched off: {str(exc)[:200]}"
+                print(f"WARNING: {self.kernel_note}", flush=True)
+                return self.render(plans, want_parts, timings)
+            if len(plans) < 2:
                 raise
         if self.device.type == "cuda":
             torch.cuda.empty_cache()
@@ -213,7 +279,7 @@ def _render_group(gpu: "GpuRenderer", group: list, want_capture: bool) -> dict:
     out = gpu.render([item[3] for item in group], want_parts=want_capture)
     sync()
     t_render = time.perf_counter() - t0
-    snr = out["snr_db"].double().cpu().numpy()
+    snr = out["snr_db"].cpu().double().numpy()                # (MPS has no float64: convert on the host)
     keep, redo = [], []
     for k, (i, job, attempt, _, state) in enumerate(group):
         j = g.unpack_job(job)
@@ -246,7 +312,8 @@ def _render_group(gpu: "GpuRenderer", group: list, want_capture: bool) -> dict:
 def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, precision: str = "auto",
                  batch: int = 0, synth: Callable | None = None, stats: dict | None = None,
                  capture: Callable | None = None, gpu: "GpuRenderer | list | None" = None,
-                 pool: ProcessPoolExecutor | None = None, gpus: int = 0) -> Iterator[dict]:
+                 pool: ProcessPoolExecutor | None = None, gpus: int = 0, kernel: str = "auto",
+                 shared: bool = True) -> Iterator[dict]:
     """Yield one result per job, in job order: the same dicts generate.make_clip returns.
 
     device "cuda" uses every visible GPU (`gpus` limits how many): each GPU renders its own batches.
@@ -254,19 +321,21 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
     `capture(index, dict)`, if given, receives each accepted clip's audio and its parts (the parity
     check compares them with the CPU path); results then also carry the feature stream.
     `gpu` / `pool` let a caller reuse the device tables and the worker processes between calls.
+    `shared` = hand the plans' big arrays from the workers to this process through shared memory (see _to_slot).
     """
     from concurrent.futures import ThreadPoolExecutor
 
     if gpu is None:
-        fleet = [GpuRenderer(profile, d, precision, synth) for d in gpu_devices(device, gpus)]
+        fleet = [GpuRenderer(profile, d, precision, synth, kernel) for d in gpu_devices(device, gpus)]
     else:
         fleet = list(gpu) if isinstance(gpu, (list, tuple)) else [gpu]
     batch = batch or default_batch(str(fleet[0].device), fleet[0].precision)
     noise64 = fleet[0].device.type != "mps"                  # the hall noise goes to the GPU as drawn (float64)
-    ahead = max(2 * batch * len(fleet), 4 * workers)         # plans made ahead of the GPUs (they are a few MB each)
+    ahead = max(int(1.5 * batch) * len(fleet), 4 * workers)   # plans made ahead of the GPUs (they are a few MB each)
     stats = stats if stats is not None else {}
     stats.update({"batch": batch, "precision": fleet[0].precision, "device": ", ".join(str(f.device) for f in fleet),
-                  "render_s": 0.0, "features_s": 0.0, "redraws": 0, "batches": 0, "oom_splits": 0})
+                  "render_s": 0.0, "features_s": 0.0, "redraws": 0, "batches": 0, "oom_splits": 0,
+                  "echo_loop": fleet[0].echo_impl, "kernel_note": fleet[0].kernel_note})
     todo: deque = deque((i, job, 0, None) for i, job in enumerate(jobs))
     planning: dict[Future, tuple] = {}
     ready: dict[tuple, list] = defaultdict(list)             # clip type -> planned clips waiting for a GPU
@@ -275,6 +344,21 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
     done: dict[int, dict] = {}
     idle = list(range(len(fleet)))
     next_out = 0
+    # shared-memory slots for the plans' big arrays (see _to_slot); none if the system refuses
+    slots: list = []
+    if shared and workers > 0:
+        from multiprocessing import shared_memory
+
+        try:
+            for _ in range(ahead + batch * len(fleet) + 8):
+                slots.append(shared_memory.SharedMemory(create=True, size=SLOT_BYTES))
+        except (OSError, ValueError):
+            for shm in slots:
+                shm.close()
+                shm.unlink()
+            slots = []
+    free = list(range(len(slots)))
+    stats["plan_transport"] = "shared memory" if slots else "pickled"
     own_pool = pool is None
     pool = pool or ProcessPoolExecutor(max(1, workers))
     threads = ThreadPoolExecutor(len(fleet))                 # one thread per GPU; the main thread keeps the workers fed
@@ -283,7 +367,8 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
             n_ready = sum(len(v) for v in ready.values())
             while todo and len(planning) + n_ready < ahead:
                 i, job, attempt, carry = todo.popleft()
-                planning[pool.submit(plan_clip, (job, attempt, carry, noise64))] = (i, job, attempt)
+                k = free.pop() if free else None
+                planning[pool.submit(plan_clip, (job, attempt, carry, noise64, slots[k].name if k is not None else None))] = (i, job, attempt, k)
             # hand full batches (or, when nothing else is coming, the rest) to idle GPUs
             while idle:
                 more_coming = bool(planning) or bool(todo)
@@ -300,8 +385,14 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
                 finished, _ = wait(futures, return_when=FIRST_COMPLETED)
                 for f in finished:
                     if f in planning:
-                        i, job, attempt = planning.pop(f)
+                        i, job, attempt, k = planning.pop(f)
                         res = f.result()
+                        if k is not None and res["plan"].shm is None:      # the plan did not use its slot (too big)
+                            free.append(k)
+                            k = None
+                        if k is not None:
+                            _from_slot(res["plan"], slots[k])
+                        res["state"]["slot"] = k
                         ready[(res["plan"].pre, res["plan"].n_total)].append((i, job, attempt, res["plan"], res["state"]))
                     elif f in finishing:
                         done[finishing.pop(f)] = f.result()
@@ -309,6 +400,12 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
                         n, group = rendering.pop(f)
                         idle.append(n)
                         res = f.result()
+                        for item in group:                    # the audio is on the GPU now: the slots can be reused
+                            k = item[4].pop("slot", None)
+                            if k is not None:
+                                for name in _BIG:
+                                    setattr(item[3], name, None)
+                                free.append(k)
                         stats["render_s"] += res["render_s"]
                         stats["features_s"] += res["features_s"]
                         stats["batches"] += 1
@@ -326,7 +423,14 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
                 yield done.pop(next_out)
                 next_out += 1
         stats["oom_splits"] = sum(f.oom_splits for f in fleet)
+        stats.update(echo_loop=fleet[0].echo_impl, kernel_note=fleet[0].kernel_note)
     finally:
-        threads.shutdown(wait=False)
+        threads.shutdown(wait=True)
         if own_pool:
             pool.shutdown()
+        for shm in slots:
+            try:
+                shm.close()
+                shm.unlink()
+            except (OSError, BufferError):
+                pass

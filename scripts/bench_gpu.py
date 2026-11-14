@@ -157,12 +157,13 @@ def run_gpu(args: argparse.Namespace) -> dict:
     from datagen.gpu_pipeline import GpuRenderer, default_batch, finish_clip, generate_gpu, plan_clip
 
     device = "cpu" if args.device == "torch-cpu" else args.device
-    gpu = GpuRenderer(args.profile, device, args.precision)
+    gpu = GpuRenderer(args.profile, device, args.precision, kernel=args.kernel)
     dev = gpu.device
     cuda = dev.type == "cuda"
     batch = args.batch or default_batch(device, gpu.precision)
     jobs = bench_jobs(args.clips, args.profile)
-    out: dict = {"device": str(dev), "precision": gpu.precision, "clips": len(jobs), "batch": batch, "torch": torch.__version__}
+    out: dict = {"device": str(dev), "precision": gpu.precision, "clips": len(jobs), "batch": batch, "torch": torch.__version__,
+                 "echo_loop": gpu.echo_impl, "kernel_note": gpu.kernel_note}
     if cuda:
         p = torch.cuda.get_device_properties(dev)
         out["gpu"] = f"{p.name}, {p.total_memory / 2**30:.0f} GB"
@@ -223,7 +224,7 @@ def run_gpu(args: argparse.Namespace) -> dict:
                                              stats=stats, gpu=gpu, pool=pool))
         sync()
         out["end_to_end_clips_per_s"] = n_done / (time.perf_counter() - t0)
-        out["end_to_end"] = {k: stats.get(k) for k in ("render_s", "features_s", "redraws", "batches", "oom_splits")}
+        out["end_to_end"] = {k: stats.get(k) for k in ("render_s", "features_s", "redraws", "batches", "oom_splits", "plan_transport")}
         if watch:
             out["end_to_end"].update(watch.stop())
     out["workers"] = args.workers
@@ -321,6 +322,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--profile", default=None)
     ap.add_argument("--only", choices=["cpu", "gpu", "train"], help="run just one part")
     ap.add_argument("--precisions", default="ref,fast", help="GPU number formats to time (default ref,fast)")
+    ap.add_argument("--kernel", default="auto", help=argparse.SUPPRESS)
     ap.add_argument("--child", help=argparse.SUPPRESS)
     ap.add_argument("--precision", default="auto", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
@@ -343,20 +345,25 @@ def main(argv: list[str] | None = None) -> int:
             for k, v in sorted(r["stages_ms"].items(), key=lambda kv: -kv[1]):
                 print(f"     {k:<52} {v:8.1f} ms/clip  {100 * v / r['ms_per_clip_cpu']:5.1f} %")
     if args.only in (None, "gpu"):
-        for prec in [p for p in args.precisions.split(",") if p]:
-            print(f"\n2. GPU clip maker on {args.device}, number format '{prec}', {args.clips} clips ...")
-            report[f"gpu_{prec}"] = r = child(args, "gpu", ["--precision", prec])
+        runs = [(p, "auto") for p in args.precisions.split(",") if p]
+        if args.device.startswith("cuda"):                       # the same once more without the fused kernel, to see what it buys
+            runs.insert(1, (runs[0][0], "off"))
+        for prec, kernel in runs:
+            print(f"\n2. GPU clip maker on {args.device}, number format '{prec}'"
+                  + (", fused kernel OFF" if kernel == "off" else "") + f", {args.clips} clips ...")
+            report[f"gpu_{prec}" + ("_nokernel" if kernel == "off" else "")] = r = child(args, "gpu", ["--precision", prec, "--kernel", kernel])
             if not r:
                 continue
             print(f"   {r.get('gpu', r['device'])}; batch {r['batch']}; PyTorch {r['torch']}")
-            print(f"     random draws (CPU, {r['workers']} processes)          {r['plan_clips_per_s']:9.1f} clips/s")
+            print(f"   echo loop: {r['echo_loop']}" + (f" ({r['kernel_note']})" if r.get("kernel_note") else ""))
+            print(f"     random draws (CPU, {r['workers']} processes)          {r['plan_clips_per_s']:9.1f} clips/s   (results pickled, the old way)")
             print(f"     rendering (GPU)                                 {r['render_clips_per_s']:9.1f} clips/s")
             for k, v in r["render_stage_ms_per_clip"].items():
                 print(f"        {k:<44} {v:7.2f} ms/clip")
             print(f"     Doppler columns (GPU)                           {r['features_clips_per_s']:9.1f} clips/s")
             print(f"     bursts + labels (CPU, {r['workers']} processes)       {r['finish_clips_per_s']:9.1f} clips/s")
             e = r["end_to_end"]
-            print(f"     END TO END                                      {r['end_to_end_clips_per_s']:9.1f} clips/s"
+            print(f"     END TO END (plans via {e.get('plan_transport', 'pickle')})".ljust(53) + f"{r['end_to_end_clips_per_s']:9.1f} clips/s"
                   + (f"   GPU load: mean {e['gpu_util_mean']:.0f} %, median {e['gpu_util_median']:.0f} %, memory peak "
                      f"{e['gpu_mem_peak_mb'] / 1024:.1f} GB" if "gpu_util_mean" in e else ""))
             if "render_peak_mem_gb" in r:

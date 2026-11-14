@@ -63,6 +63,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--data", default="data", help="folder with recorded sessions; their audio is checked too if it exists")
     ap.add_argument("--work", default="train_out/parity", help="folder for the stand-in background and reports")
     ap.add_argument("--json", help="also write the full report to this file")
+    ap.add_argument("--motion", default="auto", help="motion library whose clips are checked too (auto: datagen/motion_library/unica_v1.npz "
+                                                     "if it exists; none: skip)")
+    ap.add_argument("--kernel", default="auto", choices=["auto", "on", "off", "host"],
+                    help="echo loop: auto = the fused CUDA kernel if its self-check passes (as training will use it), "
+                         "off = PyTorch operations, host = the kernel's C code on the CPU (tests)")
     ap.add_argument("--write-reference", action="store_true", help="store today's CPU results as the reference file (full fixture only)")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
@@ -75,10 +80,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"could not start the parity check: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
     device = pick_device(args.device)
+    default_motion = REPO / "datagen" / "motion_library" / "unica_v1.npz"
+    motion = None if args.motion == "none" else (str(default_motion) if args.motion == "auto" and default_motion.exists()
+                                                 else (None if args.motion == "auto" else args.motion))
     data = (REPO / args.data)
     try:
         report = parity.run(args.clips, device, precision=args.precision, workers=args.workers, batch=args.batch,
-                            profile=args.profile, work=(REPO / args.work), data=data if data.exists() else None)
+                            profile=args.profile, work=(REPO / args.work), data=data if data.exists() else None,
+                            kernel=args.kernel, motion=motion)
     except Exception as exc:
         import traceback
 

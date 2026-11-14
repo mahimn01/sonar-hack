@@ -99,7 +99,7 @@ class RenderContext:
         self.period = period
         self.f0 = f0 = 0.5 * (band[0] + band[1])
         # paths x baseband samples handled per step of the echo loop (memory against speed)
-        self.chunk_elems = chunk_elems or (12_000_000 if dev.type == "cuda" else 1_500_000)
+        self.chunk_elems = chunk_elems or {"cuda": 12_000_000, "mps": 8_000_000}.get(dev.type, 1_500_000)
         self.hd = torch.float32 if dev.type == "mps" else torch.float64        # per-clip sums (MPS has no float64)
 
         freqs = sfft.rfftfreq(n_total, 1.0 / fs)
@@ -238,21 +238,63 @@ def _frac_cycles(x: torch.Tensor) -> torch.Tensor:
 # --------------------------------------------------------------------------
 # The echo paths (the hot loop of render.py), batched over scatterers
 # --------------------------------------------------------------------------
-def _spline_eval(values: torch.Tensor, sp: dict, grid: dict, out_dtype: torch.dtype) -> torch.Tensor:
-    """scipy CubicSpline(t, values, axis=1)(tb) for values [N, Tc, D] -> [N, K, D]."""
+def spline_coefs(values: torch.Tensor, sp: dict) -> torch.Tensor:
+    """scipy CubicSpline pieces for values [N, Tc, D]: [N, Tc-1, 4, D], highest power first (as PPoly.c)."""
     m, dx = sp["m"], sp["dx"][None, :, None]
     v = values.to(m.dtype)
     s = torch.einsum("ts,nsd->ntd", m, v)                                      # slopes at the knots
     slope = (v[:, 1:] - v[:, :-1]) / dx
     t_ = (s[:, :-1] + s[:, 1:] - 2.0 * slope) / dx
-    c0, c1, c2, c3 = t_ / dx, (slope - s[:, :-1]) / dx - t_, s[:, :-1], v[:, :-1]
+    return torch.stack([t_ / dx, (slope - s[:, :-1]) / dx - t_, s[:, :-1], v[:, :-1]], dim=2)
+
+
+def _spline_eval(values: torch.Tensor, sp: dict, grid: dict, out_dtype: torch.dtype) -> torch.Tensor:
+    """scipy CubicSpline(t, values, axis=1)(tb) for values [N, Tc, D] -> [N, K, D]."""
+    c = spline_coefs(values, sp)
     piece, dt = grid["piece"], grid["dt"][None, :, None]
-    if out_dtype != m.dtype:                                                   # amplitudes: float32 is plenty
-        c0, c1, c2, c3, dt = c0.to(out_dtype), c1.to(out_dtype), c2.to(out_dtype), c3.to(out_dtype), dt.to(out_dtype)
-    out = c0.index_select(1, piece)
-    out = out * dt + c1.index_select(1, piece)
-    out = out * dt + c2.index_select(1, piece)
-    return out * dt + c3.index_select(1, piece)
+    if out_dtype != c.dtype:                                                   # amplitudes: float32 is plenty
+        c, dt = c.to(out_dtype), dt.to(out_dtype)
+    out = c[:, :, 0].index_select(1, piece)
+    for q in (1, 2, 3):
+        out = out * dt + c[:, :, q].index_select(1, piece)
+    return out
+
+
+def add_path(ctx: RenderContext, sub: dict, env_flat: torch.Tensor, acc: torch.Tensor, row: torch.Tensor, spk: int,
+             tau: torch.Tensor, amp: torch.Tensor) -> None:
+    """render.add_path: exact carrier phase, linearly interpolated envelope. acc [n, nb, 2] += one path's echo."""
+    n_total = ctx.n_total
+    if ctx.prec.geom == torch.float64:
+        idx = sub["base"][row] - tau * float(ctx.fs)                           # read position in the speaker buffer
+        i0f = torch.floor(idx)
+        frac = (idx - i0f).to(torch.float32)[..., None]
+        i0 = i0f.long()
+    else:                        # float32 cannot hold position + fraction: keep the whole samples as integers
+        off = -(tau * float(ctx.fs))
+        i0f = torch.floor(off)
+        frac = (off - i0f)[..., None]
+        i0 = sub["base_int"][row] + i0f.long()
+    flat = (sub["env_row"][row][:, None] * 2 + spk) * n_total + i0.clamp_(0, n_total - 2)
+    e = env_flat[flat] * (1.0 - frac) + env_flat[flat + 1] * frac
+    ph = _frac_cycles(ctx.f0 * tau).to(torch.float32) * (-2.0 * math.pi)
+    cr, si = amp * torch.cos(ph), amp * torch.sin(ph)
+    acc[..., 0] += cr * e[..., 0] - si * e[..., 1]
+    acc[..., 1] += cr * e[..., 1] + si * e[..., 0]
+
+
+def wobble_paths(ctx: RenderContext, sub: dict, env_ri: torch.Tensor, dyn: torch.Tensor) -> None:
+    """Lid wobble (desk bumps): the direct speaker->microphone path itself moves a little. Adds to dyn in place."""
+    if sub["wob_clip"] is None:
+        return
+    row, nb, env_flat = sub["wob_clip"], sub["grid"]["nb"], env_ri.reshape(-1, 2)
+    w = _spline_eval(sub["wobble"][..., None], sub["spline"], sub["grid"], ctx.prec.geom)[..., 0]       # [n_w, nb]
+    for m in range(sub["n_mic"]):
+        acc = torch.zeros((row.shape[0], nb, 2), dtype=torch.float32, device=ctx.device)
+        for s in range(2):
+            tau = sub["wob_tau0"][:, m, s][:, None] + w / sub["c"][row][:, None]
+            amp = (sub["wob_amp"][:, m, s] * sub["spk_on"][row, s]).to(torch.float32)[:, None].expand(-1, nb)
+            add_path(ctx, sub, env_flat, acc, row, s, tau, amp)
+        dyn[:, m].index_add_(0, row, acc)                                      # one wobble per clip: no order to keep
 
 
 def synth_paths_torch(ctx: RenderContext, sub: dict, env_ri: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -264,13 +306,11 @@ def synth_paths_torch(ctx: RenderContext, sub: dict, env_ri: torch.Tensor) -> tu
     dev, gd = ctx.device, ctx.prec.geom
     grid, sp = sub["grid"], sub["spline"]
     nb, n_mic, b = grid["nb"], sub["n_mic"], sub["b"]
-    fs, f0, n_total = float(ctx.fs), ctx.f0, ctx.n_total
     dyn = torch.zeros((b, n_mic, nb, 2), dtype=torch.float32, device=dev)
     key = torch.zeros((b, n_mic, nb, 2), dtype=torch.float32, device=dev)
     env_flat = env_ri.reshape(-1, 2)
     n_scat = sub["pos"].shape[0]
     per = max(1, ctx.chunk_elems // nb)
-    two_pi = 2.0 * math.pi
 
     def accumulate(total: torch.Tensor, a: int, acc: torch.Tensor) -> None:
         """total[clip] += acc[scatterer], one reflector of each clip at a time and in the scene's order.
@@ -287,25 +327,6 @@ def synth_paths_torch(ctx: RenderContext, sub: dict, env_ri: torch.Tensor) -> tu
             else:
                 total[torch.from_numpy(clip[pick]).to(dev)] += acc[torch.from_numpy(pick).to(dev)]
 
-    def add_path(acc: torch.Tensor, row: torch.Tensor, spk: int, tau: torch.Tensor, amp: torch.Tensor) -> None:
-        """render.add_path: exact carrier phase, linearly interpolated envelope. acc [n, nb, 2] += contribution."""
-        if gd == torch.float64:
-            idx = sub["base"][row] - tau * fs                                   # read position in the speaker buffer
-            i0f = torch.floor(idx)
-            frac = (idx - i0f).to(torch.float32)[..., None]
-            i0 = i0f.long()
-        else:                    # float32 cannot hold position + fraction: keep the whole samples as integers
-            off = -(tau * fs)
-            i0f = torch.floor(off)
-            frac = (off - i0f)[..., None]
-            i0 = sub["base_int"][row] + i0f.long()
-        flat = (sub["env_row"][row][:, None] * 2 + spk) * n_total + i0.clamp_(0, n_total - 2)
-        e = env_flat[flat] * (1.0 - frac) + env_flat[flat + 1] * frac
-        ph = _frac_cycles(f0 * tau).to(torch.float32) * (-two_pi)
-        cr, si = amp * torch.cos(ph), amp * torch.sin(ph)
-        acc[..., 0] += cr * e[..., 0] - si * e[..., 1]
-        acc[..., 1] += cr * e[..., 1] + si * e[..., 0]
-
     for a in range(0, n_scat, per):
         sl = slice(a, min(a + per, n_scat))
         row = sub["scat_clip"][sl]                                             # which clip each scatterer belongs to
@@ -313,7 +334,7 @@ def synth_paths_torch(ctx: RenderContext, sub: dict, env_ri: torch.Tensor) -> tu
         p = _spline_eval(sub["pos"][sl], sp, grid, gd)                         # [n, nb, 3]
         rho = _spline_eval(sub["rho"][sl][..., None], sp, grid, torch.float32)[..., 0]
         spec_on = sub["use_spec"][sl]
-        any_spec = bool(spec_on.any())
+        any_spec = bool(sub["use_spec_np"][sl].any())
         nrm = _spline_eval(sub["nrm"][sl], sp, grid, torch.float32) if any_spec else None
         kappa = (sub["alpha"][cl] * (math.log(10.0) / 20.0))
         gamma = sub["gamma"][cl]
@@ -348,21 +369,11 @@ def synth_paths_torch(ctx: RenderContext, sub: dict, env_ri: torch.Tensor) -> tu
                         cosb = (nrm * bis).sum(-1).abs()
                         shine = sub["spec_floor"][sl][:, None] + (1.0 - sub["spec_floor"][sl][:, None]) * cosb ** sub["spec_q"][sl][:, None]
                         amp = amp * torch.where(spec_on[:, None], shine, torch.ones_like(shine))
-                    add_path(acc, row, s, (r_tx + r_rx) / sub["c"][cl], amp)
+                    add_path(ctx, sub, env_flat, acc, row, s, (r_tx + r_rx) / sub["c"][cl], amp)
             accumulate(dyn[:, m], a, acc)
             accumulate(key[:, m], a, acc * key_w)
 
-    # lid wobble: the direct speaker->microphone path itself moves a little
-    if sub["wob_clip"] is not None:
-        row = sub["wob_clip"]
-        w = _spline_eval(sub["wobble"][..., None], sp, grid, gd)[..., 0]       # [n_w, nb]
-        for m in range(n_mic):
-            acc = torch.zeros((row.shape[0], nb, 2), dtype=torch.float32, device=dev)
-            for s in range(2):
-                tau = sub["wob_tau0"][:, m, s][:, None] + w / sub["c"][row][:, None]
-                amp = (sub["wob_amp"][:, m, s] * sub["spk_on"][row, s]).to(torch.float32)[:, None].expand(-1, nb)
-                add_path(acc, row, s, tau, amp)
-            dyn[:, m].index_add_(0, row, acc)
+    wobble_paths(ctx, sub, env_ri, dyn)
     return dyn, key
 
 
@@ -492,8 +503,9 @@ def render_batch(ctx: RenderContext, plans: list, want_parts: bool = False, synt
         out["static"] = static if static is not None else torch.zeros_like(dyn)
 
     # ---- 4. mains hum on the speaker amplifier, microphone colouration ----
-    depth = torch.tensor([2.0 * 10.0 ** (p.hum_db / 20.0) if p.hum_hz > 0 else 0.0 for p in plans], device=dev, dtype=sd)[:, None]
-    if bool((depth > 0).any()):
+    depth_host = [2.0 * 10.0 ** (p.hum_db / 20.0) if p.hum_hz > 0 else 0.0 for p in plans]
+    if any(d > 0 for d in depth_host):
+        depth = torch.tensor(depth_host, device=dev, dtype=sd)[:, None]
         ph = _stack(plans, "hum_ph", dev, sd)
         cyc = _frac_cycles(ctx.k_out[None, :] * (_vec(plans, "hum_hz", dev, gd)[:, None] / fs))   # hum cycles, reduced exactly
         a1, a2 = (2 * math.pi * cyc).to(sd), (4 * math.pi * cyc).to(sd)
@@ -525,12 +537,12 @@ def render_batch(ctx: RenderContext, plans: list, want_parts: bool = False, synt
     if want_parts:
         out["converter_in"] = rx.clone()
     rx = rx.clamp_(-1.0, 1.0)
-    bits = torch.tensor([p.adc_bits for p in plans], device=dev)
-    if bool((bits > 0).any()):
+    if any(p.adc_bits > 0 for p in plans):
+        bits = torch.tensor([p.adc_bits for p in plans], device=dev)
         q = (2.0 ** (bits.clamp_min(1) - 1).to(hd))[:, None, None]
         rx = torch.where((bits > 0)[:, None, None], torch.round(rx * q) / q, rx)
-    swap = torch.tensor([p.swap_mics for p in plans], device=dev)
-    if bool(swap.any()):
+    if any(p.swap_mics for p in plans):
+        swap = torch.tensor([p.swap_mics for p in plans], device=dev)
         rx = torch.where(swap[:, None, None], rx.flip(1), rx)
     rx = rx.transpose(1, 2).to(torch.float32)                                               # [B, n_out, n_mic]
 
@@ -569,8 +581,10 @@ def _gather_sub(ctx: RenderContext, plans: list, rows: list, dec: int, pre_eff: 
         "env_row": ridx,                                                       # row of each clip in the full batch
         "base": grid["kdec"][None, :] + pre_eff[ridx].to(gd)[:, None],          # [b, nb] read position before the delay
         "base_int": grid["kdec_int"][None, :] + pre_eff[ridx][:, None],
+        "pre_eff": pre_eff[ridx], "counts": counts,
         "pos": cat("pos", gd), "rho": cat("rho", f32), "nrm": cat("nrm", f32),
         "use_spec": cat("use_spec", torch.bool), "spec_q": cat("spec_q", f32), "spec_floor": cat("spec_floor", f32),
+        "use_spec_np": np.concatenate([p.use_spec for p in sel]) if sel else np.zeros(0, bool),
         "key": cat("key", torch.bool),
         "spk": _stack(sel, "spk", dev, gd), "spk_axis": _stack(sel, "spk_axis", dev, f32),
         "mic": _stack(sel, "mic", dev, gd), "mic_axis": _stack(sel, "mic_axis", dev, f32),

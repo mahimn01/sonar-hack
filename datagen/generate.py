@@ -156,7 +156,9 @@ def unpack_job(job: tuple) -> dict:
     return {"seed": job[0], "scene": job[1], "profile": job[2], "min_snr": job[3], "keep_audio": job[4],
             "backgrounds": backgrounds, "bg_share": bg_share, "swap_mics": swap_mics, "swap_speakers": swap_speakers,
             "mics": job[9] if len(job) > 9 else None,
-            "tweak": job[10] if len(job) > 10 else None}  # fixed overrides, only used by the parity fixture
+            "tweak": job[10] if len(job) > 10 else None,  # fixed overrides, only used by the parity fixture
+            "motion": job[11] if len(job) > 11 else None,  # file with real tracked hand paths (motion.py), or None
+            "motion_share": job[12] if len(job) > 12 else 0.0}
 
 
 def draw_world(rng: np.random.Generator, core: ad.Core, j: dict, hw_profile: Profile, use_real: bool, n: int) -> tuple:
@@ -166,7 +168,12 @@ def draw_world(rng: np.random.Generator, core: ad.Core, j: dict, hw_profile: Pro
     The CPU and the GPU path both call this, so both make the same draws in the same order.
     """
     centre = STORY / 2 + rng.uniform(-0.35, 0.35) if j["scene"] in GESTURE4 + ("wave",) else None
-    scene = sample_scene(rng, j["scene"], STORY, event_center=centre, lead_in=LEAD_IN, distractors=not use_real)
+    motion = None
+    if j["motion"] and j["motion_share"] > 0:  # real hand paths for a share of the gestures (off: formulas only)
+        from .motion import load_library
+
+        motion = (load_library(j["motion"]), j["motion_share"])
+    scene = sample_scene(rng, j["scene"], STORY, event_center=centre, lead_in=LEAD_IN, distractors=not use_real, motion=motion)
     excerpt = measured = None
     if use_real:  # real laptop + room + noise, synthetic moving scene on top
         audio, measured = _background(str(rng.choice(list(j["backgrounds"]))), core)
@@ -275,6 +282,9 @@ def main() -> None:
     ap.add_argument("--swap-mics", action="store_true", help="the real laptop's microphone channels are swapped (left = channel 1)")
     ap.add_argument("--swap-speakers", action="store_true", help="the real laptop's speaker channels are swapped")
     ap.add_argument("--mics", type=int, default=None, help="microphone channels of the real laptop (default: the simulator's 2)")
+    ap.add_argument("--motion", default=None, help="library of real tracked hand paths (.npz from datagen.mocap_extract); "
+                                                   "default: none, every gesture comes from the formulas in kinematics.py")
+    ap.add_argument("--motion-share", type=float, default=0.5, help="share of gesture clips that replay a real hand path (with --motion)")
     ap.add_argument("--gen-device", default="cpu", choices=["cpu", "cuda", "mps", "torch-cpu"],
                     help="where the clips are computed: cpu = the numpy reference on every core (default); cuda / mps = "
                          "the same clips on the GPU (gpu_pipeline.py); torch-cpu = the GPU code on the CPU (tests)")
@@ -283,6 +293,9 @@ def main() -> None:
                          "single = all float32 (always on MPS)")
     ap.add_argument("--gen-batch", type=int, default=0, help="clips per GPU batch (default: fills the GPU's memory)")
     ap.add_argument("--gen-gpus", type=int, default=0, help="with --gen-device cuda: how many GPUs to use (default: all of them)")
+    ap.add_argument("--gen-kernel", default="auto", choices=["auto", "on", "off"],
+                    help="echo loop on CUDA: auto = the fused kernel (echo_paths.c) if its self-check passes on this GPU, "
+                         "else PyTorch operations; off = PyTorch operations")
     args = ap.parse_args()
     backgrounds = tuple(p for p in args.background.split(",") if p)
 
@@ -305,7 +318,8 @@ def main() -> None:
     for i, kind in enumerate(kinds):
         seen[kind] = seen.get(kind, 0) + 1
         jobs.append((args.seed * 1_000_003 + i, str(kind), args.profile, args.min_snr, seen[kind] <= args.save_audio,
-                     backgrounds, args.background_share, args.swap_mics, args.swap_speakers, args.mics))
+                     backgrounds, args.background_share, args.swap_mics, args.swap_speakers, args.mics)
+                    + ((None, str(Path(args.motion).resolve()), args.motion_share) if args.motion else ()))
 
     t0 = time.time()
     xs, ys, groups, peaks, n_clips, n_missed, errors = [], [], [], [], 0, 0, 0
@@ -322,7 +336,7 @@ def main() -> None:
         device = "cpu" if args.gen_device == "torch-cpu" else args.gen_device
         print(f"{len(jobs)} clips on {device} (PyTorch), {args.workers} worker processes for the random draws and the labels")
         results = generate_gpu(jobs, args.profile, device, args.workers, precision=args.gen_precision, batch=args.gen_batch,
-                               stats=gpu_stats, gpus=args.gen_gpus)
+                               stats=gpu_stats, gpus=args.gen_gpus, kernel=args.gen_kernel)
     with open(out_dir / "manifest.jsonl", "w") as manifest:
         for res in results:
             n_clips += 1
@@ -356,6 +370,8 @@ def main() -> None:
     if pool is not None:
         pool.shutdown()
     if gpu_stats:
+        print(f"  echo loop: {gpu_stats['echo_loop']}" + (f" ({gpu_stats['kernel_note']})" if gpu_stats.get("kernel_note") else "")
+              + f"; plans from the workers: {gpu_stats.get('plan_transport')}")
         print(f"  GPU path on {gpu_stats['device']}: batch {gpu_stats['batch']}, precision {gpu_stats['precision']}, {gpu_stats['batches']} batches, "
               f"render {gpu_stats['render_s']:.1f} s, features {gpu_stats['features_s']:.1f} s, {gpu_stats['redraws']} redraws"
               + (f"; {gpu_stats['oom_splits']} batch(es) did not fit in GPU memory and were split: use --gen-batch "

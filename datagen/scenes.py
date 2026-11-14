@@ -292,6 +292,41 @@ def _wave(rng: np.random.Generator, t: np.ndarray, duration: float, event_center
     return sc
 
 
+def _mocap(rng: np.random.Generator, t: np.ndarray, duration: float, label: str, event_center: float | None, library) -> Scene | None:
+    """A gesture (or, for "none", some other hand movement) replayed from a REAL tracked hand path (motion.py).
+
+    The body around the hand (torso, arm, fingers, tremor) is built exactly as for the formula gestures.
+    Returns None if the library has no clip for this label: the caller then uses the formula.
+    """
+    from .motion import place_motion
+
+    drawn = library.draw(rng, "other" if label == "none" else label)
+    if drawn is None:
+        return None
+    clip, mirrored = drawn
+    person = sample_person(rng)
+    y_max, z0 = _zone(rng, person)
+    if label in ("push", "pull"):
+        y_far = rng.uniform(0.30, max(0.34, y_max))
+        y_near = rng.uniform(0.07, max(0.09, min(0.26, y_far - 0.12)))
+        centre = np.array([rng.normal(0.0, 0.06), 0.5 * (y_far + y_near), z0 + rng.normal(0, 0.03)])
+    else:
+        centre = np.array([rng.normal(0.0, 0.05), rng.uniform(0.12, y_max), z0 + rng.normal(0, 0.03)])
+        if label != "none" and rng.random() < 0.65:          # most people sweep with the hand that starts on that side
+            person.right_handed = label == "swipe_left"
+    tc = float(event_center) if event_center is not None else rng.uniform(0.9, max(1.0, duration - 0.9))
+    placed = place_motion(rng, t, clip, mirrored, label, centre, tc, _home(rng, person), y_max)
+    relax_from = placed["relax_from"] if placed["after"] == "return" else t[-1] + 1.0
+    hand_rho = float(np.exp(rng.normal(0.0 if label != "none" else -0.3, 0.3))) * _relax(t, relax_from, rng.uniform(0.3, 0.9))
+    sc = Scene(t=t, scatterers=_person_scene(rng, t, person, placed["pos"], placed["normal"], hand_rho), label=label)
+    if label != "none":
+        sc.events = [{"label": label, "t_start": placed["t_start"], "t_end": placed["t_end"]}]
+    sc.meta = {"variant": "mocap", "motion_source": clip.get("source", ""), "mirrored": bool(mirrored),
+               "stroke_s": placed["t_end"] - placed["t_start"], "travel_m": placed["travel_m"], "peak_speed": placed["peak_speed"],
+               "hand_y": float(centre[1]), "hand_z": float(centre[2]), **_person_meta(person)}
+    return sc
+
+
 # --------------------------------------------------------------------------
 # Negatives ("none")
 # --------------------------------------------------------------------------
@@ -441,9 +476,14 @@ def sample_scene(
     event_center: float | None = None,
     distractors: bool = True,
     lead_in: float = 0.0,
+    motion: tuple | None = None,
     **kwargs,
 ) -> Scene:
     """Draw one random scene of class `label`.
+
+    motion       (MotionLibrary, share): with probability `share` a gesture replays a real tracked hand path
+                 from the library instead of the formula stroke (and a "none" clip, half as often, some other
+                 real hand movement). None = formulas only, exactly as before.
 
     duration     : length of the scripted story in seconds.
     lead_in      : quiet seconds added BEFORE the story (person already there,
@@ -453,7 +493,14 @@ def sample_scene(
     event_center : middle of the gesture stroke, in story time; random if None.
     """
     t = time_axis(duration, lead_in)
-    if label in ("swipe_left", "swipe_right"):
+    sc = None
+    if motion is not None and label in ("swipe_left", "swipe_right", "push", "pull", "none"):
+        library, share = motion
+        if rng.random() < (share if label != "none" else 0.5 * share):
+            sc = _mocap(rng, t, duration, label, event_center, library)
+    if sc is not None:
+        pass
+    elif label in ("swipe_left", "swipe_right"):
         sc = _swipe(rng, t, duration, -1.0 if label == "swipe_left" else 1.0, event_center)
     elif label in ("push", "pull"):
         sc = _push_pull(rng, t, duration, label, event_center)

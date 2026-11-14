@@ -18,3 +18,8 @@ train_out/
 !models-release*/**
 # The stored CPU results the GPU parity check compares against (small, committed on purpose)
 !tests/fixtures/*.npz
+# The hand tracker's own environment and what it produces (videos are never committed)
+.venv-mocap/
+datagen/motion/
+# The motion library itself is small, CC BY 4.0, and committed (see its README)
+!datagen/motion_library/*.npz

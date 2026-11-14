@@ -80,6 +80,7 @@ class ClipPlan:
     noise: np.ndarray | None = None  # [n_mic, n_out] hall + microphone noise (full-scale units)
     gain: np.ndarray | None = None   # [n_out] slow gain wander
     real: np.ndarray | None = None   # [n_out, n_real_mics] float32 real background excerpt (overlay clips)
+    shm: list | None = None          # where the big arrays sit while they travel in shared memory (gpu_pipeline._to_slot)
 
 
 def _pack_response(r: object) -> tuple:

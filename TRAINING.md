@@ -391,10 +391,12 @@ minutes of all cores at 100 %. Now, with `--device cuda`:
 | step | before | now |
 |---|---|---|
 | synthetic clips (`datagen`) | numpy, one clip per core | the echo paths, the room, the microphone, the rounding: batches of a few hundred clips on the GPU (`datagen/render_torch.py`); the CPU draws the random numbers (the same ones, in the same order) and attaches the labels |
+| the echo loop inside that (86 % of the rendering) | numpy | one hand-written CUDA kernel (`datagen/echo_paths.c`, compiled at run time by the compiler library inside PyTorch; no Visual Studio needed). It checks itself against the plain PyTorch code first and is switched off automatically if anything is wrong (`--gen-kernel off` does it by hand) |
 | Doppler pictures of the clips and of the recordings | the engine's code, one clip per core, including the chirp receiver, presence and breathing that gesture pictures never use (a quarter of that step) | the gesture chain only, batched on the GPU (`sonar/features_torch.py`); where a movement burst starts and ends is still decided by the engine's own code |
 | pre-training | after all the data was made | runs while the clips on real backgrounds are being made |
 | sweep (`--sweep`) | 9 runs one after the other | 4 at a time on the one GPU (`--sweep-jobs`) |
-| the training step itself | already on the GPU (section 12) | unchanged |
+| the training step itself | already on the GPU (section 13) | unchanged |
+| the gestures themselves | formula strokes | half of them replay real tracked hand paths (section 12; `--motion none` for formulas only) |
 
 The files are the same as before: same `dataset.npz` layout, shapes, number formats, labels,
 manifest, cache folders, `gesture.onnx / .json / .pt`, `TRAINING_RUN.json` (which now also says
@@ -433,9 +435,11 @@ below what a real mistake (wrong delay, channel, filter) produces. The limits an
 are at the top of `datagen/parity.py`. `tests/fixtures/gpu_parity_reference.npz` stores a small
 summary of the CPU results, so a later change to either code is noticed.
 
-**Commands on the 4090** (Windows shown; Linux: `.venv/bin/python`):
+**Commands on the 4090** (Windows shown; Linux: `.venv/bin/python`). `HANDOFF_LANCE_GPU.md` has the same
+with the expected output of each step and what to send back:
 ```powershell
-.venv\Scripts\python scripts\check_gpu_parity.py          # the picture check alone (1-2 min); exit code 0 = same pictures
+.venv\Scripts\python -m datagen.echo_kernel                # the CUDA kernel's self-check (1 min): "KERNEL OK ..." or the reason
+.venv\Scripts\python scripts\check_gpu_parity.py          # the picture check alone (1-3 min); exit code 0 = same pictures
 .venv\Scripts\python scripts\bench_gpu.py                 # clips per second for every stage, GPU load and memory (3-5 min)
 powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1            # the full run; data on the GPU, check included
 powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --sweep    # + 9 fine-tuning runs, 4 at a time
@@ -443,15 +447,24 @@ powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --sweep    # + 9
 Please send back the output of `bench_gpu.py` (and its JSON file under `train_out/bench/`): nothing
 here was timed on a 4090, and its numbers decide what to speed up next.
 
-**Speed, honestly.** Measured on the Mac Studio (shared with other jobs): the CPU code needs
-0.92 s of one core per clip; the GPU path needs about 45 ms of CPU per clip (33 ms for the random
-draws, 11 ms for the bursts and labels), so the CPU work drops about 20-fold. The GPU code run on that Mac's CPU is no faster
-than the old code (3.4 clips a second against 3.7 with 4 worker processes; 86 % of its time is the echo loop): the gain comes only from a GPU. For the 4090 the GPU part is an estimate from
-counting operations (about 5 GB of memory traffic per clip, mostly the echo loop, against roughly
-1,000 GB/s of memory speed): 5-10 ms per clip, i.e. the 12,000 clips in 1-2 minutes instead of
-10-13 (6-10x). It could be 2x better or worse; `bench_gpu.py` gives the real figure. The echo
-loop is plain PyTorch (300 small operations per batch); a hand-written CUDA kernel for it would
-be the next step if the bench shows it dominates, and was not written blind (this Mac has no CUDA).
+**Speed, honestly.** Nothing below was measured on a 4090.
+- Measured on the Mac Studio's CPU: the old code needs 0.92 s of one core per clip. The GPU path
+  needs about 40 ms of CPU per clip (29-33 ms for the random draws, 9-11 ms for the bursts and
+  labels), so the CPU work drops about 20-fold. The GPU code run on that CPU is no faster than the
+  old code (3.4 clips a second against 3.7 with 4 processes): the gain needs a GPU.
+- Measured on the Mac Studio's own GPU (Apple M1 Max, all float32, plain PyTorch echo loop): 13.7
+  clips a second end to end against 6.8 for the old code on 6 cores (2x). The echo loop takes
+  72 ms of its 83 ms per clip; the FFT steps together 9 ms, the Doppler pictures 2 ms. That is
+  the first run of this code on any GPU.
+- The echo loop is therefore a fused CUDA kernel on NVIDIA cards. Its arithmetic was verified on
+  the Mac (the same C file compiled for the CPU agrees with the PyTorch loop to 2.5e-7 and passes
+  the picture check against the CPU reference), but **its GPU launch has never run**:
+  `python -m datagen.echo_kernel` is its self-check on the 4090, and the picture check covers it.
+- Estimates for the 4090 (not measurements): with the plain PyTorch loop 10-30 ms of GPU per clip,
+  i.e. 2-6 minutes for the 12,000 clips instead of 10-13; with the kernel well under 1 ms for the
+  loop, after which the FFT steps and the CPU's random draws (about 2 ms per clip on 16 cores) set
+  the pace: roughly 30-60 s for 12,000 clips. `python scripts/bench_gpu.py` prints the real
+  figures, with and without the kernel.
 
 **Options.**
 
@@ -459,17 +472,59 @@ be the next step if the bench shows it dominates, and was not written blind (thi
 |---|---|
 | `--gen-device cpu` | the original CPU code for clips and session pictures (the reference; no picture check needed) |
 | `--gen-precision fast` | float32 for the three big FFT steps instead of float64. Possibly faster (see `bench_gpu.py`); about 1 clip in 25 then gets a burst boundary moved by a frame, so the default is the exact `ref` |
+| `--gen-kernel off` | the echo loop as plain PyTorch operations instead of the fused CUDA kernel (same pictures, slower). Automatic when the kernel's self-check fails |
 | `--gen-batch N` | clips per GPU batch (default: fills the card's free memory; a batch that does not fit is split in two automatically and the log says so) |
+| `--gen-gpus N` | on a machine with several GPUs: how many to use (default all; clips are rendered on each, training runs are dealt out in turn) |
 | `--skip-parity`, `--recheck-parity` | skip / repeat the picture check |
 | `--sweep-jobs N`, `--no-overlap` | training runs sharing the GPU (default 4) / make all data first, then train |
-| `--gen-device mps` | Apple GPU. Written but **not verified on a real Apple GPU** (it has no float64, so it is less exact); the picture check runs first and decides |
+| `--gen-device mps` | Apple GPU, opt-in. Checked on an M1 Max: it passes the picture check with its own, looser limits (Apple GPUs have no float64, so about 1 clip in 13 gets a burst boundary moved by a frame) and is about 2x faster than 6 CPU cores. `--gen-batch 32` on a Mac with 32 GB or more |
 
 **Falling back.** If the picture check fails, or the GPU path misbehaves in any way: add
 `--gen-device cpu`. That is the old pipeline, byte for byte (checked: the same `dataset.npz` and
 `manifest.jsonl` as before this change, for three kinds of data set). Send the report the check
 names (`train_out/parity/last_*.json`) and the log.
 
-## 12. Speed: the training step on the GPU
+## 12. Real hand movements in the synthetic data
+
+Until now every synthetic gesture was a formula: a smooth stroke, fast in the middle. Half of them
+now replay the path of a **real hand**, tracked from webcam videos of 15 people (the other half and
+everything around the hand, the arm, the body, the room, are as before).
+
+- The paths are in `datagen/motion_library/unica_v1.npz` (132 kB, committed): 123 movements, left,
+  right, towards and away, from the University of Cagliari gesture videos (CC BY 4.0; credit and
+  details in `datagen/motion_library/README.md`). Nothing needs to be downloaded to train.
+- What is real: how a stroke speeds up and slows down, how the path curves, how the palm turns,
+  the wind-up before it and the movement after it. What is set by us: where in front of the screen
+  it happens, its size and tempo (the demo's gesture range), and left/right by mirroring.
+- The label of a clip comes from the direction the tracked hand really travels, not from the
+  video's file name.
+- `--motion none` gives the old formula-only data; `--motion-share 0.3` changes the share
+  (default 0.5); `--motion <file>` uses another library. The choice is part of the cache key and is
+  written into `TRAINING_RUN.json`.
+- The picture check also runs 40 real-path clips through both the CPU and the GPU code.
+- To add your own: film each gesture a few times with the demo laptop's webcam and run
+  `datagen/mocap_extract.py` on the clips (its header and the library's README have the commands).
+  That gives paths with exactly the demo's geometry.
+
+**Does it help? One experiment, on synthetic test clips only** (640 gesture + 160 other training
+clips per run, 3 seeds each, MacBook-free, 2 microphones; "real paths" = test clips whose gestures
+replay library paths):
+
+| trained on | tested on | gestures recognised at 0.6 | non-gestures that trigger |
+|---|---|---|---|
+| formula gestures | formula gestures | 0.75 | 0.17 |
+| formula gestures | real paths | **0.26** | 0.21 |
+| half formula, half real paths | formula gestures | 0.65 | 0.12 |
+| half formula, half real paths | real paths | **0.51** | 0.21 |
+
+A model that has only seen formula strokes misses three of four gestures made with real hand
+movements. That is the same size as the gap Lance measured on real recordings (0.73 on held-out
+synthetic clips, 0.30 on the held-out person), which is why the mix is now the default. Limits of
+this experiment: the test paths come from the same 15 people as the training paths (placed, sized
+and mirrored anew, but not strangers), the sets are small, and it says nothing yet about real
+recordings. The real test is the held-out person's score with and without `--motion none`.
+
+## 13. Speed: the training step on the GPU
 
 `sonar.train` keeps the whole dataset on the GPU (float16, about 1.2 GB for 20,000 pictures), and
 draws every batch, applies all the augmentation (time shift, mirror, faster/slower, louder/quieter,
@@ -499,7 +554,7 @@ there are no GPU timings yet):
   one run on a small subset, so CUDA's 256 is a reasonable default to confirm on the 4090, not a
   proven match; `--batch 64` gives the exact recipe the Mac's numbers were made with.
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 | problem | fix |
 |---|---|
@@ -508,7 +563,7 @@ there are no GPU timings yet):
 | `No Python environment at .venv` | steps 2 and 3, in the repo folder |
 | `the recordings come from more than one device` | HP and MacBook sessions are mixed: give each laptop its own folder and use `--data` (section 9.5) |
 | `CUDA out of memory` | while training: `--batch 128` or `--sweep-jobs 2`; while making data: `--gen-batch 128` (normally the generator halves its batch by itself and says so) |
-| `the GPU does NOT make the same training pictures as the CPU code` | add `--gen-device cpu` to train with the CPU generator, and send `train_out/parity/last_*.json` with the log (section 11) |
+| `the GPU does NOT make the same training pictures as the CPU code` | add `--gen-device cpu` to train with the CPU generator, and send `train_out/parity/last_*.json` with the log (section 11, `HANDOFF_LANCE_GPU.md`) |
 | the computer becomes sluggish while generating | `--workers 8` (default: every core; on the GPU path the workers only draw random numbers and attach labels) |
 | `no usable recordings` although data/ has folders | read the session table: each skipped folder says why (profile, too short, unreadable, simulator) |
 | a session "only N s of audio" | it was copied while still recording: copy it again once the recorder has finished |

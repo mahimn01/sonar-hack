@@ -1,0 +1,20 @@
+{
+ "clips_in": 125,
+ "kept": 123,
+ "per_label": {
+  "pull": 28,
+  "push": 25,
+  "swipe_left": 42,
+  "swipe_right": 28
+ },
+ "dropped": {
+  "no hand found": 0,
+  "hand lost too often": 0,
+  "path does not show the gesture": 2,
+  "unreadable": 0
+ },
+ "subjects": 15,
+ "stroke_seconds_median": 0.3333333333333333,
+ "travel_m_median": 0.18084078760552114,
+ "peak_speed_median": 0.8401384384181987
+}

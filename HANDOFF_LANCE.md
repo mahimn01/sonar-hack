@@ -71,8 +71,13 @@ scripts/train_4090.sh --device mps --size small --release models-release-mac --p
   `python scripts/check_gpu_parity.py` (the check alone) and `python scripts/bench_gpu.py` (speed of every step; please send
   its output back, nothing was timed on a 4090 yet).
 - **On this MacBook** (`--device mps` or `cpu`) nothing changes by default: the data is still made on the CPU cores.
-  `--gen-device mps` moves it to the Apple GPU, but that path has **not been run on a real Apple GPU yet**; it runs the same
-  check first and only goes on if the pictures match. If it stops there, drop the flag.
+  `--gen-device mps` moves it to the Apple GPU. That was run on an M1 Max: about twice as fast as six CPU cores, and it
+  passes the same check with looser limits (about 1 clip in 13 gets a movement burst moved by a frame, because Apple GPUs
+  have no 64-bit numbers). It runs the check first and only goes on if the pictures match. If it stops there, or the
+  MacBook runs short of memory, drop the flag.
+- **Half of the synthetic gestures now replay real hand paths** tracked from webcam videos of 15 people
+  (`datagen/motion_library/`, comes with the repo). `--motion none` gives the old formula-only data.
+- Exact commands, expected output and what to send back for the 4090: **`HANDOFF_LANCE_GPU.md`**.
 - The model files, the folders and every other option are the same as before.
 
 ## Step 5. Demo

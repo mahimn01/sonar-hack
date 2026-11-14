@@ -101,6 +101,24 @@ def test_render_does_not_depend_on_the_batch(clips):
         assert np.array_equal(alone, together[i])
 
 
+def test_fused_kernel_code_equals_torch_echo_loop(clips):
+    """datagen/echo_paths.c (the CUDA kernel's source, compiled here as plain C) == the PyTorch echo loop."""
+    import shutil
+
+    if shutil.which(os.environ.get("CC", "cc")) is None:
+        pytest.skip("no C compiler here")
+    from datagen import echo_kernel
+    from datagen.gpu_pipeline import GpuRenderer, plan_clip
+
+    plans = [plan_clip((job, 0, None, True))["plan"] for job, _ in clips]
+    ref = GpuRenderer(None, "cpu", kernel="off").render(plans, want_parts=True)
+    got = GpuRenderer(None, "cpu", kernel="host").render(plans, want_parts=True)
+    a, b = got["dynamic"].numpy(), ref["dynamic"].numpy()
+    assert np.sqrt(np.mean((a - b) ** 2)) < 2e-6 * np.sqrt(np.mean(b ** 2))        # float32 rounding of the same sum
+    np.testing.assert_allclose(got["snr_db"].numpy(), ref["snr_db"].numpy(), atol=1e-4, equal_nan=True)
+    assert echo_kernel.usable(torch.device("cpu"))[0] is False                    # never claimed usable without CUDA
+
+
 def test_plan_makes_the_same_random_draws_as_render(clips):
     """After planning, a clip's random generator is where render() would have left it."""
     from datagen.hardware import Profile
