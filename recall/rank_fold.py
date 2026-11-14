@@ -81,8 +81,12 @@ def main() -> None:
     ap.add_argument("--min-seeds", type=int, default=0,
                     help="rank a fold from this many held-out networks when some of its runs are missing (default: all; such rows are "
                          "marked). A fold whose setting runs are missing is never ranked.")
+    ap.add_argument("--no-pulls", action="store_true",
+                    help="do not count prompts for a gesture the model has no class for (pull) as non-gestures (the released "
+                         "definition counts them; only Mahimn's second session has them)")
     args = ap.parse_args()
     run = Run(Path(args.run))
+    run.no_pulls = args.no_pulls
     need = min(args.min_seeds, len(run.seeds)) if args.min_seeds else len(run.seeds)
     h = args.person
     cuts = run.man.get("tables", ["std"])
@@ -108,7 +112,8 @@ def main() -> None:
     base_ceiling = ceiling([np.log(probs + 1e-12)], y[m])
     assert len(base_ok) == base["n"], "a prompt has two labelled bursts"
     print(f"Held-out person: {h}. Model to beat: {shipped.name} with {base_cut} cutting: {base['hits']}/{base['n']} = {base['hits'] / base['n']:.3f} recognised, "
-          f"{base['false']}/{base['n_none']} = {base['false'] / base['n_none']:.3f} false triggers (budget {BUDGET}).")
+          f"{base['false']}/{base['n_none']} = {base['false'] / base['n_none']:.3f} false triggers (budget {BUDGET})."
+          + (" PULL PROMPTS ARE NOT COUNTED as non-gestures in anything below (--no-pulls)." if run.no_pulls else ""))
 
     rows, unfinished, equal = [], [], []
     for k, arm in enumerate(run.arms):

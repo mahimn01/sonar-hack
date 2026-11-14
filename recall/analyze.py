@@ -45,6 +45,7 @@ class Run:
         self.man = json.loads((self.dir / "manifest.json").read_text())
         self.humans, self.seeds, self.arms = self.man["humans"], self.man["seeds"], self.man["arms"]
         self.min_seeds = len(self.seeds)      # held-out networks a fold needs to be scored (--min-seeds lowers it for a run with missing runs)
+        self.no_pulls = False                 # True: prompts for a gesture the model has no class for (pull) are not counted as non-gestures
         self._tables: dict[str, tuple] = {}
         self._cache: dict[tuple[str, str], np.ndarray | None] = {}
 
@@ -60,7 +61,10 @@ class Run:
                 r = {k: z[k] for k in z.files if k not in ("X", "X_wide")}
             lut = {n: i for i, n in enumerate(LABELS)}
             y = np.array([lut.get(str(x), 0) for x in r["label"]], dtype=np.int64)
-            self._tables[v] = (r, y, np.isin(r["source"], ["gesture", "burst", "idle"]) & ~r["locked"])
+            scored = np.isin(r["source"], ["gesture", "burst", "idle"]) & ~r["locked"]
+            if self.no_pulls:                 # the released definition counts a pull prompt as "nobody gestured"; this leaves it out
+                scored &= ~((r["source"] == "gesture") & ~np.isin(r["label"], LABELS[1:]))
+            self._tables[v] = (r, y, scored)
         return self._tables[v]
 
     def logits(self, job: str, cut: str | None = None) -> np.ndarray | None:
@@ -458,13 +462,20 @@ def main() -> None:
     ap.add_argument("--min-seeds", type=int, default=0,
                     help="score a fold from this many held-out networks when some of its runs are missing (default: all of them; "
                          "such folds are marked). A fold whose setting runs are missing is never scored.")
+    ap.add_argument("--no-pulls", action="store_true",
+                    help="do not count prompts for a gesture the model has no class for (pull) as non-gestures, neither when the "
+                         "confidence setting is chosen nor in the scores (the released definition counts them); writes analysis_no_pulls.*")
     args = ap.parse_args()
     run = Run(Path(args.run))
+    run.no_pulls = args.no_pulls
     if args.min_seeds:
         run.min_seeds = min(args.min_seeds, len(run.seeds))
     arms = [a for a in (args.arms.split(",") if args.arms else run.arms) if a in run.arms]
     lines = [f"# Analysis of run `{run.dir.name}`", "",
              "Gestures recognised / non-gestures that trigger at the engine's 0.6 threshold; 3-seed average; each human held out in turn.",
+             *(["**Pull prompts are left out of the non-gestures here (--no-pulls).** The released definition, and every number reported "
+                "before 2026-11-14 12:20, counts a pull prompt as \"nobody gestured\"; only Mahimn's second session has them (12)."]
+               if run.no_pulls else []),
              *([f"**A fold is scored from {run.min_seeds} or more of its {len(run.seeds)} held-out networks (--min-seeds); folds with fewer than "
                 f"{len(run.seeds)} are marked \"N networks\".** Recipes with a fold that cannot be scored are listed in section 4."]
                if run.min_seeds < len(run.seeds) else []),
@@ -575,8 +586,9 @@ def main() -> None:
         lines += [f"| {arm} | {h} | {why} |" for arm, d in skipped.items() for h, why in d.items()]
         lines.append("")
     text = "\n".join(lines) + "\n"
-    (run.dir / "analysis.md").write_text(text)
-    (run.dir / "analysis.json").write_text(json.dumps(result, indent=1, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)))
+    stem = "analysis_no_pulls" if run.no_pulls else "analysis"
+    (run.dir / f"{stem}.md").write_text(text)
+    (run.dir / f"{stem}.json").write_text(json.dumps(result, indent=1, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)))
     print(text)
 
 

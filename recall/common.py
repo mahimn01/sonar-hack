@@ -16,8 +16,9 @@ REPO = Path(__file__).resolve().parent.parent
 STREAMS = REPO / "train_out" / "recall" / "streams"
 GESTURES = ("swipe_left", "swipe_right", "push", "pull")
 # lance and lance2 are the same human on the same MacBook, 24 minutes apart (session.json: same device,
-# lance2 notes "25cm"). For "unseen person" scores they must be held out together.
-HUMAN = {"lance": "lance", "lance2": "lance", "aarsh": "aarsh", "mahimn": "mahimn"}
+# lance2 notes "25cm"). For "unseen person" scores they must be held out together. lance3 (04:50, pushed 11:42 as
+# a held-out session) is the same human again: a fresh session of a KNOWN person, never an unseen-person test.
+HUMAN = {"lance": "lance", "lance2": "lance", "lance3": "lance", "aarsh": "aarsh", "mahimn": "mahimn"}
 # Sessions in which the person swept the OPPOSITE way to the prompts (measured on the audio: left-speaker tone minus
 # right-speaker tone is -63 Hz on "swipe_left" prompts and +91 Hz on "swipe_right" prompts; label-audit t = -7.1).
 FLIPPED = ("20261114-001248_mahimn_gestures",)

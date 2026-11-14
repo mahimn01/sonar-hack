@@ -124,6 +124,13 @@ four at a time).
 
 ---
 
+## Step B2 — not needed any more
+
+Step C's run of 12:46 (branch `recall-results-2`) built the final models of `share50_none50` and `real_pre`. The
+third candidate, `share75_aux`, is weak over three people (120/206) and is not worth GPU time.
+
+---
+
 ## Step C — add the recipes on the fitted simulator (GPU, about 1.5 hours with the GPU to itself)
 
 **Is it worth the GPU time?** Step B is complete (540 of 540) and its answer is that 36 recipes cannot be told
@@ -133,8 +140,18 @@ MacBook. Run it if the question "does the fitted simulator help?" is wanted for 
 change the shipped model. Nothing of Step B has to be redone.
 
 It needs the calibrated sets from `HANDOFF_LANCE_CALIBRATION.md`
-(`train_out\synth_cal\macbook_v*\...\dataset.npz`). Without them there is nothing to train and it only builds
-the two final models named at the end (about 5 minutes).
+(`train_out\synth_cal\macbook_v*\...\dataset.npz`). **The run of 12:46 found none** ("family macbook_v2 (0 sets
+found)") and trained nothing new; run this step again only when `dir train_out\synth_cal` below lists the sets.
+
+Which sets feed which recipes (the suite trains what it finds and names the rest as "skipped"; running the step
+again later adds them):
+
+| sets | recipes | state on 2026-11-14 13:00 (GPU session) |
+|---|---|---|
+| `macbook_v2` | cal50, cal25, cal50_aux, cal_pre_real | not affected by the hang |
+| `macbook_v2_motion` | calm50, calm50_aux | not affected |
+| `macbook_v2_rel12` | cal50_aux_rel12 | made by part E |
+| `macbook_v2_bg`, `macbook_v2_bg_rel12` | calbg50, calbg50_aux, calbg25_aux and the three `calbg*_rel12` | blocked until the set generator's fix is pulled and parts C and E are rerun |
 
 **It must run in the folder that holds the complete run**, or the same command starts from zero (3 hours). The
 gap fill's log names it: `C:\Users\lance\sonar-wt-recall` (the first run was in `sonar-wt-recall-suite`). The
@@ -148,31 +165,30 @@ git fetch origin
 git merge origin/recall                   # newest suite code (watchdog, memory release); the recordings in mac\ stay
 
 # The calibrated sets must be visible HERE as train_out\synth_cal. The calibration handoff may have made them in
-# another folder: find it (it holds INDEX.json) and link it in instead of copying about 8 GB.
-$cal = Get-ChildItem C:\Users\lance -Directory -Filter "sonar*" | ForEach-Object { Join-Path $_.FullName "train_out\synth_cal" } | Where-Object { Test-Path (Join-Path $_ "INDEX.json") } | Select-Object -First 1
+# another folder: find the one that holds finished sets and link it in instead of copying about 8 GB.
+$cal = Get-ChildItem C:\Users\lance -Directory -Filter "sonar*" | ForEach-Object { Join-Path $_.FullName "train_out\synth_cal" } | Where-Object { (Test-Path $_) -and (Get-ChildItem $_ -Recurse -Filter dataset.npz -ErrorAction SilentlyContinue | Select-Object -First 1) } | Select-Object -First 1
 $cal                                      # must print a folder; nothing printed = the calibrated sets are not on this box yet
 if ($cal -and -not (Test-Path train_out\synth_cal)) { cmd /c mklink /J train_out\synth_cal "$cal" }
 dir train_out\synth_cal                  # expect macbook_v2, macbook_v2_motion, macbook_v2_bg, macbook_v2_rel12, macbook_v2_bg_rel12; each with all / no_lance / no_aarsh / no_mahimn
 
-powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp 20261114-061651 --finals share50_none50,real_pre
+powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp 20261114-061651
 ```
 
 What to expect in the log: "calibrated simulator data: family macbook_v2 (.. sets found)", then
 "folds: 735 training runs, 195 to do" (13 recipes x 15; fewer if a set is missing, and the log then names the
-recipe as "skipped"), and "DONE" at the end. `--finals` also builds the models that ship for the two recipes
-Step B's analysis picks (`share50_none50` by the rule, `real_pre` by the stricter setting). If it says the folder "was built from other sessions, labels or code", stop and send that line back
+recipe as "skipped"), and "DONE" at the end. If it says the folder "was built from other sessions, labels or code", stop and send that line back
 instead of starting a fresh run.
 
-Push back (branch **`recall-results-2`**): the same folder again.
+Push back (branch **`recall-results-3`**; `recall-results-2` is taken by the run of 12:46): the same folder again.
 
 ```powershell
 $run = "train_out\recall\suite\20261114-061651"
 Remove-Item recall_results -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force recall_results | Out-Null
 Copy-Item $run recall_results\ -Recurse -Force
-git switch -c recall-results-2
+git switch -c recall-results-3
 git add -f recall_results
 git commit -m "Recall suite results with the added recipes"
-git push -u origin recall-results-2
+git push -u origin recall-results-3
 git switch -
 ```
