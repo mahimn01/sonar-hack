@@ -1,0 +1,73 @@
+data-engine run 2026-11-14 04:41 on ADAM-GAMING (Windows 11)
+python 3.12.10 | torch 2.15.0+cu132 | cuda True | NVIDIA GeForce RTX 4090
+code: 48e2518 Data engine: label QA, weak labels with hard negatives, engine replay, table calibration, 4090 run script and handoff
+model: C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx   held-out: mahimn
+[01_replay]
+replayed through the engine (confidence >= 0.6, strength gate 30.6 dB):
+  mahimn         recognised  19/81  ( 23.5%)   wrong 22   missed  40   false triggers 1 (0.15/min)   [push 7/27, swipe_left 9/27, swipe_right 3/27]
+why the missed ones were missed:
+    13  blocked: too faint for the engine's gate
+     7  blocked: taken for somebody walking in or past
+    16  right gesture, confidence too low
+     4  another gesture, below the threshold
+most common: right gesture, confidence too low -> the model leans the right way but is unsure: more people in training, the table calibration (sonar.adapt), or a lower --min-confidence
+false triggers happened during: between (1)
+time: 13.1 min of audio replayed in 6.4 s on 4 worker process(es); classifier: model
+[02_replay_gate8]
+replayed through the engine (confidence >= 0.6, strength gate 8.0 dB):
+  mahimn         recognised  19/81  ( 23.5%)   wrong 22   missed  40   false triggers 1 (0.15/min)   [push 7/27, swipe_left 9/27, swipe_right 3/27]
+why the missed ones were missed:
+     4  blocked: too faint for the engine's gate
+    11  blocked: taken for somebody walking in or past
+    18  right gesture, confidence too low
+     7  another gesture, below the threshold
+most common: right gesture, confidence too low -> the model leans the right way but is unsure: more people in training, the table calibration (sonar.adapt), or a lower --min-confidence
+false triggers happened during: between (1)
+time: 13.1 min of audio replayed in 6.4 s on 4 worker process(es); classifier: model
+[03_labelqa]
+   !! LONG BURSTS: 34% of the gesture bursts run into the 1.4 s limit (typical strength 44 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   !! LONG BURSTS: 38% of the gesture bursts run into the 1.4 s limit (typical strength 48 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   !! LONG BURSTS: 80% of the gesture bursts run into the 1.4 s limit (typical strength 44 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   !! LONG BURSTS: 56% of the gesture bursts run into the 1.4 s limit (typical strength 41 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   !! LEFT/RIGHT LOOKS FLIPPED for the prompt labels (25 of 28 swipes): the microphone / speaker channels are swapped on this laptop (training measures and handles that), or the performer swiped the other way
+   !! LONG BURSTS: 42% of the gesture bursts run into the 1.4 s limit (typical strength 46 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+=== 13 session(s): 218 labelled gestures (0 camera-timed, 218 prompt windows), 1 with no sonar movement, 0 for review, 34 to check
+  physics vs prompt labels: same   37%, saw no gesture   30%, other gesture   33%   (n=218)
+  model   vs prompt labels: same   67%, saw no gesture   19%, other gesture   14%   (n=218)
+  swipe direction vs the physics cues, prompt labels: 28 of 86 opposite
+  fires on known negatives: 6 of 349 (2%)
+  burst cutting (218 gesture bursts): typical length 1.10 s, 51% cut off at the length limit, 2.1 bursts per gesture, typical strength 44 dB, 2.3% of the picture saturated, burst start after the prompt varies by 1.21 s
+  recognised in SOME burst of its prompt: 147 of 218; another burst fits the prompt better than the chosen one: 0
+  per person (physics agreement with the labels / to check):
+    aarsh           30/45    67%   0 to check
+    lance            8/35    23%   3 to check
+    lance2           5/45    11%   0 to check
+    mahimn          38/93    41%   31 to check
+
+wrote qa.json per session and C:\Users\lance\sonar-hack\train_out\dataeng\qa\labelqa_summary.json
+gesture bursts cut off at the length limit: 51 %, typical strength 44 dB -> long loud bursts: True
+[05_adapt_eval]
+                                            base                        bn                     proto                  bn+proto
+person                        acc  recall  false        acc  recall  false        acc  recall  false        acc  recall  false
+mahimn                       0.715  0.264  0.050       0.703  0.264  0.020       0.709  0.375  0.070       0.709  0.361  0.030
+MEAN of 1                    0.715  0.264  0.050       0.703  0.264  0.020       0.709  0.375  0.070       0.709  0.361  0.030
+  bn        accuracy better for 0, worse for 1 of 1
+  proto     accuracy better for 0, worse for 1 of 1
+  bn+proto  accuracy better for 0, worse for 1 of 1
+acc = share of the test pictures named correctly; recall = gestures recognised at the engine's 0.6 threshold; false = non-gestures that would trigger there
+[06_parity]
+parity on 6 session(s), 375 bursts; step 1 by: cpu; judge: physics rules batched on cuda; model: PyTorch on cuda
+  bursts found at the same frames:        yes
+  pictures, worst difference:             0.00e+00   (limit 2e-03)
+  physics rules, worst probability diff:  4.43e-07   (limit 1e-04), 0 different verdicts
+  model, worst probability difference:    1.72e-06   (limit 5e-03), 0 different verdicts
+PARITY OK
+[07_train_weak]
+wrote C:\Users\lance\sonar-hack\train_out\weak\weak.npz: 12 extra examples {'hardneg': 10, 'retimed': 2} labelled {'none': 10, 'swipe_left': 1, 'swipe_right': 1} from 14 session(s), classifier: model
+wrote C:\Users\lance\sonar-hack\train_out\weak\hard_negatives.npz: 10 hard negatives; where they happened: {'free:distractor': 4, 'free:walk_out': 1, 'free:breathing': 2, 'free:present_still': 1, 'free:empty': 1, 'free:walk_in': 1}
+DONE in 58.1 min. Model: C:\Users\lance\sonar-hack\train_out\weak_models/gesture.onnx (+ gesture.json, gesture.pt), copied to C:\Users\lance\sonar-hack\train_out\weak_release/
+Honest score on mahimn: accuracy 0.737, macro-F1 0.627; at the engine's 0.6 threshold 0.407 of gestures recognised, 0.037 of non-gestures would trigger
+Verdict: POOR: do not rely on it yet; see TRAINING.md, 'If the numbers are poor'
+[08_train_relcut, SONAR_SEG_REL_OFF_DB=12]
+STOPPED on request at 2026-11-14 06:04 America/New_York, during synthetic-data generation for the peak-relative burst-cutting training run (about 9600/12000 clips). Steps 00-07 had finished. The process tree (dataeng_4090.py PIDs 32836/4428 and train_4090/datagen children under train_out\\rel12) was terminated.
+total: stopped after about 83 minutes (04:41-06:04 ET)

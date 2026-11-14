@@ -1,0 +1,73 @@
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.labelqa C:\Users\lance\sonar-hack\mac --model C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx --no-plot --out C:\Users\lance\sonar-hack\train_out\dataeng\qa
+(exit code 0, 14 s)
+
+20261113-232748_lance_scene: 0 gestures (0 camera, 0 prompt); fires on 1/83 negatives; 0 to check
+20261113-233122_lance_gestures: 35 gestures (0 camera, 35 prompt); 1 with no sonar movement; physics agrees with the prompt label 8/35; model agrees with the prompt label 33/35; fires on 0/1 negatives; 3 to check
+   !! LONG BURSTS: 34% of the gesture bursts run into the 1.4 s limit (typical strength 44 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   [  19.9 s] check: labelled swipe_right, physics reads the opposite direction
+   [  37.3 s] check: the prompt asked for push, but the sonar saw no movement there (too far / too faint / clock offset?)
+   [  61.9 s] check: labelled swipe_left, physics reads the opposite direction
+20261113-233427_lance_breathing: 0 gestures (0 camera, 0 prompt); fires on 0/7 negatives; 0 to check
+20261113-235154_lance2_scene: 0 gestures (0 camera, 0 prompt); fires on 1/72 negatives; 0 to check
+20261113-235514_lance2_gestures: 45 gestures (0 camera, 45 prompt); physics agrees with the prompt label 5/45; model agrees with the prompt label 45/45; 0 to check
+   !! LONG BURSTS: 38% of the gesture bursts run into the 1.4 s limit (typical strength 48 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+20261113-235900_lance2_breathing: 0 gestures (0 camera, 0 prompt); fires on 0/6 negatives; 0 to check
+20261114-000902_mahimn_scene: 0 gestures (0 camera, 0 prompt); fires on 3/60 negatives; 0 to check
+20261114-001650_mahimn_breathing: 0 gestures (0 camera, 0 prompt); fires on 0/5 negatives; 0 to check
+20261114-020852_aarsh_scene: 0 gestures (0 camera, 0 prompt); fires on 0/89 negatives; 0 to check
+20261114-021255_aarsh_gestures: 45 gestures (0 camera, 45 prompt); physics agrees with the prompt label 30/45; model agrees with the prompt label 45/45; fires on 0/2 negatives; 0 to check
+   !! LONG BURSTS: 80% of the gesture bursts run into the 1.4 s limit (typical strength 44 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+20261114-021645_aarsh_breathing: 0 gestures (0 camera, 0 prompt); fires on 1/24 negatives; 0 to check
+20261114-025724_mahimn_gestures: 48 gestures (0 camera, 48 prompt); physics agrees with the prompt label 27/48; model agrees with the prompt label 19/48; 3 to check
+   !! LONG BURSTS: 56% of the gesture bursts run into the 1.4 s limit (typical strength 41 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   [  89.5 s] wrong label?: labelled pull by the prompt, but physics says push, model says push
+   [ 126.9 s] wrong label?: labelled pull by the prompt, but physics says push, model says push
+   [ 151.6 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+20261114-001248_mahimn_gestures: 45 gestures (0 camera, 45 prompt); physics agrees with the prompt label 11/45; model agrees with the prompt label 5/45; 28 to check
+   !! LEFT/RIGHT LOOKS FLIPPED for the prompt labels (25 of 28 swipes): the microphone / speaker channels are swapped on this laptop (training measures and handles that), or the performer swiped the other way
+   !! LONG BURSTS: 42% of the gesture bursts run into the 1.4 s limit (typical strength 46 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   [  23.3 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  28.5 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [  42.3 s] check: labelled swipe_left, physics reads the opposite direction
+   [  50.9 s] check: labelled swipe_left, model reads the opposite direction
+   [  56.9 s] check: labelled swipe_right, physics reads the opposite direction
+   [  60.9 s] wrong label?: labelled swipe_left by the prompt, but physics says push, model says swipe_right
+   [  70.8 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  75.5 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [  80.0 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  84.9 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [  89.9 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  95.1 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  98.9 s] wrong label?: labelled push by the prompt, but physics says swipe_right, model says swipe_right
+   [ 104.2 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 117.9 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 122.5 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 131.7 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [ 136.7 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [ 141.4 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 155.6 s] check: labelled swipe_left, physics reads the opposite direction
+   [ 160.3 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 164.8 s] check: labelled swipe_left, physics reads the opposite direction
+   [ 169.6 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [ 174.7 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 184.7 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 198.4 s] check: labelled swipe_left, physics reads the opposite direction
+   [ 208.3 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 217.2 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+time: 39.8 min of audio, 836 bursts; step 1 (audio -> bursts: 13 by cpu) 8.60 s; step 2 (verdicts: physics rules batched on cuda; model: PyTorch on cuda) 0.342 s; step 3 (rules) 0.000 s
+
+=== 13 session(s): 218 labelled gestures (0 camera-timed, 218 prompt windows), 1 with no sonar movement, 0 for review, 34 to check
+  physics vs prompt labels: same   37%, saw no gesture   30%, other gesture   33%   (n=218)
+  model   vs prompt labels: same   67%, saw no gesture   19%, other gesture   14%   (n=218)
+  swipe direction vs the physics cues, prompt labels: 28 of 86 opposite
+  fires on known negatives: 6 of 349 (2%)
+  burst cutting (218 gesture bursts): typical length 1.10 s, 51% cut off at the length limit, 2.1 bursts per gesture, typical strength 44 dB, 2.3% of the picture saturated, burst start after the prompt varies by 1.21 s
+  recognised in SOME burst of its prompt: 147 of 218; another burst fits the prompt better than the chosen one: 0
+  per person (physics agreement with the labels / to check):
+    aarsh           30/45    67%   0 to check
+    lance            8/35    23%   3 to check
+    lance2           5/45    11%   0 to check
+    mahimn          38/93    41%   31 to check
+
+wrote qa.json per session and C:\Users\lance\sonar-hack\train_out\dataeng\qa\labelqa_summary.json
+classifier used next to the physics rules: the trained model C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx

@@ -1,0 +1,989 @@
+{
+ "model": "C:\\Users\\lance\\sonar-hack\\train_out\\runs\\20261114-030255\\sweep\\w24_s0\\gesture.onnx",
+ "min_confidence": 0.6,
+ "totals": {
+  "all": {
+   "trials": 81,
+   "recognised": 19,
+   "wrong": 22,
+   "missed": 40,
+   "why": {
+    "blocked: too faint for the engine's gate": 13,
+    "blocked: taken for somebody walking in or past": 7,
+    "another gesture, below the threshold": 4,
+    "right gesture, confidence too low": 16
+   },
+   "false_triggers": 1,
+   "minutes_without_prompts": 6.84,
+   "by_gesture": {
+    "swipe_right": {
+     "trials": 27,
+     "recognised": 3
+    },
+    "swipe_left": {
+     "trials": 27,
+     "recognised": 9
+    },
+    "push": {
+     "trials": 27,
+     "recognised": 7
+    }
+   },
+   "false_during": {
+    "between": 1
+   },
+   "recall": 0.2346,
+   "false_per_minute": 0.146
+  },
+  "by_person": {
+   "mahimn": {
+    "trials": 81,
+    "recognised": 19,
+    "wrong": 22,
+    "missed": 40,
+    "why": {
+     "blocked: too faint for the engine's gate": 13,
+     "blocked: taken for somebody walking in or past": 7,
+     "another gesture, below the threshold": 4,
+     "right gesture, confidence too low": 16
+    },
+    "false_triggers": 1,
+    "minutes_without_prompts": 6.84,
+    "by_gesture": {
+     "swipe_right": {
+      "trials": 27,
+      "recognised": 3
+     },
+     "swipe_left": {
+      "trials": 27,
+      "recognised": 9
+     },
+     "push": {
+      "trials": 27,
+      "recognised": 7
+     }
+    },
+    "false_during": {
+     "between": 1
+    },
+    "recall": 0.2346,
+    "false_per_minute": 0.146
+   }
+  }
+ },
+ "sessions": [
+  {
+   "session": "20261114-000902_mahimn_scene",
+   "person": "mahimn",
+   "script": "scene",
+   "seconds": 191.0,
+   "classifier": "model",
+   "gate_db": 30.6,
+   "trials": [],
+   "false_triggers": [],
+   "seconds_without_prompts": 191.0,
+   "bursts_seen": 60
+  },
+  {
+   "session": "20261114-001650_mahimn_breathing",
+   "person": "mahimn",
+   "script": "breathing",
+   "seconds": 136.3,
+   "classifier": "model",
+   "gate_db": 30.6,
+   "trials": [],
+   "false_triggers": [],
+   "seconds_without_prompts": 136.3,
+   "bursts_seen": 5
+  },
+  {
+   "session": "20261114-025724_mahimn_gestures",
+   "person": "mahimn",
+   "script": "gestures",
+   "seconds": 235.6,
+   "classifier": "model",
+   "gate_db": 30.6,
+   "trials": [
+    {
+     "label": "swipe_right",
+     "t": 9.0,
+     "source": "prompt",
+     "rep": 1,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 28.2
+    },
+    {
+     "label": "swipe_right",
+     "t": 13.72,
+     "source": "prompt",
+     "rep": 2,
+     "outcome": "missed",
+     "why": "blocked: taken for somebody walking in or past",
+     "strongest_burst_db": 31.4
+    },
+    {
+     "label": "swipe_left",
+     "t": 18.44,
+     "source": "prompt",
+     "rep": 3,
+     "outcome": "missed",
+     "why": "blocked: taken for somebody walking in or past",
+     "strongest_burst_db": 34.1
+    },
+    {
+     "label": "push",
+     "t": 23.16,
+     "source": "prompt",
+     "rep": 4,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 41.4
+    },
+    {
+     "label": "pull",
+     "t": 27.88,
+     "source": "prompt",
+     "rep": 5,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "pull",
+     "t": 32.6,
+     "source": "prompt",
+     "rep": 6,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "swipe_right",
+     "t": 37.32,
+     "source": "prompt",
+     "rep": 7,
+     "outcome": "missed",
+     "why": "another gesture, below the threshold",
+     "strongest_burst_db": 41.8
+    },
+    {
+     "label": "pull",
+     "t": 42.04,
+     "source": "prompt",
+     "rep": 8,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "pull",
+     "t": 46.76,
+     "source": "prompt",
+     "rep": 9,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "swipe_left",
+     "t": 51.48,
+     "source": "prompt",
+     "rep": 10,
+     "outcome": "recognised",
+     "confidence": 0.76,
+     "peak_db": 40.1,
+     "delay_s": 3.12
+    },
+    {
+     "label": "swipe_right",
+     "t": 56.2,
+     "source": "prompt",
+     "rep": 11,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 60.92,
+     "source": "prompt",
+     "rep": 12,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 35.8
+    },
+    {
+     "label": "pull",
+     "t": 65.64,
+     "source": "prompt",
+     "rep": 13,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "push",
+     "t": 70.36,
+     "source": "prompt",
+     "rep": 14,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 38.5
+    },
+    {
+     "label": "swipe_right",
+     "t": 75.08,
+     "source": "prompt",
+     "rep": 15,
+     "outcome": "recognised",
+     "confidence": 0.703,
+     "peak_db": 43.1,
+     "delay_s": 2.6
+    },
+    {
+     "label": "push",
+     "t": 79.8,
+     "source": "prompt",
+     "rep": 16,
+     "outcome": "recognised",
+     "confidence": 0.803,
+     "peak_db": 43.5,
+     "delay_s": 1.48
+    },
+    {
+     "label": "swipe_left",
+     "t": 84.52,
+     "source": "prompt",
+     "rep": 17,
+     "outcome": "recognised",
+     "confidence": 0.914,
+     "peak_db": 47.0,
+     "delay_s": 2.68
+    },
+    {
+     "label": "pull",
+     "t": 89.24,
+     "source": "prompt",
+     "rep": 18,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "swipe_right",
+     "t": 93.96,
+     "source": "prompt",
+     "rep": 19,
+     "outcome": "missed",
+     "why": "another gesture, below the threshold",
+     "strongest_burst_db": 47.4
+    },
+    {
+     "label": "swipe_right",
+     "t": 98.68,
+     "source": "prompt",
+     "rep": 20,
+     "outcome": "recognised",
+     "confidence": 0.687,
+     "peak_db": 43.8,
+     "delay_s": 2.56
+    },
+    {
+     "label": "push",
+     "t": 103.4,
+     "source": "prompt",
+     "rep": 21,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 44.7
+    },
+    {
+     "label": "pull",
+     "t": 108.12,
+     "source": "prompt",
+     "rep": 22,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "pull",
+     "t": 112.84,
+     "source": "prompt",
+     "rep": 23,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "swipe_left",
+     "t": 117.56,
+     "source": "prompt",
+     "rep": 24,
+     "outcome": "recognised",
+     "confidence": 0.879,
+     "peak_db": 45.1,
+     "delay_s": 2.36
+    },
+    {
+     "label": "pull",
+     "t": 122.28,
+     "source": "prompt",
+     "rep": 25,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "pull",
+     "t": 127.0,
+     "source": "prompt",
+     "rep": 26,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "pull",
+     "t": 131.72,
+     "source": "prompt",
+     "rep": 27,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "push",
+     "t": 136.44,
+     "source": "prompt",
+     "rep": 28,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 40.4
+    },
+    {
+     "label": "swipe_left",
+     "t": 141.16,
+     "source": "prompt",
+     "rep": 29,
+     "outcome": "recognised",
+     "confidence": 0.654,
+     "peak_db": 36.7,
+     "delay_s": 3.2
+    },
+    {
+     "label": "pull",
+     "t": 145.88,
+     "source": "prompt",
+     "rep": 30,
+     "outcome": "not a class of this model"
+    },
+    {
+     "label": "swipe_left",
+     "t": 150.6,
+     "source": "prompt",
+     "rep": 31,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 155.32,
+     "source": "prompt",
+     "rep": 32,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 46.0
+    },
+    {
+     "label": "push",
+     "t": 160.04,
+     "source": "prompt",
+     "rep": 33,
+     "outcome": "recognised",
+     "confidence": 0.967,
+     "peak_db": 46.1,
+     "delay_s": 2.2
+    },
+    {
+     "label": "push",
+     "t": 164.76,
+     "source": "prompt",
+     "rep": 34,
+     "outcome": "recognised",
+     "confidence": 0.984,
+     "peak_db": 42.4,
+     "delay_s": 1.96
+    },
+    {
+     "label": "swipe_right",
+     "t": 169.48,
+     "source": "prompt",
+     "rep": 35,
+     "outcome": "recognised",
+     "confidence": 0.758,
+     "peak_db": 44.7,
+     "delay_s": 2.24
+    },
+    {
+     "label": "swipe_left",
+     "t": 174.2,
+     "source": "prompt",
+     "rep": 36,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 36.5
+    },
+    {
+     "label": "swipe_right",
+     "t": 178.92,
+     "source": "prompt",
+     "rep": 37,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 44.1
+    },
+    {
+     "label": "swipe_left",
+     "t": 183.64,
+     "source": "prompt",
+     "rep": 38,
+     "outcome": "recognised",
+     "confidence": 0.663,
+     "peak_db": 34.9,
+     "delay_s": 2.24
+    },
+    {
+     "label": "swipe_left",
+     "t": 188.36,
+     "source": "prompt",
+     "rep": 39,
+     "outcome": "recognised",
+     "confidence": 0.867,
+     "peak_db": 35.1,
+     "delay_s": 2.4
+    },
+    {
+     "label": "swipe_right",
+     "t": 193.08,
+     "source": "prompt",
+     "rep": 40,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 40.4
+    },
+    {
+     "label": "push",
+     "t": 197.8,
+     "source": "prompt",
+     "rep": 41,
+     "outcome": "recognised",
+     "confidence": 0.751,
+     "peak_db": 46.3,
+     "delay_s": 1.6
+    },
+    {
+     "label": "swipe_left",
+     "t": 202.52,
+     "source": "prompt",
+     "rep": 42,
+     "outcome": "recognised",
+     "confidence": 0.942,
+     "peak_db": 47.9,
+     "delay_s": 2.84
+    },
+    {
+     "label": "push",
+     "t": 207.24,
+     "source": "prompt",
+     "rep": 43,
+     "outcome": "recognised",
+     "confidence": 0.72,
+     "peak_db": 40.4,
+     "delay_s": 1.56
+    },
+    {
+     "label": "swipe_right",
+     "t": 211.96,
+     "source": "prompt",
+     "rep": 44,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 40.1
+    },
+    {
+     "label": "swipe_right",
+     "t": 216.68,
+     "source": "prompt",
+     "rep": 45,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 42.2
+    },
+    {
+     "label": "push",
+     "t": 221.4,
+     "source": "prompt",
+     "rep": 46,
+     "outcome": "recognised",
+     "confidence": 0.658,
+     "peak_db": 46.7,
+     "delay_s": 1.76
+    },
+    {
+     "label": "swipe_left",
+     "t": 226.12,
+     "source": "prompt",
+     "rep": 47,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 42.2
+    },
+    {
+     "label": "swipe_left",
+     "t": 230.84,
+     "source": "prompt",
+     "rep": 48,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 40.8
+    }
+   ],
+   "false_triggers": [],
+   "seconds_without_prompts": 42.6,
+   "bursts_seen": 90
+  },
+  {
+   "session": "20261114-001248_mahimn_gestures",
+   "person": "mahimn",
+   "script": "gestures",
+   "seconds": 221.4,
+   "classifier": "model",
+   "gate_db": 30.6,
+   "trials": [
+    {
+     "label": "push",
+     "t": 9.0,
+     "source": "prompt",
+     "rep": 1,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 42.6
+    },
+    {
+     "label": "swipe_left",
+     "t": 13.72,
+     "source": "prompt",
+     "rep": 2,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 48.2
+    },
+    {
+     "label": "push",
+     "t": 18.44,
+     "source": "prompt",
+     "rep": 3,
+     "outcome": "missed",
+     "why": "blocked: taken for somebody walking in or past",
+     "strongest_burst_db": 48.1
+    },
+    {
+     "label": "swipe_right",
+     "t": 23.16,
+     "source": "prompt",
+     "rep": 4,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 45.5
+    },
+    {
+     "label": "swipe_left",
+     "t": 27.88,
+     "source": "prompt",
+     "rep": 5,
+     "outcome": "missed",
+     "why": "blocked: taken for somebody walking in or past",
+     "strongest_burst_db": 46.3
+    },
+    {
+     "label": "push",
+     "t": 32.6,
+     "source": "prompt",
+     "rep": 6,
+     "outcome": "missed",
+     "why": "blocked: taken for somebody walking in or past",
+     "strongest_burst_db": 45.9
+    },
+    {
+     "label": "push",
+     "t": 37.32,
+     "source": "prompt",
+     "rep": 7,
+     "outcome": "missed",
+     "why": "blocked: taken for somebody walking in or past",
+     "strongest_burst_db": 43.8
+    },
+    {
+     "label": "swipe_left",
+     "t": 42.04,
+     "source": "prompt",
+     "rep": 8,
+     "outcome": "missed",
+     "why": "blocked: taken for somebody walking in or past",
+     "strongest_burst_db": 45.9
+    },
+    {
+     "label": "push",
+     "t": 46.76,
+     "source": "prompt",
+     "rep": 9,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 42.7
+    },
+    {
+     "label": "swipe_left",
+     "t": 51.48,
+     "source": "prompt",
+     "rep": 10,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right",
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 56.2,
+     "source": "prompt",
+     "rep": 11,
+     "outcome": "missed",
+     "why": "another gesture, below the threshold",
+     "strongest_burst_db": 47.0
+    },
+    {
+     "label": "swipe_left",
+     "t": 60.92,
+     "source": "prompt",
+     "rep": 12,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 65.64,
+     "source": "prompt",
+     "rep": 13,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 44.3
+    },
+    {
+     "label": "swipe_right",
+     "t": 70.36,
+     "source": "prompt",
+     "rep": 14,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 50.3
+    },
+    {
+     "label": "swipe_left",
+     "t": 75.08,
+     "source": "prompt",
+     "rep": 15,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 79.8,
+     "source": "prompt",
+     "rep": 16,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "swipe_left",
+     "t": 84.52,
+     "source": "prompt",
+     "rep": 17,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 89.24,
+     "source": "prompt",
+     "rep": 18,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 93.96,
+     "source": "prompt",
+     "rep": 19,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 98.68,
+     "source": "prompt",
+     "rep": 20,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 103.4,
+     "source": "prompt",
+     "rep": 21,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 108.12,
+     "source": "prompt",
+     "rep": 22,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 44.5
+    },
+    {
+     "label": "push",
+     "t": 112.84,
+     "source": "prompt",
+     "rep": 23,
+     "outcome": "recognised",
+     "confidence": 0.713,
+     "peak_db": 46.6,
+     "delay_s": 1.2
+    },
+    {
+     "label": "swipe_right",
+     "t": 117.56,
+     "source": "prompt",
+     "rep": 24,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 122.28,
+     "source": "prompt",
+     "rep": 25,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 127.0,
+     "source": "prompt",
+     "rep": 26,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 47.8
+    },
+    {
+     "label": "swipe_left",
+     "t": 131.72,
+     "source": "prompt",
+     "rep": 27,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "swipe_left",
+     "t": 136.44,
+     "source": "prompt",
+     "rep": 28,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 141.16,
+     "source": "prompt",
+     "rep": 29,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 145.88,
+     "source": "prompt",
+     "rep": 30,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 31.0
+    },
+    {
+     "label": "push",
+     "t": 150.6,
+     "source": "prompt",
+     "rep": 31,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 44.5
+    },
+    {
+     "label": "swipe_left",
+     "t": 155.32,
+     "source": "prompt",
+     "rep": 32,
+     "outcome": "recognised",
+     "confidence": 0.771,
+     "peak_db": 38.8,
+     "delay_s": 2.0
+    },
+    {
+     "label": "swipe_right",
+     "t": 160.04,
+     "source": "prompt",
+     "rep": 33,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "swipe_left",
+     "t": 164.76,
+     "source": "prompt",
+     "rep": 34,
+     "outcome": "missed",
+     "why": "another gesture, below the threshold",
+     "strongest_burst_db": 48.5
+    },
+    {
+     "label": "swipe_left",
+     "t": 169.48,
+     "source": "prompt",
+     "rep": 35,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 174.2,
+     "source": "prompt",
+     "rep": 36,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 178.92,
+     "source": "prompt",
+     "rep": 37,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 47.3
+    },
+    {
+     "label": "swipe_right",
+     "t": 183.64,
+     "source": "prompt",
+     "rep": 38,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left",
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "swipe_right",
+     "t": 188.36,
+     "source": "prompt",
+     "rep": 39,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 48.5
+    },
+    {
+     "label": "push",
+     "t": 193.08,
+     "source": "prompt",
+     "rep": 40,
+     "outcome": "missed",
+     "why": "blocked: too faint for the engine's gate",
+     "strongest_burst_db": 29.1
+    },
+    {
+     "label": "swipe_left",
+     "t": 197.8,
+     "source": "prompt",
+     "rep": 41,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 45.6
+    },
+    {
+     "label": "swipe_left",
+     "t": 202.52,
+     "source": "prompt",
+     "rep": 42,
+     "outcome": "recognised",
+     "confidence": 0.856,
+     "peak_db": 46.2,
+     "delay_s": 2.56
+    },
+    {
+     "label": "swipe_right",
+     "t": 207.24,
+     "source": "prompt",
+     "rep": 43,
+     "outcome": "wrong",
+     "said": [
+      "swipe_left"
+     ]
+    },
+    {
+     "label": "push",
+     "t": 211.96,
+     "source": "prompt",
+     "rep": 44,
+     "outcome": "missed",
+     "why": "right gesture, confidence too low",
+     "strongest_burst_db": 44.9
+    },
+    {
+     "label": "swipe_left",
+     "t": 216.68,
+     "source": "prompt",
+     "rep": 45,
+     "outcome": "wrong",
+     "said": [
+      "swipe_right"
+     ]
+    }
+   ],
+   "false_triggers": [
+    {
+     "t": 183.2,
+     "label": "swipe_right",
+     "confidence": 0.607,
+     "during": "between"
+    }
+   ],
+   "seconds_without_prompts": 40.5,
+   "bursts_seen": 90
+  }
+ ]
+}

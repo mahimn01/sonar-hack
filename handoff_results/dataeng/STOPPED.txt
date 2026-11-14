@@ -1,0 +1,18 @@
+﻿STOPPED ON REQUEST
+==================
+At 6:04 AM America/New_York on 2026-11-14, this data-engine run was stopped on request from Mahimn's bot (approved by Lance) so the GPU could be used for the recall suite, which became the top priority. The data-engine job was dropped; it was not restarted.
+
+What had finished:
+- 00_machine, 01_replay, 02_replay_gate8, 03_labelqa, 04_labelqa_pictures, 05_adapt_eval, 06_parity (PARITY OK), 07_train_weak
+- 07 Honest score on mahimn: accuracy 0.737, macro-F1 0.627; at the engine's 0.6 threshold 0.407 of gestures recognised, 0.037 of non-gestures would trigger. Verdict: POOR. DONE in 58.1 min.
+
+What was in progress:
+- 08_train_relcut (SONAR_SEG_REL_OFF_DB=12), started after long loud bursts were found. Gesture training run 20261114-054057 was generating synthetic data (datagen.generate, 9600/12000 clips at stop, about 1401 s into that generation).
+
+How it was stopped:
+- taskkill /T /F on the wrapper PID 34164, which ended dataeng_4090.py PIDs 32836 and 4428 and the train_4090/datagen children under train_out\rel12 (including 24 multiprocessing workers).
+
+Notes:
+- The run used --model train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx --people mahimn (the 03:02 held-out run named in the handoff), not the later round-2 model.
+- --data mac included 13 sessions at the start (12 under mac\data plus mac\excluded\20261114-001248_mahimn_gestures). During 08, a new session mac\incoming\20261114-045054_lance3_gestures was also picked up; that folder was not touched.
+- Code: data-engine commit 48e2518. This branch uses the CPU datagen path, so synthetic generation was slower than the 25-40 minute estimate.

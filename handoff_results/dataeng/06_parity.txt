@@ -1,0 +1,9 @@
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.weaklabel C:\Users\lance\sonar-hack\mac --model C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx --parity
+(exit code 0, 37 s)
+
+parity on 6 session(s), 375 bursts; step 1 by: cpu; judge: physics rules batched on cuda; model: PyTorch on cuda
+  bursts found at the same frames:        yes
+  pictures, worst difference:             0.00e+00   (limit 2e-03)
+  physics rules, worst probability diff:  4.43e-07   (limit 1e-04), 0 different verdicts
+  model, worst probability difference:    1.72e-06   (limit 5e-03), 0 different verdicts
+PARITY OK

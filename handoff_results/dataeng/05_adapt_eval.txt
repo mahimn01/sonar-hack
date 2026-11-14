@@ -1,0 +1,14 @@
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.adapt eval --model C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx --data C:\Users\lance\sonar-hack\mac\data\20261114-000902_mahimn_scene C:\Users\lance\sonar-hack\mac\data\20261114-001650_mahimn_breathing C:\Users\lance\sonar-hack\mac\data\20261114-025724_mahimn_gestures C:\Users\lance\sonar-hack\mac\excluded\20261114-001248_mahimn_gestures --people mahimn --json C:\Users\lance\sonar-hack\train_out\dataeng\adapt_eval.json
+(exit code 0, 17 s)
+
+190 pictures of 1 person(s) on cuda; calibration = the first 3 of each gesture + a few non-gestures; BatchNorm prior 16.0, prototype bonus 4.0
+
+                                            base                        bn                     proto                  bn+proto
+person                        acc  recall  false        acc  recall  false        acc  recall  false        acc  recall  false
+mahimn                       0.715  0.264  0.050       0.703  0.264  0.020       0.709  0.375  0.070       0.709  0.361  0.030
+MEAN of 1                    0.715  0.264  0.050       0.703  0.264  0.020       0.709  0.375  0.070       0.709  0.361  0.030
+  bn        accuracy better for 0, worse for 1 of 1
+  proto     accuracy better for 0, worse for 1 of 1
+  bn+proto  accuracy better for 0, worse for 1 of 1
+acc = share of the test pictures named correctly; recall = gestures recognised at the engine's 0.6 threshold; false = non-gestures that would trigger there
+time: pictures to cuda 0.01 s, all variants for all persons 0.44 s

@@ -1,0 +1,36 @@
+$ C:\Users\lance\sonar-hack\.venv\Scripts\python.exe -m sonar.labelqa C:\Users\lance\sonar-hack\mac\excluded\20261114-001248_mahimn_gestures --model C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx --out C:\Users\lance\sonar-hack\train_out\dataeng\qa
+(exit code 0, 11 s)
+
+20261114-001248_mahimn_gestures: 45 gestures (0 camera, 45 prompt); physics agrees with the prompt label 11/45; model agrees with the prompt label 5/45; 28 to check
+   !! LEFT/RIGHT LOOKS FLIPPED for the prompt labels (25 of 28 swipes): the microphone / speaker channels are swapped on this laptop (training measures and handles that), or the performer swiped the other way
+   !! LONG BURSTS: 42% of the gesture bursts run into the 1.4 s limit (typical strength 46 dB). The stroke then sits at a different place in every picture or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare
+   [  23.3 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  28.5 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [  42.3 s] check: labelled swipe_left, physics reads the opposite direction
+   [  50.9 s] check: labelled swipe_left, model reads the opposite direction
+   [  56.9 s] check: labelled swipe_right, physics reads the opposite direction
+   [  60.9 s] wrong label?: labelled swipe_left by the prompt, but physics says push, model says swipe_right
+   [  70.8 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  75.5 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [  80.0 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  84.9 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [  89.9 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  95.1 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [  98.9 s] wrong label?: labelled push by the prompt, but physics says swipe_right, model says swipe_right
+   [ 104.2 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 117.9 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 122.5 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 131.7 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [ 136.7 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [ 141.4 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 155.6 s] check: labelled swipe_left, physics reads the opposite direction
+   [ 160.3 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 164.8 s] check: labelled swipe_left, physics reads the opposite direction
+   [ 169.6 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+   [ 174.7 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 184.7 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 198.4 s] check: labelled swipe_left, physics reads the opposite direction
+   [ 208.3 s] wrong label?: labelled swipe_right by the prompt, but physics says swipe_left, model says swipe_left
+   [ 217.2 s] wrong label?: labelled swipe_left by the prompt, but physics says swipe_right, model says swipe_right
+wrote qa.json and qa_p1.png, qa_p2.png, qa_p3.png, qa_p4.png, qa_p5.png, qa_p6.png, qa_p7.png, qa_p8.png in C:\Users\lance\sonar-hack\train_out\dataeng\qa\20261114-001248_mahimn_gestures
+classifier used next to the physics rules: the trained model C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx
