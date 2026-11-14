@@ -56,3 +56,5 @@ real recording 20261113-235514_lance2_gestures: largest feature difference 0.0e+
 real recording 20261113-235900_lance2_breathing: largest feature difference 0.0e+00, bursts identical
 
 PARITY OK: the GPU path makes the same training pictures as the CPU path (1000 clips, 251 s)
+
+GPU parity check: passed earlier for this code on this GPU (1000 clips, C:\Users\lance\sonar-wt-recall\train_out\parity\passed_e72e94277906.json); --recheck-parity runs it again

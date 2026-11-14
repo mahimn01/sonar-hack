@@ -5,7 +5,7 @@
   "swipe_right",
   "push"
  ],
- "temperature": 1.0132480098669034,
+ "temperature": 1.0177029011328715,
  "input_shape": [
   2,
   64,
@@ -108,47 +108,47 @@
   "split": "none (trained on everything); honest score = leave-one-human-out, see report.md",
   "arm": "released",
   "lopo": {
-   "recall": 0.36,
+   "recall": 0.4854368932038835,
    "recall_ci": [
-    0.2811855308589631,
-    0.4471630770440744
+    0.4180797343240435,
+    0.5533272698162222
    ],
-   "false": 0.011235955056179775,
+   "false": 0.023655913978494623,
    "false_ci": [
-    0.004377808722857967,
-    0.02853000404809459
+    0.013259308714265887,
+    0.041858667165007614
    ],
-   "hits": 45,
-   "n_gesture": 125,
-   "false_n": 4,
-   "n_none": 356,
+   "hits": 100,
+   "n_gesture": 206,
+   "false_n": 11,
+   "n_none": 465,
    "per_class": {
     "swipe_left": [
-     17,
-     42
+     38,
+     69
     ],
     "swipe_right": [
-     16,
-     42
+     36,
+     69
     ],
     "push": [
-     12,
-     41
+     26,
+     68
     ]
    },
-   "wrong_gesture": 13,
-   "silent": 67,
-   "oracle_recall_at_budget": 0.472,
+   "wrong_gesture": 22,
+   "silent": 84,
+   "oracle_recall_at_budget": 0.6067961165048543,
    "no_lance": {
-    "recall": 0.5777777777777777,
-    "false": 0.02877697841726619,
-    "hits": 26,
-    "n_gesture": 45
+    "recall": 0.6428571428571429,
+    "false": 0.04435483870967742,
+    "hits": 81,
+    "n_gesture": 126
    }
   },
   "onnx_max_logit_diff": 2.592802047729492e-06,
-  "onnx_ms_per_inference": 0.586
+  "onnx_ms_per_inference": 0.514
  },
- "trained": "2026-11-14 11:09:42",
+ "trained": "2026-11-14 11:22:01",
  "torch": "2.15.0+cu132"
 }

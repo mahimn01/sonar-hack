@@ -147,8 +147,8 @@
    }
   },
   "onnx_max_logit_diff": 2.9802322387695312e-06,
-  "onnx_ms_per_inference": 0.557
+  "onnx_ms_per_inference": 0.611
  },
- "trained": "2026-11-14 11:09:42",
+ "trained": "2026-11-14 11:22:02",
  "torch": "2.15.0+cu132"
 }

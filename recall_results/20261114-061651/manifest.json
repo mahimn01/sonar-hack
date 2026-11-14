@@ -314,10 +314,10 @@
   }
  },
  "synth": {
-  "old": "C:\\Users\\lance\\sonar-wt-recall-suite\\train_out\\recall\\synth\\old_full\\dataset.npz",
-  "bg_lance": "C:\\Users\\lance\\sonar-wt-recall-suite\\train_out\\recall\\synth\\bg_lance_full\\dataset.npz",
-  "bg_aarsh": "C:\\Users\\lance\\sonar-wt-recall-suite\\train_out\\recall\\synth\\bg_aarsh_full\\dataset.npz",
-  "bg_mahimn": "C:\\Users\\lance\\sonar-wt-recall-suite\\train_out\\recall\\synth\\bg_mahimn_full\\dataset.npz"
+  "old": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\old_full\\dataset.npz",
+  "bg_lance": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\bg_lance_full\\dataset.npz",
+  "bg_aarsh": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\bg_aarsh_full\\dataset.npz",
+  "bg_mahimn": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\bg_mahimn_full\\dataset.npz"
  },
  "labels": [
   "none",
@@ -361,8 +361,8 @@
   "cpus": 24
  },
  "git": {
-  "commit": "72ea6d9",
-  "branch": "recall-suite",
+  "commit": "6478f5f",
+  "branch": "recall",
   "uncommitted_changes": false
  },
  "tables": [
