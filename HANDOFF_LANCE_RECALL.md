@@ -145,11 +145,12 @@ third candidate, `share75_aux`, is weak over three people (120/206) and is not w
 | `macbook_v2_rel12` | cal50_aux_rel12 |
 | `macbook_v2_bg_rel12` | calbg50_aux_rel12, calbg25_aux_rel12, calbg75_aux_rel12 |
 
-**Is it worth the GPU time?** Yes, as the one open lead. Step B found no recipe that clearly beats the shipped model
-(`.runs/recall_partial_ranking.md` on the Mac). Round 3 part B's single held-out run then showed the fitted
-simulator at 32/36 on Mahimn's second session against 26/36 for the old simulator, at 5 against 2 false triggers
-of 101 (`models-release-cal/TRAINING_RUN.json`). Step C repeats that comparison with three seeds, all three people
-and the same test as the shipped model. Nothing of Step B is redone.
+**Is it worth the GPU time?** It is the proper test of one open claim. Round 3 part B's single held-out run had the
+fitted simulator at 32/36 on Mahimn's second session against 26/36 for the old simulator, but at 5 against 2 false
+triggers of 101, so not at equal false-trigger counts (`models-release-cal/TRAINING_RUN.json`). Step C repeats
+that comparison with three seeds, all three people, the shipped model's own test and equal false-trigger counts.
+On the evidence so far (Step B, and the two round 3 release models scored on the Mac at 14:35) a new shipped model
+is not expected from it. Nothing of Step B is redone.
 
 It must run in the folder that holds the complete run (`C:\Users\lance\sonar-wt-recall`), or the same command
 starts from zero (3 hours). Run nothing else on the GPU meanwhile (no set generation); the run time assumes it.
