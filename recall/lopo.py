@@ -30,7 +30,7 @@ from .trainlib import TrainSpec, fit_temperature, logits_of, recall_at_false, sc
 
 HUMANS = ("lance", "aarsh", "mahimn")
 RESULTS = REPO / "train_out" / "recall" / "results.jsonl"
-BUDGET = 0.055            # false-trigger share of the released model on mahimn: the level to stay under
+BUDGET = 0.0551           # false-trigger share of the released model on mahimn (6/109 = 0.05505): the level to stay at or under
 
 
 def fmt_ci(ci: tuple[float, float]) -> str:

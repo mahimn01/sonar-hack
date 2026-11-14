@@ -53,9 +53,10 @@ class Sess:
         return int(sample // 960) + 1
 
 
-def load_sessions(script: str | None = None) -> list[Sess]:
+def load_sessions(script: str | None = None, root: Path | None = None) -> list[Sess]:
+    """The cached streams (recall.cache_streams), or another cutting of the same sessions when `root` is given."""
     out = []
-    for f in sorted(STREAMS.glob("*.npz")):
+    for f in sorted((root or STREAMS).glob("*.npz")):
         meta = json.loads(f.with_suffix(".json").read_text())["meta"]
         if script and meta["script"] != script:
             continue

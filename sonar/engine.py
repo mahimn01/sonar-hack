@@ -491,6 +491,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--min-peak-db", type=float, help="ignore bursts weaker than this (default: from the model, else 3 dB)")
     ap.add_argument("--no-ws", action="store_true", help="do not start the WebSocket server (console only)")
     ap.add_argument("--no-spectrogram", action="store_true", help="do not send spectrogram events")
+    ap.add_argument("--mics", type=int,
+                    help="microphone channels to use (default: the profile's 2, or fewer if the device has fewer). A model "
+                         "trained on a one-microphone MacBook needs --mics 1 on a device whose microphone has 2 channels")
     ap.add_argument("--in-device", help="microphone: index or part of its name")
     ap.add_argument("--out-device", help="speaker: index or part of its name")
     ap.add_argument("--blocksize", type=int, default=1920, help="audio block in samples (1920 = 40 ms)")
@@ -508,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[{d['index']:>2}] {d['name']}  ({d['hostapi']}, in {d['in']}, out {d['out']}, {d['default_fs']:.0f} Hz)")
         return 0
 
-    cfg = get_profile(args.profile)
+    cfg = get_profile(args.profile) if args.mics is None else get_profile(args.profile, n_mics=args.mics)
     try:
         if args.backend == "live":
             backend = make_backend(

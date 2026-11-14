@@ -45,13 +45,13 @@ below, which exchanges that session's left/right labels itself).
 
 ---
 
-## Step B — the leave-one-person-out experiment suite (GPU, about 55 minutes)
+## Step B — the leave-one-person-out experiment suite (GPU, about an hour)
 
-What it does: trains 26 recipes ("arms"), each one three times over with a different person held out
+What it does: trains 32 recipes ("arms"), each one three times over with a different person held out
 (lance+lance2 count as one person), 3 seeds each, and scores every one the same honest way. It checks every
-session's left/right labels against the others, exchanges the left/right labels of mahimn's first session
-(`--flip`, on by default: that session's swipes go the opposite way to its prompts, measured on the audio), and
-exports the best recipes as engine-ready models. It is one command; everything lands in
+session's left/right labels against the others and exchanges them where the swipes measurably go the
+opposite way to the prompts (today that is mahimn's first session only; the log's "label audit" block shows
+every session), and exports the best recipes as engine-ready models. It is one command; everything lands in
 `train_out\recall\suite\<time>\`. Nothing in `models\` or `models-release*\` is touched. The synthetic data
 is made on the GPU with the unchanged generator (the picture check that already passed on this box is reused,
 so it should not run again).
@@ -75,7 +75,7 @@ dir mac\data, mac\excluded        # expect 12 session folders + 1 (20261114-0012
 # 2-minute self-test on the CPU first (its numbers mean nothing; it must end with "DONE")
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --device cpu --smoke
 
-# the real run (about 55 minutes: ~10 min making data, ~40 min training 400 small models 4 at a time, ~2 min export)
+# the real run (about an hour: ~10 min making data, ~45 min training 490 small models 4 at a time, ~2 min export)
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1
 ```
 
@@ -101,26 +101,30 @@ folder `final\` (three or four sub-folders, each with `gesture.onnx`, `gesture.j
 
 Also paste into the chat: the first table of `report.md` and the "label audit" block near the top of `log.txt`.
 
-Run time measured here: the self-test takes 2 minutes on a Mac CPU. The 55 minutes for the full run is an
+Run time measured here: the self-test takes 2 minutes on a Mac CPU. The hour for the full run is an
 estimate from the earlier 4090 timings (12,000 clips in 5.7 min, one fine-tuning run in 19 s); it has not been
 run on a 4090.
 
 ---
 
-## Step C — add the calibrated-simulator recipes (GPU, about 15 minutes; only after the calibrated sets exist)
+## Step C — add what is new to the same run (GPU, about 15-25 minutes)
 
-Do this after `HANDOFF_LANCE_CALIBRATION.md` (the simulator session's handoff) has written
-`train_out\synth_cal\macbook_v*\...\dataset.npz`, and only if Step B ran before those files existed (its log
-then says "arm cal50: skipped"). It adds nine recipes to the SAME run folder and rebuilds the report with all of
-them.
+Do this when either is true:
+- `HANDOFF_LANCE_CALIBRATION.md` (the simulator session's handoff) has written
+  `train_out\synth_cal\macbook_v*\...\dataset.npz` after Step B ran (Step B's log then says "arm cal50: skipped");
+- branch `recall` got new recipes after Step B ran (`git pull` brings changes under `recall/`).
+
+It runs the suite again INTO THE SAME FOLDER: everything already trained is kept and skipped, only the missing
+recipes are trained, and the report is rebuilt with all of them. (If the suite says the folder "was built from
+other sessions, labels or code", run the Step B command instead: it starts a fresh folder.)
 
 ```powershell
 cd C:\Users\lance\sonar-hack
 git switch recall
 git pull
-dir train_out\synth_cal           # expect macbook_v1 or macbook_v2, plus _motion and _bg, each with all / no_lance / no_aarsh / no_mahimn
+dir train_out\synth_cal           # if the calibrated sets exist: macbook_v1 or macbook_v2, plus _motion and _bg, each with all / no_lance / no_aarsh / no_mahimn
 $stamp = (Get-ChildItem train_out\recall\suite -Directory | Where-Object { $_.Name -notlike "smoke_*" } | Sort-Object Name | Select-Object -Last 1).Name
-powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp $stamp --arms cal50,cal25,cal50_aux,cal_pre_real,calm50,calm50_aux,calbg50,calbg50_aux,calbg25_aux
+powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp $stamp
 ```
 
 Push back (branch **`recall-results-2`**): the same folder again, same commands as in Step B with the branch
@@ -133,7 +137,7 @@ New-Item -ItemType Directory -Force recall_results | Out-Null
 Copy-Item $run recall_results\ -Recurse -Force
 git switch -c recall-results-2
 git add -f recall_results
-git commit -m "Recall suite results with the calibrated-simulator recipes"
+git commit -m "Recall suite results with the added recipes"
 git push -u origin recall-results-2
 git switch recall
 ```

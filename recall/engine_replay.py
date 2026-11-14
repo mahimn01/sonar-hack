@@ -39,9 +39,13 @@ TRACES = REPO / "train_out" / "recall" / "traces"
 STATES = ("", "empty", "entering", "present")
 
 
-def build_trace(name: str, data_root: Path | None = None) -> Path:
-    """Run the engine's Pipeline over one session and keep what the engine's gates look at. Cached."""
-    out = TRACES / f"{name}.npz"
+def build_trace(name: str, data_root: Path | None = None, variant: str = "std") -> Path:
+    """Run the engine's Pipeline over one session and keep what the engine's gates look at. Cached.
+
+    variant "rel12": the same with the burst ended 12 dB below its own peak (recall/relcut.py), for models
+    trained on pictures cut that way.
+    """
+    out = (TRACES if variant == "std" else TRACES.parent / f"traces_{variant}") / f"{name}.npz"
     if out.exists():
         return out
     from sonar.dataset import load_session
@@ -55,6 +59,10 @@ def build_trace(name: str, data_root: Path | None = None) -> Path:
                 break
     meta, audio, cfg = load_session(root / name)
     pipe = Pipeline(cfg, n_mics=audio.shape[1])
+    if variant.startswith("rel"):
+        from .relcut import RelSegmenter
+
+        pipe.segmenter = RelSegmenter(pipe.cfg, float(variant[3:]))
     state, near, far, active, segs, windows = [], [], [], [], [], []
     for i in range(0, len(audio), 1920):
         for fr in pipe.process(audio[i:i + 1920]):
@@ -67,7 +75,7 @@ def build_trace(name: str, data_root: Path | None = None) -> Path:
                 segs.append([fr.index, s.start, s.end, s.decided, s.peak_db, s.energy_db, int(s.forced)])
                 windows.append(fr.window)
             active.append(pipe.segmenter.active)
-    TRACES.mkdir(parents=True, exist_ok=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out, state=np.array(state, np.int8), near=np.array(near, np.float32), far=np.array(far, np.float32),
                         active=np.array(active, bool), segs=np.array(segs, np.float64).reshape(-1, 7),
                         windows=np.stack(windows).astype(np.float16) if windows else np.zeros((0, 2, 64, 80), np.float16))
@@ -214,8 +222,8 @@ def summarise(tables: list[dict[str, Any]], labels: tuple[str, ...]) -> dict[str
     return out
 
 
-def load_trace(name: str) -> dict[str, np.ndarray]:
-    with np.load(build_trace(name)) as z:
+def load_trace(name: str, variant: str = "std") -> dict[str, np.ndarray]:
+    with np.load(build_trace(name, variant=variant)) as z:
         return {k: z[k] for k in z.files}
 
 

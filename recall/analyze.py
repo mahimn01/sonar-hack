@@ -30,20 +30,33 @@ from .common import REPO, STREAMS, fixed_meta
 from .trainlib import CFG, score, softmax, wilson
 
 LABELS = ("none", "swipe_left", "swipe_right", "push")
-BUDGET = 0.055
+BUDGET = 0.0551      # 6/109 = 0.05505, the released model's false-trigger share on mahimn
 
 
 class Run:
+    """A finished suite run: its manifest, the recorded rows of every cutting it used, and every model's answers."""
+
     def __init__(self, folder: Path) -> None:
         self.dir = Path(folder)
         self.man = json.loads((self.dir / "manifest.json").read_text())
-        with np.load(self.dir / "table.npz", allow_pickle=False) as z:
-            self.r = {k: z[k] for k in z.files if k not in ("X", "X_wide")}
-        lut = {n: i for i, n in enumerate(LABELS)}
-        self.y = np.array([lut.get(str(v), 0) for v in self.r["label"]], dtype=np.int64)
         self.humans, self.seeds, self.arms = self.man["humans"], self.man["seeds"], self.man["arms"]
-        self.scored = np.isin(self.r["source"], ["gesture", "burst", "idle"]) & ~self.r["locked"]
+        self._tables: dict[str, tuple] = {}
         self._cache: dict[str, np.ndarray | None] = {}
+
+    def variant(self, arm: str) -> str:
+        return (self.man.get("arm_specs", {}).get(arm, {}) or {}).get("table") or "std"
+
+    def tab(self, arm: str) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray]:
+        """(columns, labels, scored-rows mask) of the cutting this arm was trained and answered on."""
+        v = self.variant(arm)
+        if v not in self._tables:
+            name = "table.npz" if v == "std" else f"table_{v}.npz"
+            with np.load(self.dir / name, allow_pickle=False) as z:
+                r = {k: z[k] for k in z.files if k not in ("X", "X_wide")}
+            lut = {n: i for i, n in enumerate(LABELS)}
+            y = np.array([lut.get(str(x), 0) for x in r["label"]], dtype=np.int64)
+            self._tables[v] = (r, y, np.isin(r["source"], ["gesture", "burst", "idle"]) & ~r["locked"])
+        return self._tables[v]
 
     def logits(self, job: str) -> np.ndarray | None:
         if job not in self._cache:
@@ -51,20 +64,35 @@ class Run:
             self._cache[job] = np.load(p)["logits"] if p.exists() else None
         return self._cache[job]
 
+    def views(self, job: str) -> list[np.ndarray] | None:
+        """The model's answers for the picture as the engine cuts it AND for the copies cut 3 and 6 frames earlier / later."""
+        p = self.dir / "jobs" / f"{job}.npz"
+        if not p.exists():
+            return None
+        with np.load(p) as z:
+            if "logits_shifted" not in z.files:
+                return None
+            return [z["logits"].astype(np.float64)] + [v.astype(np.float64) for v in z["logits_shifted"]]
+
     def outer(self, arm: str, h: str) -> list[np.ndarray]:
         out = [self.logits(f"{arm}__{h}__s{s}") for s in self.seeds]
         return [l for l in out if l is not None]
 
+    def outer_views(self, arm: str, h: str) -> list[list[np.ndarray]]:
+        out = [self.views(f"{arm}__{h}__s{s}") for s in self.seeds]
+        return [v for v in out if v is not None]
+
     def inner(self, arm: str, h: str) -> tuple[np.ndarray, np.ndarray] | None:
         """Held-out answers among the TRAINING humans of fold h: (logits, labels), scored rows only."""
+        r, y, scored = self.tab(arm)
         ls, ys = [], []
         for h2 in [x for x in self.humans if x != h]:
             l2 = self.logits(f"{arm}__{h}__in_{h2}__s{self.seeds[0]}")
             if l2 is None:
                 return None
-            m = self.scored & (self.r["human"] == h2)
+            m = scored & (r["human"] == h2)
             ls.append(l2[m])
-            ys.append(self.y[m])
+            ys.append(y[m])
         return np.concatenate(ls), np.concatenate(ys)
 
 
@@ -102,12 +130,13 @@ def operating_points(run: Run, arm: str) -> dict[str, Any]:
     """Per fold and pooled: recall / false at temperature 1, at the nested point, and at the oracle point."""
     out: dict[str, Any] = {"folds": {}}
     pooled: dict[str, list] = {k: [] for k in ("t1", "nested", "y", "h")}
+    r_, y_, scored_ = run.tab(arm)
     for h in run.humans:
-        test = run.scored & (run.r["human"] == h)
+        test = scored_ & (r_["human"] == h)
         outer = run.outer(arm, h)
         if not outer:
             continue
-        y = run.y[test]
+        y = y_[test]
         inner = run.inner(arm, h)
         t, b = choose_point(*inner) if inner is not None else (1.0, 0.0)
         p1 = np.mean([softmax(l[test], 1.0) for l in outer], axis=0)
@@ -121,7 +150,7 @@ def operating_points(run: Run, arm: str) -> dict[str, Any]:
         pooled["t1"].append(p1)
         pooled["nested"].append(pn)
         pooled["y"].append(y)
-        pooled["h"].append(run.r["human"][test])
+        pooled["h"].append(r_["human"][test])
     if pooled["y"]:
         y, hh = np.concatenate(pooled["y"]), np.concatenate(pooled["h"])
         for key in ("t1", "nested"):
@@ -136,12 +165,41 @@ def operating_points(run: Run, arm: str) -> dict[str, Any]:
     return out
 
 
+def shift_average(run: Run, arm: str) -> dict[str, Any] | None:
+    """The same honest score when every model answers five slightly shifted cuts of the picture and the answers are
+    averaged (it can be built into the exported model). The operating point is again chosen on the training humans."""
+    r_, y_, scored_ = run.tab(arm)
+    pooled_p, pooled_y = [], []
+    for h in run.humans:
+        test = scored_ & (r_["human"] == h)
+        views = run.outer_views(arm, h)
+        if not views:
+            return None
+        inner_l, inner_y = [], []
+        for h2 in [x for x in run.humans if x != h]:
+            v2 = run.views(f"{arm}__{h}__in_{h2}__s{run.seeds[0]}")
+            if v2 is None:
+                return None
+            m2 = scored_ & (r_["human"] == h2)
+            inner_l.append(np.log(np.mean([softmax(v[m2], 1.0) for v in v2], axis=0) + 1e-12))
+            inner_y.append(y_[m2])
+        t, b = choose_point(np.concatenate(inner_l), np.concatenate(inner_y))
+        # per model: average over the shifted cuts at temperature 1, then the operating point on that average, then over seeds
+        per_model = [np.log(np.mean([softmax(v[test], 1.0) for v in vs], axis=0) + 1e-12) for vs in views]
+        pooled_p.append(np.mean([apply(lg, t, b) for lg in per_model], axis=0))
+        pooled_y.append(y_[test])
+    p, y = np.concatenate(pooled_p), np.concatenate(pooled_y)
+    sc = score(np.log(p + 1e-12), y, LABELS)
+    return {k: sc[k] for k in ("recall", "false", "hits", "n_gesture", "false_n", "n_none")}
+
+
 def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = True, min_peak: float | None = None,
-                 use_point: bool = True) -> dict[str, Any]:
+                 use_point: bool = True, entering_cap_s: float | None = None) -> dict[str, Any]:
     """Replay every session of each held-out human through the engine rules with that fold's models."""
     from .engine_replay import load_trace, replay, summarise, trial_table
 
-    r = run.r
+    r = run.tab(arm)[0]
+    variant = run.variant(arm)
     out: dict[str, Any] = {}
     all_tabs = []
     gest = (r["source"] == "gesture") & np.isin(r["label"], LABELS[1:]) & ~r["locked"]
@@ -156,7 +214,7 @@ def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = 
         for name in sorted(set(r["session"][(r["human"] == h) & ~r["locked"]])):
             if not (STREAMS / f"{name}.npz").exists():
                 continue
-            trace = load_trace(str(name))
+            trace = load_trace(str(name), variant)
             rows = np.nonzero((r["session"] == name) & (r["seg"] >= 0))[0]
             by_seg = {int(r["seg"][i]): i for i in rows}
             if len(by_seg) != len(trace["segs"]):
@@ -169,7 +227,7 @@ def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = 
                     probs[k] = np.mean([apply(l[i:i + 1], t, b)[0] for l in outer], axis=0)
                 elif i is not None:
                     out.setdefault("warnings", []).append(f"{name}: burst {k} has other frames in the run's table")
-            fired, _ = replay(trace, probs, LABELS, CFG, min_peak_db=gate, gate_range=gate_range)
+            fired, _ = replay(trace, probs, LABELS, CFG, min_peak_db=gate, gate_range=gate_range, entering_cap_s=entering_cap_s)
             meta = fixed_meta(json.loads((STREAMS / f"{name}.json").read_text())["meta"], str(name), run.man.get("flip", []))
             tabs.append(trial_table(meta, fired, LABELS, len(trace["state"])))
         out[h] = summarise(tabs, LABELS)
@@ -182,17 +240,17 @@ def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = 
 
 def miss_breakdown(run: Run, arm: str, points: dict[str, Any]) -> list[str]:
     """Where the held-out gestures are lost, pooled over folds (nested operating point)."""
-    r = run.r
+    r, y_all, scored = run.tab(arm)
     rows_hit, rows_meta = [], []
     for h in run.humans:
         outer = run.outer(arm, h)
         if not outer or h not in points["folds"]:
             continue
         t, b = points["folds"][h]["t"], points["folds"][h]["b"]
-        m = run.scored & (r["human"] == h) & (run.y != 0)
+        m = scored & (r["human"] == h) & (y_all != 0)
         p = np.mean([apply(l[m], t, b) for l in outer], axis=0)
         pred = np.where(p.max(axis=1) >= 0.6, p.argmax(axis=1), 0)
-        rows_hit.append(pred == run.y[m])
+        rows_hit.append(pred == y_all[m])
         rows_meta.append({k: r[k][m] for k in ("forced", "peak_db", "start", "end", "order", "n_in_trial", "human", "label")})
     if not rows_hit:
         return []
@@ -252,7 +310,9 @@ def main() -> None:
             if "nested" not in pts:
                 continue
             result[arm]["events"] = {}
-            for name, kw in (("as shipped", {}), ("range gate off", {"gate_range": False}), ("range gate off, weak gate 18 dB", {"gate_range": False, "min_peak": 18.0})):
+            for name, kw in (("as shipped", {}), ("range gate off", {"gate_range": False}),
+                             ("range gate off, walking-in gate 3 s", {"gate_range": False, "entering_cap_s": 3.0}),
+                             ("the same, weak gate 18 dB", {"gate_range": False, "entering_cap_s": 3.0, "min_peak": 18.0})):
                 ev = event_scores(run, arm, pts, **kw)
                 result[arm]["events"][name] = ev
                 if "pooled" not in ev:
@@ -263,6 +323,15 @@ def main() -> None:
                              " | ".join(f"{ev[h]['recall']:.3f}" if h in ev else "-" for h in run.humans) + " |")
                 for w in ev.get("warnings", [])[:3]:
                     lines.append(f"|  | WARNING | {w} |")
+    lines += ["", "## 2b. Averaging each model's answer over five slightly shifted cuts of the picture (nested point, pooled)", "",
+              "| arm | as the engine cuts it | averaged over shifts of 0, +-3, +-6 frames |", "|---|---|---|"]
+    for arm in arms:
+        pts = result[arm]["points"]
+        sa = shift_average(run, arm) if "nested" in pts else None
+        if sa is not None:
+            result[arm]["shift_average"] = sa
+            n = pts["nested"]
+            lines.append(f"| {arm} | {n['recall']:.3f} / {n['false']:.3f} | {sa['recall']:.3f} ({sa['hits']}/{sa['n_gesture']}) / {sa['false']:.3f} ({sa['false_n']}/{sa['n_none']}) |")
     lines += ["", "## 3. Where the held-out gestures are lost (nested point, pooled over the three humans)", ""]
     for arm in arms:
         if "nested" in result[arm]["points"]:

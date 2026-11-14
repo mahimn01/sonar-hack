@@ -42,7 +42,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parent.parent
 WORK = REPO / "train_out" / "recall"
 LABELS = ("none", "swipe_left", "swipe_right", "push")
-BUDGET = 0.055            # false-trigger share of the released model: the level to stay at or under
+BUDGET = 0.0551           # false-trigger share of the released model on mahimn (6/109 = 0.05505): the level to stay at or under
 SYNTH_LABELS = "swipe_left,swipe_right,push"
 
 # ---------------------------------------------------------------------------
@@ -90,6 +90,15 @@ ARMS: dict[str, dict[str, Any]] = {
     "real_aux":        {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": None},
     "real_only_wide":  {"real": "official", "synth": None, "mix": "class_balanced", "init": None, "features": "wide"},
     "real_aux_wide":   {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": None, "features": "wide"},
+    # --- the same recordings with the burst ended 12 dB below its own peak (recall/relcut.py) instead of at the engine's
+    #     1.4 s limit, which chops 111 of 218 recorded gestures. "table": "rel12" = pictures and bursts cut that way.
+    #     The old synthetic sets keep the released cutting (their faint hands rarely reach the limit anyway).
+    "real_only_rel12":      {"real": "official", "synth": None, "mix": "class_balanced", "init": None, "table": "rel12"},
+    "real_aux_rel12":       {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": None, "table": "rel12"},
+    "real_pre_aux_rel12":   {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": "old", "table": "rel12"},
+    "share50_aux_rel12":    {"real": "aux_none", "synth": "old_bg", "mix": 0.50, "init": "old", "table": "rel12"},
+    "share75_aux_rel12":    {"real": "aux_none", "synth": "old_bg", "mix": 0.75, "init": "old", "table": "rel12"},
+    "real_aux_wide_rel12":  {"real": "aux_none", "synth": None, "mix": "class_balanced", "init": None, "features": "wide", "table": "rel12"},
     # --- the simulator fitted to this MacBook (train_out/synth_cal/<family>/<fold>/dataset.npz, made by the simulator
     #     session's handoff). "CAL" = the newest family there (macbook_v2, else macbook_v1); "{fold}" = the set that
     #     leaves out the held-out human. Skipped automatically while the files are missing.
@@ -107,6 +116,14 @@ SIZES = {
     "full": {"per_class": 2000, "bg_per_class": 500, "epochs": 60, "pre_epochs": 60, "seeds": (0, 1, 2), "parity_clips": 1000},
     "smoke": {"per_class": 5, "bg_per_class": 3, "epochs": 1, "pre_epochs": 1, "seeds": (0,), "parity_clips": 100, "steps": 2},
 }
+
+
+def rel(path: Path) -> str:
+    """A path as you would type it from the repo folder (or unchanged if it is elsewhere)."""
+    try:
+        return str(Path(path).resolve().relative_to(REPO))
+    except ValueError:
+        return str(path)
 
 
 def log(text: str = "", fh: Any = None) -> None:
@@ -151,19 +168,32 @@ def run_cmd(cmd: list[str], fh: Any, single_thread: bool = False) -> float:
 # ---------------------------------------------------------------------------
 # 1-2. Sessions -> table, label audit
 # ---------------------------------------------------------------------------
+def table_file(variant: str) -> str:
+    return "table.npz" if variant == "std" else f"table_{variant}.npz"
+
+
 def build_table(data_root: Path, run_dir: Path, locked: list[str], fh: Any, flip: list[str] | None = None,
-                wide: bool = False) -> dict[str, np.ndarray]:
+                wide: bool = False, variant: str = "std") -> dict[str, np.ndarray]:
     """Every burst of every session as arrays (saved to <run>/table.npz for the workers).
 
-    `flip`: sessions in which the person swept the opposite way to the prompts (checked on the audio, see
-    label_audit): their swipe_left / swipe_right labels are exchanged here, before anything trains on them.
+    `flip`: sessions in which the person swept the opposite way to the prompts: their swipe_left / swipe_right
+    labels are exchanged here, before anything trains on them. ["auto"] = the sessions the swipe audit finds
+    opposite (t below FLIP_T); a session that was corrected at the source then simply is not found any more.
     """
     from . import cache_streams
     from .common import HUMAN, load_sessions
     from .data import full_table
 
-    cache_streams.main_for(data_root)
-    sessions = load_sessions()
+    if variant == "std":                                       # bursts cut exactly as the engine cuts them
+        cache_streams.main_for(data_root)
+        sessions = load_sessions()
+    elif variant.startswith("rel"):                            # bursts ended N dB below their own peak (recall/relcut.py)
+        from . import relcut
+
+        relcut.main_for(data_root, float(variant[3:]))
+        sessions = load_sessions(root=relcut.out_dir(float(variant[3:])))
+    else:
+        raise ValueError(f"unknown table variant {variant!r}")
     present = {str(p.parent.name) for p in data_root.rglob("session.json")}
     sessions = [s for s in sessions if s.name in present]
     t = full_table(sessions)
@@ -189,6 +219,8 @@ def build_table(data_root: Path, run_dir: Path, locked: list[str], fh: Any, flip
                 xw[i] = cut_feat(feat, int(t.extra["end_frame"][i]), None if nb < 0 else nb)
         cols["X_wide"] = xw
     cols["label_recorded"] = cols["label"].copy()
+    if flip == ["auto"]:                                       # the sessions whose swipes measurably go the opposite way
+        flip = [name for name, v in swipe_audit(cols).items() if v["t"] < FLIP_T]
     flipped = np.isin(cols["session"], flip or [])
     cols["flipped"] = flipped
     swap = {"swipe_left": "swipe_right", "swipe_right": "swipe_left"}
@@ -197,8 +229,15 @@ def build_table(data_root: Path, run_dir: Path, locked: list[str], fh: Any, flip
     done = sorted(set(cols["session"][flipped]))
     if done:
         log(f"\nleft/right labels EXCHANGED in {done} (the person swept the opposite way to the prompts; see the label audit below)", fh)
-    np.savez_compressed(run_dir / "table.npz", **cols)
-    log(f"\ntable: {len(t)} rows from {len(sessions)} sessions; humans {sorted(set(t.human))}; "
+    target = run_dir / table_file(variant)
+    if target.exists():                # a run folder is being continued: its saved answers are indexed by row, so the rows must not move
+        with np.load(target, allow_pickle=False) as z:
+            same = all(k in z.files and z[k].shape == cols[k].shape and bool(np.all(z[k] == cols[k])) for k in ("session", "seg", "label", "source"))
+        if not same:
+            raise RuntimeError(f"{target.name} in this run folder was built from other sessions, labels or code than now; "
+                               "its saved answers would no longer line up. Start a new run (leave out --stamp).")
+    np.savez_compressed(target, **cols)
+    log(f"\ntable ({variant}): {len(t)} rows from {len(sessions)} sessions; humans {sorted(set(t.human))}; "
         f"locked (never trained on, scored separately): {[s for s in locked if s in present] or 'none'}", fh)
     for name in sorted(set(t.session)):
         m = t.session == name
@@ -207,40 +246,54 @@ def build_table(data_root: Path, run_dir: Path, locked: list[str], fh: Any, flip
     return cols
 
 
-def label_audit(cols: dict[str, np.ndarray], run_dir: Path, fh: Any) -> dict[str, Any]:
-    """Per session: do the recorded swipes go the way their prompts say?
+SHIFTS = (-6, -3, 3, 6)   # frames (20 ms each) by which the picture is cut later (-) or earlier (+) for the extra answers
+FLIP_T = -4.0          # a session whose left/right statistic is below this has its swipes the opposite way round
 
-    Uses the physics cue (left-speaker tone Doppler minus right-speaker tone Doppler, strongest half second,
-    sonar.gestures.heuristic_classify). For each gesture session: t-statistic of left-prompt minus right-prompt.
-    Clearly positive = as the other sessions; clearly negative = the swipes go the opposite way to the prompts.
+
+def swipe_audit(cols: dict[str, np.ndarray]) -> dict[str, dict[str, Any]]:
+    """Per gesture session: do the recorded swipes go the way their prompts say?
+
+    Uses the physics cue (left-speaker tone Doppler minus right-speaker tone Doppler over the strongest half
+    second, sonar.gestures.heuristic_classify) on the labels AS RECORDED. t = (mean over "swipe_left" prompts
+    minus mean over "swipe_right" prompts) / its standard error. Clearly positive = as prompted; clearly
+    negative = the person swept the opposite way; near 0 = no clean direction cue (lance's very fast swipes).
     """
     sys.path.insert(0, str(REPO))
     from sonar.config import SonarConfig
     from sonar.gestures import heuristic_classify
 
     cfg = SonarConfig(n_mics=1)
-    recorded = cols.get("label_recorded", cols["label"])          # the audit looks at the labels AS RECORDED
+    recorded = cols.get("label_recorded", cols["label"])
     sw = np.isin(recorded, ["swipe_left", "swipe_right"]) & (cols["source"] == "gesture")
     cue = np.full(len(sw), np.nan)
     for i in np.nonzero(sw)[0]:
         cue[i] = heuristic_classify(cols["X"][i].astype(np.float32)[:, :, 8:88], cfg).lateral_hz
-    out: dict[str, Any] = {}
-    lines = ["label audit (labels as recorded): left-speaker tone minus right-speaker tone, Hz (positive = hand moving LEFT)",
-             f"  {'session':<40} {'n':>3} {'left prompts':>16} {'right prompts':>16} {'t':>7}  verdict"]
+    out: dict[str, dict[str, Any]] = {}
     for name in sorted(set(cols["session"][sw])):
         m = sw & (cols["session"] == name)
         left, right = cue[m & (recorded == "swipe_left")], cue[m & (recorded == "swipe_right")]
         if min(len(left), len(right)) < 4:
             continue
         se = np.sqrt(left.var() / len(left) + right.var() / len(right)) + 1e-9
-        t = float((left.mean() - right.mean()) / se)
+        out[str(name)] = {"t": float((left.mean() - right.mean()) / se), "left_hz": float(left.mean()), "right_hz": float(right.mean()),
+                          "left_sd": float(left.std()), "right_sd": float(right.std()), "n": int(m.sum())}
+    return out
+
+
+def label_audit(cols: dict[str, np.ndarray], run_dir: Path, fh: Any) -> dict[str, Any]:
+    """Print and save the swipe audit, with what was done about each session."""
+    out = swipe_audit(cols)
+    lines = ["label audit (labels as recorded): left-speaker tone minus right-speaker tone, Hz (positive = hand moving LEFT)",
+             f"  {'session':<40} {'n':>3} {'left prompts':>16} {'right prompts':>16} {'t':>7}  verdict"]
+    for name, v in out.items():
+        t = v["t"]
         verdict = "as prompted" if t > 3 else "OPPOSITE to the prompts" if t < -3 else "unclear (no clean direction cue)"
-        if "flipped" in cols and bool(cols["flipped"][m].any()):
-            verdict += "  -> labels exchanged for this run (--flip)"
+        if bool(cols["flipped"][cols["session"] == name].any()):
+            verdict += "  -> left/right labels exchanged for this run"
         elif t < -3:
-            verdict += "  -> NOT exchanged: add it to --flip or leave it out"
-        out[str(name)] = {"t": t, "left_hz": float(left.mean()), "right_hz": float(right.mean()), "n": int(m.sum()), "verdict": verdict}
-        lines.append(f"  {name:<40} {int(m.sum()):3d} {left.mean():+8.1f}±{left.std():5.1f} {right.mean():+8.1f}±{right.std():5.1f} {t:+7.2f}  {verdict}")
+            verdict += "  -> NOT exchanged (--flip none, or t is not below the limit): check this session"
+        v["verdict"] = verdict
+        lines.append(f"  {name:<40} {v['n']:3d} {v['left_hz']:+8.1f}±{v['left_sd']:5.1f} {v['right_hz']:+8.1f}±{v['right_sd']:5.1f} {t:+7.2f}  {verdict}")
     log("\n" + "\n".join(lines), fh)
     (run_dir / "label_audit.json").write_text(json.dumps(out, indent=1))
     return out
@@ -254,7 +307,7 @@ def generate(folder: Path, per_class: int, seed: int, gen_device: str, workers: 
     """datagen.generate into `folder` unless its dataset is already there."""
     target = folder / "dataset.npz"
     if target.exists() and (folder / "done.json").exists():
-        log(f"reusing {target.relative_to(REPO)}", fh)
+        log(f"reusing {rel(target)}", fh)
         return target
     cmd = [sys.executable, "-m", "datagen.generate", "--out", str(folder), "--per-class", str(per_class), "--negatives", "2.0",
            "--workers", str(workers), "--seed", str(seed), "--profile", "default", "--mics", "1"]
@@ -288,19 +341,30 @@ class Bank:
     KEEP = 2
 
     def __init__(self, run_dir: Path, device: str) -> None:
-        import torch
-
         from .trainlib import pick_device
 
         self.dev = pick_device(device)
+        self.run_dir = run_dir
         self.man = json.loads((run_dir / "manifest.json").read_text())
-        with np.load(run_dir / "table.npz", allow_pickle=False) as z:
-            self.real = {k: z[k] for k in z.files}
-        lut = {n: i for i, n in enumerate(LABELS)}
-        self.y_real = np.array([lut.get(str(v), 0) for v in self.real["label"]], dtype=np.int64)
-        self.x_real = torch.from_numpy(np.ascontiguousarray(self.real["X"], dtype=np.float16)).to(self.dev)
-        self.x_wide = torch.from_numpy(self.real["X_wide"]).to(self.dev) if "X_wide" in self.real else None
+        self._tables: dict[str, dict[str, Any]] = {}
         self._sets: dict[str, tuple[Any, np.ndarray]] = {}          # name -> (pictures on the device, labels), newest last
+
+    def table(self, variant: str | None) -> dict[str, Any]:
+        """The recorded rows of one cutting ("std" = the engine's): columns, labels, pictures on the device."""
+        import torch
+
+        variant = variant or "std"
+        if variant not in self._tables:
+            with np.load(self.run_dir / table_file(variant), allow_pickle=False) as z:
+                real = {k: z[k] for k in z.files}
+            lut = {n: i for i, n in enumerate(LABELS)}
+            self._tables[variant] = {
+                "real": real,
+                "y": np.array([lut.get(str(v), 0) for v in real["label"]], dtype=np.int64),
+                "x": torch.from_numpy(np.ascontiguousarray(real["X"], dtype=np.float16)).to(self.dev),
+                "x_wide": torch.from_numpy(real["X_wide"]).to(self.dev) if "X_wide" in real else None,
+            }
+        return self._tables[variant]
 
     def synth(self, name: str) -> tuple[Any, np.ndarray]:
         import torch
@@ -317,8 +381,7 @@ class Bank:
         self._sets[name] = (torch.from_numpy(np.ascontiguousarray(d["X"], dtype=np.float16)).to(self.dev), remap(d))
         return self._sets[name]
 
-    def real_mask(self, mode: str, humans: list[str]) -> np.ndarray:
-        r = self.real
+    def real_mask(self, mode: str, humans: list[str], r: dict[str, np.ndarray]) -> np.ndarray:
         ok = np.isin(r["human"], humans) & ~r["locked"]
         base = np.isin(r["source"], ["gesture", "burst", "idle"])
         if mode == "official":
@@ -346,8 +409,9 @@ class Bank:
         """(pictures, labels, sampling weights) for one job: the real rows it may use, then its synthetic sets."""
         import torch
 
-        real = self.real_mask(job["real"], job["train_humans"])
-        parts_x, parts_y, is_real = [self.x_real], [self.y_real], [real]
+        t = self.table(job.get("table"))
+        real = self.real_mask(job["real"], job["train_humans"], t["real"])
+        parts_x, parts_y, is_real = [t["x"]], [t["y"]], [real]
         used = [real]
         for name in self.synth_names(job):
             x, y = self.synth(name)
@@ -357,7 +421,7 @@ class Bank:
             used.append(np.ones(len(y), bool))
         y_np = np.concatenate(parts_y)
         real_m = np.concatenate(is_real)
-        synth_m = np.concatenate(used) & ~np.concatenate([np.ones(len(self.y_real), bool)] + [np.zeros(len(v), bool) for v in parts_y[1:]])
+        synth_m = np.concatenate(used) & ~np.concatenate([np.ones(len(t["y"]), bool)] + [np.zeros(len(v), bool) for v in parts_y[1:]])
         none_share = job.get("none_share")
 
         def balanced(mask: np.ndarray) -> np.ndarray:
@@ -388,7 +452,8 @@ def run_job(bank: Bank, job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
 
     t0 = time.time()
     x, y, w = bank.assemble(job)
-    n_real = len(bank.y_real)
+    tab = bank.table(job.get("table"))
+    n_real = len(tab["y"])
     spec = TrainSpec(epochs=job["epochs"], steps=int(job.get("steps", 0)), width=job.get("width", 24), seed=job["seed"],
                      lr_scale=job.get("lr_scale", 1.0), device=str(bank.dev), aug=job.get("aug") or {})
     init = None
@@ -398,15 +463,20 @@ def run_job(bank: Bank, job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     if job.get("features") == "wide":                         # real recordings only, +-750 Hz pictures
         from .wide import wide_config
 
-        if bank.x_wide is None:
+        if tab["x_wide"] is None:
             raise RuntimeError("this run's table has no wide pictures")
-        model = train(bank.x_wide, y[:n_real], torch.from_numpy(w[:n_real]), LABELS, spec, init=None, cfg=wide_config(CFG))
-        logits = logits_of(model, bank.real["X_wide"], device=str(bank.dev))
+        model = train(tab["x_wide"], y[:n_real], torch.from_numpy(w[:n_real]), LABELS, spec, init=None, cfg=wide_config(CFG))
+        logits = logits_of(model, tab["real"]["X_wide"], device=str(bank.dev))
     else:
         model = train(x, y, torch.from_numpy(w), LABELS, spec, init=init, cfg=CFG)
-        logits = logits_of(model, bank.real["X"], device=str(bank.dev))
+        logits = logits_of(model, tab["real"]["X"], device=str(bank.dev))
     del x, y
-    np.savez_compressed(out_dir / f"{job['id']}.npz", logits=logits.astype(np.float32))
+    # the same model's answers when the picture is cut a little earlier or later (the table keeps 8 spare frames on each
+    # side): lets the analysis test "average over small time shifts" without the GPU
+    key = "X_wide" if job.get("features") == "wide" else "X"
+    shifted = np.stack([logits_of(model, tab["real"][key], pad=8 + k, device=str(bank.dev)) for k in SHIFTS])
+    np.savez_compressed(out_dir / f"{job['id']}.npz", logits=logits.astype(np.float32), logits_shifted=shifted.astype(np.float16),
+                        shifts=np.array(SHIFTS))
     info = {"id": job["id"], "seconds": round(time.time() - t0, 1), "n_train": int((w > 0).sum()),
             "real_share": float(w[:n_real].sum())}
     if job.get("save_model"):
@@ -475,15 +545,24 @@ def make_report(run_dir: Path, fh: Any = None) -> dict[str, Any]:
     from .trainlib import fit_temperature, recall_at_false, score, softmax
 
     man = json.loads((run_dir / "manifest.json").read_text())
-    with np.load(run_dir / "table.npz", allow_pickle=False) as z:
-        r = {k: z[k] for k in z.files if k not in ("X", "X_wide")}
     lut = {n: i for i, n in enumerate(LABELS)}
-    y = np.array([lut.get(str(v), 0) for v in r["label"]], dtype=np.int64)
-    scored = np.isin(r["source"], ["gesture", "burst", "idle"]) & ~r["locked"]       # the released definition of an example
+    tables: dict[str, tuple] = {}
+
+    def table_of(arm: str) -> tuple:
+        """(columns, labels, scored-rows mask) of the cutting this arm was trained and answered on."""
+        variant = (man.get("arm_specs", {}).get(arm, {}) or {}).get("table") or "std"
+        if variant not in tables:
+            with np.load(run_dir / table_file(variant), allow_pickle=False) as z:
+                cols = {k: z[k] for k in z.files if k not in ("X", "X_wide")}
+            yy = np.array([lut.get(str(v), 0) for v in cols["label"]], dtype=np.int64)
+            tables[variant] = (cols, yy, np.isin(cols["source"], ["gesture", "burst", "idle"]) & ~cols["locked"])
+        return tables[variant]
+
     humans, seeds = man["humans"], man["seeds"]
     results: dict[str, Any] = {}
     lines: list[str] = []
     for arm in man["arms"]:
+        r, y, scored = table_of(arm)                 # "scored" = the released definition of an example
         res: dict[str, Any] = {"folds": {}}
         pooled: dict[str, list[np.ndarray]] = {"t1": [], "nested": [], "y": [], "human": []}
         missing = 0
@@ -621,6 +700,9 @@ def pick_finalists(results: dict[str, Any], n: int = 3) -> list[str]:
 # 7. Export the finalists the way the engine loads them
 # ---------------------------------------------------------------------------
 def export_final(run_dir: Path, arm: str, results: dict[str, Any], fh: Any) -> None:
+    """One finalist as gesture.onnx + gesture.json + gesture.pt (seed 0; all seeds' weights stay in jobs/ for the
+    packaging step). A recipe on the wide Doppler window or the peak-relative cutting is exported for THAT input
+    (its gesture.json says so under "needs"): the engine can only load it once it has that profile."""
     import torch
 
     sys.path.insert(0, str(REPO))
@@ -628,7 +710,11 @@ def export_final(run_dir: Path, arm: str, results: dict[str, Any], fh: Any) -> N
     from sonar.model import GestureNet
     from sonar.train import check_onnx, export_onnx, fit_heuristic
 
+    from .wide import wide_config
+
     man = json.loads((run_dir / "manifest.json").read_text())
+    spec = man.get("arm_specs", {}).get(arm, {}) or {}
+    wide, variant = spec.get("features") == "wide", spec.get("table") or "std"
     seed = man["seeds"][0]
     pt = run_dir / "jobs" / f"{arm}__final__s{seed}.pt"
     if not pt.exists():
@@ -636,7 +722,8 @@ def export_final(run_dir: Path, arm: str, results: dict[str, Any], fh: Any) -> N
         return
     state = torch.load(pt, map_location="cpu")
     width = int(state.get("width", 24))
-    cfg = SonarConfig(n_mics=1)
+    base = SonarConfig(n_mics=1)
+    cfg = wide_config(base) if wide else base
     model = GestureNet(cfg.n_feat_channels, len(LABELS), width=width)
     model.load_state_dict(state["model"])
     model.eval()
@@ -645,14 +732,15 @@ def export_final(run_dir: Path, arm: str, results: dict[str, Any], fh: Any) -> N
     torch.save(state, out / "gesture.pt")
     in_shape = (cfg.n_feat_channels, cfg.doppler_bins, cfg.gesture_frames)
     export_onnx(model, out / "gesture.onnx", in_shape)
-    with np.load(run_dir / "table.npz", allow_pickle=False) as z:
-        probe = np.ascontiguousarray(z["X"][:64].astype(np.float32)[..., 8:88])
+    with np.load(run_dir / table_file(variant), allow_pickle=False) as z:
+        probe = np.ascontiguousarray(z["X_wide" if wide else "X"][:64].astype(np.float32)[..., 8:88])
+    with np.load(run_dir / "table.npz", allow_pickle=False) as z:      # speaker wiring and gesture strength: the engine's own cutting
         peak, src, lab, locked = z["peak_db"], z["source"], z["label"], z["locked"]
         sw = (src == "gesture") & np.isin(lab, ["swipe_left", "swipe_right"]) & ~locked
         x_sw = np.ascontiguousarray(z["X"][sw].astype(np.float32)[..., 8:88])
     diff, ms = check_onnx(out / "gesture.onnx", model, probe)
     # which way round this laptop's speakers are, for the engine's physics fallback (same rule as sonar.train)
-    heur = fit_heuristic(x_sw, np.array([LABELS.index(str(v)) for v in lab[sw]]), list(LABELS), cfg)
+    heur = fit_heuristic(x_sw, np.array([LABELS.index(str(v)) for v in lab[sw]]), list(LABELS), base)
     heur["source"] = "recorded"
     folds = results.get(arm, {}).get("folds", {})
     temps = [f["temp"] for f in folds.values()]
@@ -670,8 +758,13 @@ def export_final(run_dir: Path, arm: str, results: dict[str, Any], fh: Any) -> N
         "trained": time.strftime("%Y-%m-%d %H:%M:%S"),
         "torch": torch.__version__,
     }
+    if wide or variant != "std":
+        meta["needs"] = {"doppler_window": "+-750 Hz (decim 12, stft_win 256, stft_fft 512, doppler_bins 192, demod_pass_hz 800)" if wide else "engine default",
+                         "burst_cutting": f"ends {variant[3:]} dB below the burst's own peak" if variant != "std" else "engine default",
+                         "note": "the engine cannot produce this input yet; see recall/wide.py and recall/relcut.py"}
     (out / "gesture.json").write_text(json.dumps(meta, indent=1, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)))
-    log(f"exported {out.relative_to(REPO)}: ONNX vs PyTorch max logit difference {diff:.2e}, temperature {meta['temperature']:.2f}", fh)
+    log(f"exported {rel(out)}: input {list(in_shape)}, ONNX vs PyTorch max logit difference {diff:.2e}, "
+        f"temperature {meta['temperature']:.2f}" + ("  (needs the wide window / peak-relative cutting in the engine)" if "needs" in meta else ""), fh)
 
 
 # ---------------------------------------------------------------------------
@@ -701,9 +794,15 @@ def main_run(args: argparse.Namespace) -> int:
 
         data_root = (REPO / args.data).resolve()
         locked = [s for s in args.locked.split(",") if s]
-        flip = [s for s in args.flip.split(",") if s]
+        flip = [] if args.flip == "none" else [s for s in args.flip.split(",") if s]
         want = [a for a in (args.arms.split(",") if args.arms else ARMS) if a in ARMS]
+        if args.smoke and not args.arms:
+            want = [a for a in ARMS if a in ("released", "real_aux_wide", "share50_aux_rel12", "real_aux_wide_rel12")]
         cols = build_table(data_root, run_dir, locked, fh, flip, wide=any(ARMS[a].get("features") == "wide" for a in want) or args.smoke)
+        flip = sorted({str(v) for v in cols["session"][cols["flipped"]]})            # what "auto" found; the other cuttings use the same
+        for variant in sorted({ARMS[a]["table"] for a in want if ARMS[a].get("table")}):
+            build_table(data_root, run_dir, locked, fh, flip, variant=variant,
+                        wide=any(ARMS[a].get("features") == "wide" and ARMS[a].get("table") == variant for a in want))
         label_audit(cols, run_dir, fh)
         humans = [h for h in ("lance", "aarsh", "mahimn") if h in set(cols["human"][~cols["locked"]])]
         humans += sorted(set(cols["human"][~cols["locked"]]) - set(humans))
@@ -740,7 +839,7 @@ def main_run(args: argparse.Namespace) -> int:
         arms = {a: resolve(ARMS[a]) for a in (args.arms.split(",") if args.arms else ARMS) if a in ARMS}
         if args.smoke and not args.arms:
             arms = {a: resolve(ARMS[a]) for a in ("released", "real_only", "share50_aux_speed", "share50_none50", "share50_w48",
-                                                  "cal50", "calbg50_aux", "real_aux_wide")}
+                                                  "cal50", "calbg50_aux", "real_aux_wide", "share50_aux_rel12", "real_aux_wide_rel12")}
         folds_all = ["all"] + [f"no_{h}" for h in humans]
 
         def needs(spec: dict[str, Any]) -> set[str]:
@@ -792,7 +891,7 @@ def main_run(args: argparse.Namespace) -> int:
                     "synth_fold": fold_name, "seed": seed, "epochs": min(int(spec.get("epochs", size["epochs"])), size["epochs"]),
                     "steps": size.get("steps", 0), "width": w,
                     "lr_scale": spec.get("lr_scale", 1.0), "aug": spec.get("aug"), "none_share": spec.get("none_share"),
-                    "features": spec.get("features"),
+                    "features": spec.get("features"), "table": spec.get("table"),
                     "init": str(run_dir / "jobs" / init_file) if init_file else None, "save_model": final}
 
         jobs = []
@@ -803,13 +902,16 @@ def main_run(args: argparse.Namespace) -> int:
         run_jobs(run_dir, jobs, args.device, workers, fh, "folds")
         results = make_report(run_dir, fh)
 
-        finalists = pick_finalists({a: r for a, r in results.items() if arms[a].get("features") != "wide"})
+        # finalists: the best three recipes the engine can load today, plus the best two overall if those need the
+        # wide window or the peak-relative cutting (their weights then come back too, so no second round trip)
+        ready = pick_finalists({a: r for a, r in results.items() if arms[a].get("features") != "wide" and not arms[a].get("table")})
+        finalists = ready + [a for a in pick_finalists(results, n=2) if a not in ready]
         log(f"\n=== finalists (rule: highest pooled recall with pooled false <= {BUDGET}; 'released' always): {finalists}", fh)
         run_jobs(run_dir, [job(a, arms[a], None, None, s, final=True) for a in finalists for s in seeds], args.device, workers, fh, "final")
         for a in finalists:
             export_final(run_dir, a, results, fh)
         (run_dir / "finalists.json").write_text(json.dumps(finalists))
-        log(f"\nDONE in {(time.time() - t_start) / 60:.1f} min. Everything is in {run_dir.relative_to(REPO)}", fh)
+        log(f"\nDONE in {(time.time() - t_start) / 60:.1f} min. Everything is in {rel(run_dir)}", fh)
         return 0
     except Exception:
         log(f"\nSTOPPED by an error:\n{traceback.format_exc()}", fh)
@@ -827,9 +929,10 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--data", default="mac", help="folder with the recorded sessions")
     r.add_argument("--locked", default="",
                    help="sessions that are never trained on and are scored separately (comma-separated; default none)")
-    r.add_argument("--flip", default="20261114-001248_mahimn_gestures",
-                   help="sessions whose swipes go the opposite way to their prompts: their left/right labels are exchanged "
-                        "(default: mahimn's first session, verified on the audio; '' for none)")
+    r.add_argument("--flip", default="auto",
+                   help="sessions whose swipes go the opposite way to their prompts get their left/right labels exchanged: "
+                        "auto (default) = the sessions the label audit finds opposite, t below -4 (today: mahimn's first "
+                        "session, t = -7.1); or session names, comma-separated; or none")
     r.add_argument("--arms", default="", help="only these arms (comma-separated; default: all)")
     r.add_argument("--workers", type=int, default=0, help="training runs sharing the GPU (default 4 on CUDA, else 1)")
     r.add_argument("--cpu-workers", type=int, default=0, help="CPU processes for the generator's random draws (default: all cores)")
