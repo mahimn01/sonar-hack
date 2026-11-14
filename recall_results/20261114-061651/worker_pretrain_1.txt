@@ -1,0 +1,1 @@
+  done pretrain_old_w48  98.4 s  n_train 19874  real share 0.00

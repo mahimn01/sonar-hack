@@ -1,0 +1,239 @@
+=== recall suite 20261114-061651 (full), device cuda; log: C:\Users\lance\sonar-wt-recall-suite\train_out\recall\suite\20261114-061651\log.txt
+GPU-against-CPU picture check: passed (see parity.txt)
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (std): 940 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 83, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 49, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 72, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 61, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 60, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 36, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 89, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 47, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 24, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 37, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12): 1131 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 91, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 76, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 81, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 100, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 65, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 64, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 100, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 71, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 25, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 62, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12nc): 1246 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 78, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 79, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 96, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 111, 'burst': 1, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 14, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 61, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 66, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 12, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 106, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 78, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 74, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 69, 'burst': 0, 'idle': 8}
+
+label audit (labels as recorded): left-speaker tone minus right-speaker tone, Hz (positive = hand moving LEFT)
+  session                                    n     left prompts    right prompts       t  verdict
+  20261113-233122_lance_gestures            24    +47.8± 52.2     -1.2± 46.9   +2.42  unclear (no clean direction cue)
+  20261113-235514_lance2_gestures           30    +33.8± 31.8    +19.0± 17.2   +1.59  unclear (no clean direction cue)
+  20261114-001248_mahimn_gestures           30    -63.2± 67.6    +90.7± 50.3   -7.08  OPPOSITE to the prompts  -> left/right labels exchanged for this run
+  20261114-021255_aarsh_gestures            30    +77.4± 23.1    -95.4±  9.6  +26.79  as prompted
+  20261114-025724_mahimn_gestures           24    +77.3± 56.7    -99.8± 57.5   +7.59  as prompted
+
+=== synthetic data
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\old_full --per-class 2000 --negatives 2.0 --workers 24 --seed 0 --profile default --mics 1 --gen-device cuda --gen-precision auto
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+12000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/12000 clips, 383 examples, 34 s
+  400/12000 clips, 741 examples, 39 s
+  600/12000 clips, 1111 examples, 44 s
+  800/12000 clips, 1485 examples, 49 s
+  1000/12000 clips, 1851 examples, 54 s
+  1200/12000 clips, 2201 examples, 59 s
+  1400/12000 clips, 2568 examples, 64 s
+  1600/12000 clips, 2933 examples, 79 s
+  1800/12000 clips, 3269 examples, 79 s
+  2000/12000 clips, 3630 examples, 79 s
+  2200/12000 clips, 3979 examples, 84 s
+  2400/12000 clips, 4334 examples, 89 s
+  2600/12000 clips, 4690 examples, 94 s
+  2800/12000 clips, 5087 examples, 100 s
+  3000/12000 clips, 5445 examples, 104 s
+  3200/12000 clips, 5811 examples, 110 s
+  3400/12000 clips, 6167 examples, 115 s
+  3600/12000 clips, 6543 examples, 130 s
+  3800/12000 clips, 6906 examples, 130 s
+  4000/12000 clips, 7256 examples, 130 s
+  4200/12000 clips, 7636 examples, 130 s
+  4400/12000 clips, 8016 examples, 135 s
+  4600/12000 clips, 8392 examples, 141 s
+  4800/12000 clips, 8744 examples, 146 s
+  5000/12000 clips, 9117 examples, 151 s
+  5200/12000 clips, 9523 examples, 156 s
+  5400/12000 clips, 9889 examples, 161 s
+  5600/12000 clips, 10253 examples, 166 s
+  5800/12000 clips, 10629 examples, 166 s
+  6000/12000 clips, 10987 examples, 176 s
+  6200/12000 clips, 11349 examples, 176 s
+  6400/12000 clips, 11721 examples, 197 s
+  6600/12000 clips, 12094 examples, 197 s
+  6800/12000 clips, 12482 examples, 197 s
+  7000/12000 clips, 12841 examples, 197 s
+  7200/12000 clips, 13217 examples, 202 s
+  7400/12000 clips, 13601 examples, 202 s
+  7600/12000 clips, 13960 examples, 212 s
+  7800/12000 clips, 14349 examples, 212 s
+  8000/12000 clips, 14710 examples, 237 s
+  8200/12000 clips, 14951 examples, 237 s
+  8400/12000 clips, 15187 examples, 237 s
+  8600/12000 clips, 15446 examples, 237 s
+  8800/12000 clips, 15702 examples, 238 s
+  9000/12000 clips, 15980 examples, 238 s
+  9200/12000 clips, 16256 examples, 238 s
+  9400/12000 clips, 16517 examples, 243 s
+  9600/12000 clips, 16765 examples, 248 s
+  9800/12000 clips, 17018 examples, 253 s
+  10000/12000 clips, 17273 examples, 258 s
+  10200/12000 clips, 17533 examples, 258 s
+  10400/12000 clips, 17783 examples, 263 s
+  10600/12000 clips, 18051 examples, 268 s
+  10800/12000 clips, 18319 examples, 273 s
+  11000/12000 clips, 18568 examples, 278 s
+  11200/12000 clips, 18845 examples, 284 s
+  11400/12000 clips, 19101 examples, 289 s
+  11600/12000 clips, 19336 examples, 293 s
+  11800/12000 clips, 19607 examples, 297 s
+  12000/12000 clips, 19874 examples, 298 s
+  GPU path on cuda:0: batch 217, precision ref, 57 batches, render 268.5 s, features 15.6 s, 207 redraws
+done in 306 s: 12000 clips -> 19874 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\old_full
+  none         14022
+  swipe_left   1433
+  swipe_right  1430
+  push         1498
+  pull         1491
+  gesture strokes the core segmenter did not pick up: 2148 of 8000
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_lance_full --per-class 500 --negatives 2.0 --workers 24 --seed 1 --profile default --mics 1 --background C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-232748_lance_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-233427_lance_breathing\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-235154_lance2_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-235900_lance2_breathing\audio.wav --gen-device cuda --gen-precision auto
+4 background recording(s), memory-mapped from C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_lance_full\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+3000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/3000 clips, 394 examples, 15 s
+  400/3000 clips, 750 examples, 18 s
+  600/3000 clips, 1118 examples, 33 s
+  800/3000 clips, 1493 examples, 36 s
+  1000/3000 clips, 1885 examples, 40 s
+  1200/3000 clips, 2298 examples, 44 s
+  1400/3000 clips, 2704 examples, 47 s
+  1600/3000 clips, 3091 examples, 47 s
+  1800/3000 clips, 3483 examples, 47 s
+  2000/3000 clips, 3872 examples, 47 s
+  2200/3000 clips, 4155 examples, 51 s
+  2400/3000 clips, 4425 examples, 54 s
+  2600/3000 clips, 4718 examples, 58 s
+  2800/3000 clips, 5021 examples, 58 s
+  3000/3000 clips, 5288 examples, 60 s
+  GPU path on cuda:0: batch 217, precision ref, 14 batches, render 46.4 s, features 3.9 s, 7 redraws
+done in 62 s: 3000 clips -> 5288 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_lance_full
+  none         3677
+  swipe_left   380
+  swipe_right  370
+  push         434
+  pull         427
+  gesture strokes the core segmenter did not pick up: 389 of 2000
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_aarsh_full --per-class 500 --negatives 2.0 --workers 24 --seed 2 --profile default --mics 1 --background C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-020852_aarsh_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-021645_aarsh_breathing\audio.wav --gen-device cuda --gen-precision auto
+2 background recording(s), memory-mapped from C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_aarsh_full\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+3000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/3000 clips, 423 examples, 15 s
+  400/3000 clips, 819 examples, 29 s
+  600/3000 clips, 1215 examples, 29 s
+  800/3000 clips, 1614 examples, 36 s
+  1000/3000 clips, 1999 examples, 40 s
+  1200/3000 clips, 2438 examples, 40 s
+  1400/3000 clips, 2858 examples, 40 s
+  1600/3000 clips, 3269 examples, 40 s
+  1800/3000 clips, 3676 examples, 54 s
+  2000/3000 clips, 4097 examples, 55 s
+  2200/3000 clips, 4400 examples, 55 s
+  2400/3000 clips, 4716 examples, 55 s
+  2600/3000 clips, 5058 examples, 58 s
+  2800/3000 clips, 5399 examples, 58 s
+  3000/3000 clips, 5705 examples, 61 s
+  GPU path on cuda:0: batch 217, precision ref, 14 batches, render 46.8 s, features 3.9 s, 8 redraws
+done in 62 s: 3000 clips -> 5705 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_aarsh_full
+  none         4228
+  swipe_left   348
+  swipe_right  362
+  push         387
+  pull         380
+  gesture strokes the core segmenter did not pick up: 523 of 2000
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_mahimn_full --per-class 500 --negatives 2.0 --workers 24 --seed 3 --profile default --mics 1 --background C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-000902_mahimn_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-001650_mahimn_breathing\audio.wav --gen-device cuda --gen-precision auto
+2 background recording(s), memory-mapped from C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_mahimn_full\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+3000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/3000 clips, 361 examples, 15 s
+  400/3000 clips, 741 examples, 29 s
+  600/3000 clips, 1110 examples, 29 s
+  800/3000 clips, 1473 examples, 29 s
+  1000/3000 clips, 1852 examples, 40 s
+  1200/3000 clips, 2250 examples, 44 s
+  1400/3000 clips, 2649 examples, 47 s
+  1600/3000 clips, 3044 examples, 47 s
+  1800/3000 clips, 3433 examples, 51 s
+  2000/3000 clips, 3817 examples, 51 s
+  2200/3000 clips, 4083 examples, 51 s
+  2400/3000 clips, 4360 examples, 54 s
+  2600/3000 clips, 4614 examples, 57 s
+  2800/3000 clips, 4890 examples, 57 s
+  3000/3000 clips, 5147 examples, 60 s
+  GPU path on cuda:0: batch 217, precision ref, 14 batches, render 46.4 s, features 3.9 s, 8 redraws
+done in 62 s: 3000 clips -> 5147 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_mahimn_full
+  none         3463
+  swipe_left   398
+  swipe_right  392
+  push         446
+  pull         448
+  gesture strokes the core segmenter did not pick up: 316 of 2000
+arm cal50: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal25: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal_pre_real: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm calm50: skipped, its synthetic sets are not on this machine (macbook_v1_motion_all, macbook_v1_motion_no_aarsh ...)
+arm calm50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_motion_all, macbook_v1_motion_no_aarsh ...)
+arm calbg50: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg25_aux: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm calbg25_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm calbg75_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm cal50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_rel12_all, macbook_v1_rel12_no_aarsh ...)
+
+=== pretrain: 2 training runs, 2 to do, 2 at a time on cuda
+  done pretrain_old_w24  86.6 s  n_train 19874  real share 0.00
+  done pretrain_old_w48  98.4 s  n_train 19874  real share 0.00
+pretrain: finished in 103 s; 0 failed run(s)
+
+=== folds: 540 training runs, 540 to do, 4 at a time on cuda

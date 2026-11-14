@@ -1,0 +1,1 @@
+[{"id": "pretrain_old_w48", "real": "official", "synth": "old", "mix": "class_balanced", "train_humans": [], "synth_fold": "all", "seed": 0, "epochs": 60, "steps": 0, "width": 48, "save_model": true}]
