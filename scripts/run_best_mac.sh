@@ -28,6 +28,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 export PYTHONUNBUFFERED=1            # so every line reaches a log file at once when the output is piped
 MODEL_DIR="${SONAR_MODEL_DIR:-models-release-mac-recall}"
+# This script exists to run the trained model. Without the weight file the engine would start anyway and quietly
+# use its hand-written physics rules ("classifier: physics"), so stop here instead. Git ignores *.onnx outside
+# folders named models-release*, so a model folder with another name arrives from a pull without it.
+if [ ! -f "$MODEL_DIR/gesture.onnx" ]; then
+  echo "ERROR: $MODEL_DIR/gesture.onnx is missing: the engine would run its physics rules, not the model." >&2
+  echo "       On the machine that has the file: git add -f $MODEL_DIR/gesture.onnx, commit, push; then pull here." >&2
+  exit 1
+fi
 # How this model wants its movement bursts cut: "<dB below the burst's peak, 0 = the engine's old cutting> [--no-click-rejection]"
 RUN_WITH="$(.venv/bin/python - "$MODEL_DIR/gesture.json" <<'PY'
 import json, sys
