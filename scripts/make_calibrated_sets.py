@@ -125,6 +125,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--force", action="store_true", help="make every set again")
     ap.add_argument("--dry-run", action="store_true", help="only print what would be made")
     args = ap.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):          # show every line at once, also through a pipe or into a file
+        sys.stdout.reconfigure(line_buffering=True)
 
     if args.gen_device == "auto":
         import torch

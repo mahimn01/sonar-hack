@@ -170,11 +170,12 @@ class GpuRenderer:
     """Holds the per-run tables on the device; turns plans into audio and Doppler columns."""
 
     def __init__(self, profile: str | None, device: str, precision: str = "auto", synth: Callable | None = None,
-                 kernel: str = "auto", noise: str = "cpu") -> None:
+                 kernel: str = "auto", noise: str = "cpu", features: str = "conv") -> None:
         """kernel: "auto" = use the fused CUDA kernel for the echo loop if its probe passes on this GPU (else the
         PyTorch operations), "off" = PyTorch operations, "on" = the kernel without asking the probe.
         noise: "cpu" = the worker processes shape the hall noise and the gain wander (as render.py does), "gpu" = they
-        only draw the random numbers and this renderer shapes them (about half the CPU work per clip; not on Apple GPUs)."""
+        only draw the random numbers and this renderer shapes them (about half the CPU work per clip; not on Apple GPUs).
+        features: "conv" / "fft" = how the feature code computes its long filter (features_torch.TorchFrontend, `fir`)."""
         import torch
 
         from .render_torch import pick_precision
@@ -200,6 +201,7 @@ class GpuRenderer:
                 self.synth, self.echo_impl = echo_kernel.synth_paths_cuda, "fused CUDA kernel"
             self.kernel_note = why
         self.shape_on_device = noise == "gpu" and self.device.type != "mps"
+        self.fir = "fft" if (features == "fft" and self.device.type != "mps") else "conv"
         self.oom_splits = 0                  # batches that did not fit in memory and were split
         self._ctx: dict = {}
         self._fe: dict = {}
@@ -212,6 +214,9 @@ class GpuRenderer:
             tx = self.tx if key == (self.pre, len(self.tx)) else overlay_tx(self.core, self.n)[0]
             self._ctx[key] = RenderContext(tx, self.core.fs, self.n, plan.pre, self.core.band, self.device,
                                            precision=self.precision, period=self.core.period)
+            # the hall noise of a batch (about 1 GB) reaches a CUDA device through page-locked memory; part of
+            # --gen-noise gpu until it has been timed on real hardware
+            self._ctx[key].staged = self.shape_on_device and self.device.type == "cuda"
         return self._ctx[key]
 
     def frontend(self, n_mics: int):
@@ -219,7 +224,7 @@ class GpuRenderer:
 
         if n_mics not in self._fe:
             self._fe[n_mics] = TorchFrontend(self.core.cfg, n_mics, self.device,
-                                             precision="single" if self.precision == "single" else "auto")
+                                             precision="single" if self.precision == "single" else "auto", fir=self.fir)
         return self._fe[n_mics]
 
     def render(self, plans: list, want_parts: bool = False, timings: dict | None = None) -> dict:
@@ -318,7 +323,7 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
                  batch: int = 0, synth: Callable | None = None, stats: dict | None = None,
                  capture: Callable | None = None, gpu: "GpuRenderer | list | None" = None,
                  pool: ProcessPoolExecutor | None = None, gpus: int = 0, kernel: str = "auto",
-                 shared: bool = True, noise: str = "cpu") -> Iterator[dict]:
+                 shared: bool = True, noise: str = "cpu", features: str = "conv") -> Iterator[dict]:
     """Yield one result per job, in job order: the same dicts generate.make_clip returns.
 
     device "cuda" uses every visible GPU (`gpus` limits how many): each GPU renders its own batches.
@@ -331,7 +336,7 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
     from concurrent.futures import ThreadPoolExecutor
 
     if gpu is None:
-        fleet = [GpuRenderer(profile, d, precision, synth, kernel, noise) for d in gpu_devices(device, gpus)]
+        fleet = [GpuRenderer(profile, d, precision, synth, kernel, noise, features) for d in gpu_devices(device, gpus)]
     else:
         fleet = list(gpu) if isinstance(gpu, (list, tuple)) else [gpu]
     batch = batch or default_batch(str(fleet[0].device), fleet[0].precision)
@@ -341,7 +346,8 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
     stats.update({"batch": batch, "precision": fleet[0].precision, "device": ", ".join(str(f.device) for f in fleet),
                   "render_s": 0.0, "features_s": 0.0, "redraws": 0, "batches": 0, "oom_splits": 0,
                   "echo_loop": fleet[0].echo_impl, "kernel_note": fleet[0].kernel_note,
-                  "noise_shaping": "on the GPU" if fleet[0].shape_on_device else "in the CPU workers"})
+                  "noise_shaping": "on the GPU" if fleet[0].shape_on_device else "in the CPU workers",
+                  "feature_filter": fleet[0].fir})
     shape_on_device = fleet[0].shape_on_device
     todo: deque = deque((i, job, 0, None) for i, job in enumerate(jobs))
     planning: dict[Future, tuple] = {}

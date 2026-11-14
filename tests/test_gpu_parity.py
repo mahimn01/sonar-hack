@@ -40,8 +40,9 @@ def clips():
 
 def test_torch_frontend_equals_engine_frontend(cfg, clips):
     """Doppler columns from features_torch == the columns dsp.Frontend emits, for 2 microphones and for 1."""
-    for mics in (2, 1):
-        fe = TorchFrontend(cfg, mics, "cpu")
+    for mics, fir in ((2, "conv"), (1, "conv"), (2, "fft"), (1, "fft")):     # fft: the long filter through FFTs (--gen-features fft)
+        fe = TorchFrontend(cfg, mics, "cpu", fir=fir)
+        assert fe.fir == fir
         x = np.stack([cap["rx"][:, :mics] for _, cap in clips])
         db, lat = fe.columns(torch.from_numpy(x))
         assert db.shape == (len(clips), frames_for(fe.cfg, x.shape[1]), cfg.n_tones * mics, cfg.doppler_bins)
@@ -186,6 +187,25 @@ def test_noise_shaped_on_the_device_is_the_noise_of_render(clips):
     assert np.abs(a - b).max() < 1e-12 * np.abs(b).max()            # float64 arithmetic in another order, nothing more
     assert np.mean(got["rx"].numpy() != ref["rx"].numpy()) < 1e-5   # a sample exactly on a rounding edge may fall the other way
     np.testing.assert_allclose(got["snr_db"].numpy(), ref["snr_db"].numpy(), atol=1e-6, equal_nan=True)
+
+
+def test_staged_stack_equals_plain_stack():
+    """The page-locked route of big batches to a CUDA device (run here with an ordinary buffer): same numbers, and
+    a second, smaller batch through the reused buffer does not disturb the first batch's tensor."""
+    from datagen import render_torch as rt
+
+    rng = np.random.default_rng(0)
+    first = [rng.standard_normal((2, 500)) for _ in range(5)]
+    second = [rng.standard_normal((2, 500)) for _ in range(3)]
+    rt._PINNED.clear()
+    rt._PINNED["ok"] = True
+    a = rt._stack_staged(first, torch.device("cpu"), torch.float64, pin=False)
+    b = rt._stack_staged(second, torch.device("cpu"), torch.float32, pin=False)
+    assert np.array_equal(a.numpy(), np.stack(first))
+    assert np.array_equal(b.numpy(), np.stack(second).astype(np.float32))
+    assert a.shape == (5, 2, 500) and b.shape == (3, 2, 500) and len(rt._PINNED) == 2      # one buffer, reused
+    rt._PINNED.clear()
+    rt._PINNED["ok"] = True
 
 
 def test_stored_reference_matches_the_fixture():

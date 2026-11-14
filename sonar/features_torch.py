@@ -44,7 +44,7 @@ from .config import SonarConfig
 from .dsp import DopplerSTFT, ToneDemod, design_prefilter
 from .features import StreamFeatures, stream_from_columns
 
-_HP_PAD = 3400            # zero padding (baseband samples) after which the 5 Hz high-pass has rung out (< 1e-16)
+_HP_SECONDS = 1.7         # zero padding after which the 5 Hz high-pass has rung out (< 1e-16): 3400 samples at 2 kHz
 
 
 class TorchFrontend:
@@ -92,7 +92,7 @@ class TorchFrontend:
             n_abs = np.arange(m, dtype=np.float64) * cfg.decim
             phase = np.fmod(self.tones[:, None] * n_abs[None, :], cfg.fs) / cfg.fs       # exact, as ToneDemod
             self._rot[m] = torch.from_numpy(np.exp(-2j * np.pi * phase)).to(self.device, self.cd)   # [tones, m]
-            n_fft = sfft.next_fast_len(m + _HP_PAD)
+            n_fft = sfft.next_fast_len(m + int(math.ceil(_HP_SECONDS * cfg.bb_fs)))   # (follows a config with another baseband rate)
             _, h = sps.sosfreqz(self.sos, worN=n_fft, whole=True)
             self._hp[m] = (torch.from_numpy(h).to(self.device, self.cd), n_fft)
         return self._rot[m], self._hp[m][0], self._hp[m][1]
@@ -121,7 +121,7 @@ class TorchFrontend:
             self._wf = {n_fft: torch.from_numpy(np.fft.fft(self._w, n_fft, axis=1)).to(self.device, self.cd)}
         wf = self._wf[n_fft]
         out = torch.empty((r, cfg.n_tones, m), device=self.device, dtype=self.cd)
-        rows = max(1, int(1.5e8 // n_fft))                              # about 2.4 GB of complex128 at a time, three such arrays alive
+        rows = max(1, int(0.8e8 // n_fft))                              # about 1.3 GB of complex128 at a time, two or three such arrays alive
         for a in range(0, r, rows):
             spec = torch.fft.fft(x[a:a + rows], n=n_fft, dim=-1)
             for t in range(cfg.n_tones):

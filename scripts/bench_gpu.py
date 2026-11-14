@@ -157,14 +157,14 @@ def run_gpu(args: argparse.Namespace) -> dict:
     from datagen.gpu_pipeline import GpuRenderer, default_batch, finish_clip, generate_gpu, plan_clip
 
     device = "cpu" if args.device == "torch-cpu" else args.device
-    gpu = GpuRenderer(args.profile, device, args.precision, kernel=args.kernel, noise=args.noise)
+    gpu = GpuRenderer(args.profile, device, args.precision, kernel=args.kernel, noise=args.noise, features=args.features)
     dev = gpu.device
     cuda = dev.type == "cuda"
     batch = args.batch or default_batch(device, gpu.precision)
     jobs = bench_jobs(args.clips, args.profile)
     out: dict = {"device": str(dev), "precision": gpu.precision, "clips": len(jobs), "batch": batch, "torch": torch.__version__,
                  "echo_loop": gpu.echo_impl, "kernel_note": gpu.kernel_note,
-                 "noise_shaping": "on the GPU" if gpu.shape_on_device else "in the CPU workers"}
+                 "noise_shaping": "on the GPU" if gpu.shape_on_device else "in the CPU workers", "feature_filter": gpu.fir}
     if cuda:
         p = torch.cuda.get_device_properties(dev)
         out["gpu"] = f"{p.name}, {p.total_memory / 2**30:.0f} GB"
@@ -325,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--precisions", default="ref,fast", help="GPU number formats to time (default ref,fast)")
     ap.add_argument("--kernel", default="auto", help=argparse.SUPPRESS)
     ap.add_argument("--noise", default="cpu", help=argparse.SUPPRESS)
+    ap.add_argument("--features", default="conv", help=argparse.SUPPRESS)
     ap.add_argument("--child", help=argparse.SUPPRESS)
     ap.add_argument("--precision", default="auto", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
@@ -350,14 +351,14 @@ def main(argv: list[str] | None = None) -> int:
         runs = [(p, "auto", "cpu") for p in args.precisions.split(",") if p]
         if args.device.startswith("cuda"):                       # the same once more without the fused kernel, to see what it buys
             runs.insert(1, (runs[0][0], "off", "cpu"))
-        if not args.device.startswith("mps"):                    # ... and with the hall noise shaped on the GPU (--gen-noise gpu)
+        if not args.device.startswith("mps"):                    # ... and with the two newer options that are still off by default
             runs.insert(1, (runs[0][0], "auto", "gpu"))
         for prec, kernel, noise in runs:
             print(f"\n2. GPU clip maker on {args.device}, number format '{prec}'"
                   + (", fused kernel OFF" if kernel == "off" else "")
-                  + (", hall noise shaped on the GPU (--gen-noise gpu)" if noise == "gpu" else "") + f", {args.clips} clips ...")
-            report[f"gpu_{prec}" + ("_nokernel" if kernel == "off" else "") + ("_noisegpu" if noise == "gpu" else "")] = r = \
-                child(args, "gpu", ["--precision", prec, "--kernel", kernel, "--noise", noise])
+                  + (", NEW OPTIONS: --gen-noise gpu --gen-features fft" if noise == "gpu" else "") + f", {args.clips} clips ...")
+            report[f"gpu_{prec}" + ("_nokernel" if kernel == "off" else "") + ("_new" if noise == "gpu" else "")] = r = \
+                child(args, "gpu", ["--precision", prec, "--kernel", kernel, "--noise", noise, "--features", "fft" if noise == "gpu" else "conv"])
             if not r:
                 continue
             print(f"   {r.get('gpu', r['device'])}; batch {r['batch']}; PyTorch {r['torch']}")
@@ -367,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"     rendering (GPU)                                 {r['render_clips_per_s']:9.1f} clips/s")
             for k, v in r["render_stage_ms_per_clip"].items():
                 print(f"        {k:<44} {v:7.2f} ms/clip")
-            print(f"     Doppler columns (GPU)                           {r['features_clips_per_s']:9.1f} clips/s")
+            print(f"     Doppler columns (GPU)                           {r['features_clips_per_s']:9.1f} clips/s   (filter: {r.get('feature_filter', 'conv')})")
             print(f"     bursts + labels (CPU, {r['workers']} processes)       {r['finish_clips_per_s']:9.1f} clips/s")
             e = r["end_to_end"]
             print(f"     END TO END (plans via {e.get('plan_transport', 'pickle')})".ljust(53) + f"{r['end_to_end_clips_per_s']:9.1f} clips/s"

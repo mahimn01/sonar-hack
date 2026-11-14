@@ -9,7 +9,7 @@ on a CUDA card yet, so the short steps come first. If one fails, the last sectio
 | round 2 on your machine | what it means / what changed |
 |---|---|
 | `KERNEL OK`: echo loop 4.1 ms per clip against 24.0 | the hand-written CUDA kernel works on your card; rendering went from 52 to 162 clips/s |
-| end to end 57 clips/s (10.4x the 24 CPU threads), GPU load 49 % | the CPU side (the random draws) is now the slow part, at about 100 clips/s; that is the next speed item, not part of this round |
+| end to end 57 clips/s (10.4x the 24 CPU threads), GPU load 49 % | the CPU side (the random draws) is now the slow part, at about 100 clips/s; two new options go after it, off by default and timed in the optional part D |
 | `PARITY OK` on 1,040 clips | the GPU makes the same pictures as the CPU code |
 | the parity check ran again in the second training run (4.6 min) | fixed: a pass is now remembered in `train_out\parity\` whatever `--out` says |
 | held-out mahimn: 0.32 of gestures recognised with the motion library, 0.31 without | **two things were wrong with that test, see below** |
@@ -37,7 +37,7 @@ sits on the deck next to the left speaker, the tones arrive much louder, hands p
 
 | part | what | time on the 4090 | why |
 |---|---|---|---|
-| A | fit the laptop again on the GPU with more clips, then once without each person | about 8 min | a better fit than the Mac could do; and a score on a held-out person is only honest if the synthetic clips were not drawn around that person's habits |
+| A | fit the laptop again on the GPU with more clips, then once without each person | about 12 min | a better fit than the Mac could do; and a score on a held-out person is only honest if the synthetic clips were not drawn around that person's habits |
 | B | two training runs: with the fitted laptop, and the old way | about 12 + 7 min | the headline: what is the honest score without the flipped session, and what does the fitted laptop add? |
 | C | 12 synthetic sets, one per scoring fold | 45-70 min, unattended | the recall session's scoring suite reads these |
 | D | optional: check and time the next speed step | about 8 min | decides whether it becomes the default |
@@ -54,23 +54,34 @@ git pull
 New-Item -ItemType Directory -Force round3 | Out-Null
 ```
 
-## Part A. The fits (about 8 minutes)
+## Part A. The fits (about 12 minutes)
 
 ```powershell
 .venv\Scripts\python -m datagen.calibration --real mac --out calibration\macbook_v2.json --start calibration\macbook_v1.json --device cuda --clips 150 2>&1 | Tee-Object round3\r3_fit.log
 .venv\Scripts\python -m datagen.calibration --real mac --folds calibration\macbook_v2.json --device cuda --clips 150 2>&1 | Tee-Object round3\r3_folds.log
 ```
-Line 1 starts from the Mac's fit and tries 26 settings (where the microphone sits, how strong the echoes are,
-how fast and how high people move), 450 trial clips each, keeping a change only when it brings the simulated
-gesture pictures closer to the recorded ones. It must NOT list `20261114-001248_mahimn_gestures` among the
-recordings it reads. Expected at the end (numbers will differ):
+Line 1 starts from the Mac's fit and tries about 45 settings (where the microphone sits, how strong the echoes
+are, how fast and how high people move), 450 trial clips each, keeping a change only when it brings the simulated
+gesture pictures closer to the recorded ones. New since the Mac's fit: the trial clips are laid over your real
+"nobody gesturing" recordings, as most training clips are (the real hall is much louder at low Doppler than pure
+simulation, and the pictures are scaled by that). It must NOT list `20261114-001248_mahimn_gestures` among the
+recordings it reads. Expected (numbers will differ):
 ```
+  trial clips are laid over 8 recording(s) with nobody gesturing
+  generic laptop: gap 1.xx   (trial clips laid over the real no-gesture recordings)
+  starting point: gap 0.xx
+    hardware.mic_pos = [...]: gap 0.xx
+    overlay.echo_ref_db = [...]: gap 0.xx  <- better
+    ...
+  clips without a recording underneath (pure simulation): their echo level
+    hardware.echo_ref_db = [...]: gap 0.xx
 swipe_left    real         43.14  215.78  ...
-swipe_left    sim before   29.xx  117.xx  ...
+swipe_left    sim before   2x.xx  1xx.xx  ...
 swipe_left    sim after    4x.xx  2xx.xx  ...
-gap (0 = same means, 1 = one scale apart on average): before 1.7x, after 0.3x
+gap (0 = same means, 1 = one scale apart on average; trial clips laid over the real no-gesture recordings): generic laptop 1.xx, starting point 0.xx, fitted 0.xx; pure simulation with its own echo level: 0.xx
 wrote calibration\macbook_v2.json in ... s
 ```
+It writes working copies of the recordings (about 300 MB) into `calibration\work\`; that folder is not committed.
 Line 2 chooses "how people move" three more times, each time without one person:
 ```
   without aarsh (aarsh): fitted on lance, lance2, mahimn -> peak speed [..] m/s, hand height [..] m (gap 0.xx)
@@ -122,18 +133,21 @@ Expected at the end: a table of the 12 sets with picture counts and seconds, the
 - Short on time: add `--per-class 1000` (half the size, half the time) or use `--arms bg,motion` (8 sets).
 - `... batch(es) did not fit in GPU memory and were split`: harmless (it halved the batch itself).
 
-## Part D, only if there is time: the next speed step (about 8 minutes)
+## Part D, only if there is time: the next speed steps (about 8 minutes)
 
 ```powershell
-.venv\Scripts\python scripts\check_gpu_parity.py --clips 200 --noise gpu --json round3\r3_parity_noise_gpu.json 2>&1 | Tee-Object round3\r3_parity_noise_gpu.log
+.venv\Scripts\python scripts\check_gpu_parity.py --clips 200 --noise gpu --features fft --json round3\r3_parity_new.json 2>&1 | Tee-Object round3\r3_parity_new.log
 .venv\Scripts\python scripts\bench_gpu.py --only gpu --precisions ref 2>&1 | Tee-Object round3\r3_bench.log
 ```
-Your round-2 bench showed the CPU's random draws (100 clips a second) holding the GPU back. A new option,
-`--gen-noise gpu`, moves the heavy half of that work to the GPU. It is off by default and nothing above uses it.
-Line 1 checks that it makes the same pictures (must end with `PARITY OK`, and say
-`hall noise and gain wander shaped on the device` near the top). Line 2 times the pipeline three ways; the one
-to look at is the block headed `... hall noise shaped on the GPU (--gen-noise gpu)`: its `random draws`,
-`END TO END` and `GPU load` lines against the first block's. If both are fine it becomes the default next round.
+Your round-2 bench showed two things holding the pipeline back: the CPU's random draws (100 clips a second),
+and the Doppler pictures (3.1 ms of GPU per clip, a third of the GPU's work). Two new options go after them:
+`--gen-noise gpu` moves the heavy half of the CPU's work to the GPU, `--gen-features fft` computes the
+pictures' long filter a cheaper way. Both are off by default and nothing above uses them.
+Line 1 checks that they make the same pictures (must end with `PARITY OK`, and say
+`hall noise and gain wander shaped on the device; feature filter through FFTs` near the top). Line 2 times the
+pipeline three ways; the one to look at is the block headed `... NEW OPTIONS: --gen-noise gpu --gen-features fft`:
+its `random draws`, `Doppler columns`, `END TO END` and `GPU load` lines against the first block's. If both
+are fine they become the default next round.
 
 ## What to send back
 
@@ -150,7 +164,7 @@ Get-ChildItem train_out_base\runs | Sort-Object Name | Select-Object -Last 1 | F
 then commit `round3\` and `models-release-cal\` on `model-sat-am` and push, as you did for round 2.
 What matters most, in this order: `round3\r3_train_cal.log` and `r3_train_base.log` (the two honest scores),
 `round3\calibration\` (the fitted files; the Mac needs them back), `r3_fit.log`, `r3_folds.log`, `r3_sets.log`, `INDEX.json`,
-and from part D `r3_parity_noise_gpu.log`, `r3_bench.log` and the `train_out\bench\bench_<time>.json` it names.
+and from part D `r3_parity_new.log`, `r3_bench.log` and the `train_out\bench\bench_<time>.json` it names.
 
 ## If something goes wrong
 

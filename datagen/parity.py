@@ -340,7 +340,7 @@ def drift(packed: dict, path: Path = REFERENCE_FILE) -> dict:
 # --------------------------------------------------------------------------
 def run(n_clips: int, device: str, precision: str = "auto", workers: int = 4, batch: int = 0, profile: str | None = None,
         work: Path | None = None, data: Path | None = None, log=None, chunk: int = 0, pick=None, kernel: str = "auto",
-        motion: str | None = None, calibration: str | None = None, noise: str = "cpu") -> dict:
+        motion: str | None = None, calibration: str | None = None, noise: str = "cpu", features: str = "conv") -> dict:
     """Make the fixture with both paths and compare. Returns the report (report["passed"] is the verdict).
 
     `pick(name, job) -> bool`, if given, keeps only some fixture clips (to look at a few closely).
@@ -373,7 +373,7 @@ def run(n_clips: int, device: str, precision: str = "auto", workers: int = 4, ba
             bgs = (background,) if k % 4 == 3 else ()
             jobs.append((f"{kind}, fitted laptop", (SEED0 + 600_000 + k, kind, profile, 6.0, False, bgs, 1.0 if bgs else 0.0, False, False, 1,
                                                     None, lib, 1.0 if lib else 0.0, cal)))
-    gpu = GpuRenderer(profile, device, precision, kernel=kernel, noise=noise)
+    gpu = GpuRenderer(profile, device, precision, kernel=kernel, noise=noise, features=features)
     limits = LIMITS[gpu.precision]
     batch = batch or default_batch(device, gpu.precision)
     chunk = chunk or max(batch, 4 * workers)
@@ -381,7 +381,8 @@ def run(n_clips: int, device: str, precision: str = "auto", workers: int = 4, ba
     log(f"parity check: {len(jobs)} clips, CPU reference (numpy) against {gpu.device} (PyTorch {torch.__version__}, "
         f"number format '{gpu.precision}'), {workers} worker processes")
     log(f"echo loop on the GPU side: {gpu.echo_impl}" + (f" ({gpu.kernel_note})" if gpu.kernel_note else "")
-        + ("; hall noise and gain wander shaped on the device" if gpu.shape_on_device else ""))
+        + ("; hall noise and gain wander shaped on the device" if gpu.shape_on_device else "")
+        + ("; feature filter through FFTs" if gpu.fir == "fft" else ""))
     rows: list[dict] = []
     sigs: list[dict] = []
     seconds = {"cpu": 0.0, "gpu": 0.0}
@@ -415,7 +416,7 @@ def run(n_clips: int, device: str, precision: str = "auto", workers: int = 4, ba
     report = judge(rows, limits)
     report.update({"clips": len(jobs), "device": str(gpu.device), "precision": gpu.precision, "torch": torch.__version__,
                    "echo_loop": gpu.echo_impl, "kernel_note": gpu.kernel_note,
-                   "noise_shaping": "on the device" if gpu.shape_on_device else "in the CPU workers",
+                   "noise_shaping": "on the device" if gpu.shape_on_device else "in the CPU workers", "feature_filter": gpu.fir,
                    "seconds": {k: round(v, 1) for k, v in seconds.items()}, "limits": limits,
                    "per_clip_ms": {k: round(1e3 * v / len(jobs), 1) for k, v in seconds.items()}})
     report["packed"] = pack_signatures(sigs, [clip_key(name, job) for name, job in jobs[:n_stored]])
@@ -543,7 +544,8 @@ def print_report(report: dict, log=print) -> None:
     for s in report.get("sessions", []):
         log(f"real recording {s['session']}: largest feature difference {s['feat_max']:.1e}, bursts {'identical' if s['segments_same'] else 'DIFFERENT'}")
     log("")
-    log(f"echo loop: {report.get('echo_loop', 'PyTorch operations')}; hall noise shaped {report.get('noise_shaping', 'in the CPU workers')}")
+    log(f"echo loop: {report.get('echo_loop', 'PyTorch operations')}; hall noise shaped {report.get('noise_shaping', 'in the CPU workers')}; "
+        f"feature filter: {report.get('feature_filter', 'conv')}")
     if report["passed"]:
         log(f"PARITY OK: the GPU path makes the same training pictures as the CPU path ({report['clips']} clips, {report['total_seconds']:.0f} s)")
     else:

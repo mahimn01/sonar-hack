@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
                                                      "if it exists; none: skip)")
     ap.add_argument("--calibration", default="auto", help="fitted laptop whose clips are checked too (auto: the newest "
                                                           "calibration/macbook_v<N>.json if there is one; none: skip)")
+    ap.add_argument("--features", default="conv", choices=["conv", "fft"], help="long filter in front of the Doppler pictures: conv = a strided convolution (default); fft = the same sum through FFTs (much less GPU arithmetic, same numbers to 1e-15)")
     ap.add_argument("--noise", default="cpu", choices=["cpu", "gpu"], help="hall noise and gain wander: cpu = shaped in the worker processes, as render.py does (default); gpu = the workers only draw the random numbers and the GPU shapes them (about half the CPU work per clip; same audio to 1e-12)")
     ap.add_argument("--kernel", default="auto", choices=["auto", "on", "off", "host"],
                     help="echo loop: auto = the fused CUDA kernel if its self-check passes (as training will use it), "
@@ -95,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = parity.run(args.clips, device, precision=args.precision, workers=args.workers, batch=args.batch,
                             profile=args.profile, work=(REPO / args.work), data=data if data.exists() else None,
-                            kernel=args.kernel, motion=motion, calibration=cal, noise=args.noise)
+                            kernel=args.kernel, motion=motion, calibration=cal, noise=args.noise, features=args.features)
     except Exception as exc:
         import traceback
 

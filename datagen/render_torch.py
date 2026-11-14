@@ -102,6 +102,7 @@ class RenderContext:
         self.chunk_elems = chunk_elems or {"cuda": 12_000_000, "mps": 8_000_000}.get(dev.type, 1_500_000)
         self.hd = torch.float32 if dev.type == "mps" else torch.float64        # per-clip sums (MPS has no float64)
         self.smooth_tables: dict = {}                                          # _device_noise: spline and babble tables
+        self.staged = False                                                    # big batches through page-locked memory (_stack)
 
         freqs = sfft.rfftfreq(n_total, 1.0 / fs)
         self.n_freq = len(freqs)
@@ -434,8 +435,13 @@ def _device_noise(ctx: "RenderContext", plans: list, noise: torch.Tensor) -> tup
     shape, k = ctx.smooth_tables[("babble", dtype)]
 
     def rows(part: list, name: str, width: int) -> torch.Tensor:      # clips without that piece get zeros (their level is 0)
-        got = [getattr(p, name) for p in part]
-        return torch.from_numpy(np.stack([np.zeros(width) if a is None else np.asarray(a) for a in got])).to(dev, dtype)
+        arrs = [np.zeros(width) if a is None else np.asarray(a) for a in (getattr(p, name) for p in part)]
+        if ctx.staged and dev.type == "cuda" and _PINNED["ok"] and arrs[0].nbytes * len(arrs) >= _PIN_FROM and len({a.dtype for a in arrs}) == 1:
+            try:
+                return _stack_staged(arrs, dev, dtype)
+            except RuntimeError as exc:
+                _staging_failed(exc)
+        return torch.from_numpy(np.stack(arrs)).to(dev, dtype)
 
     for a in range(0, b, 48):                                         # in pieces: every temporary here is [clips, n_out] float64
         part = plans[a:a + 48]
@@ -464,8 +470,48 @@ def _device_noise(ctx: "RenderContext", plans: list, noise: torch.Tensor) -> tup
     return noise, gain
 
 
-def _stack(plans: list, name: str, dev: torch.device, dtype: torch.dtype) -> torch.Tensor:
-    return torch.from_numpy(np.stack([np.asarray(getattr(p, name)) for p in plans])).to(dev, dtype)
+_PIN_FROM = 64 * 2**20        # stacks at least this large go to a CUDA device through page-locked memory
+_PINNED: dict = {"ok": True}  # (device, element type, clip shape) -> the page-locked buffer of that render thread
+
+
+def _stack_staged(arrs: list, dev: torch.device, dtype: torch.dtype, pin: bool = True) -> torch.Tensor:
+    """np.stack(arrs) on `dev`, copied once into a reused page-locked buffer and from there to the device.
+
+    Why: the hall noise of a batch is 0.8 GB. np.stack + .to(cuda) copies it three times through ordinary
+    memory (stack, CUDA's own staging copy, device); the 4090's round-2 bench shows that as 1.75 ms per clip
+    of "GPU" time during which the GPU waits. From page-locked memory the device copy is direct.
+    `pin=False` runs the same code with an ordinary buffer (tests on machines without CUDA).
+    """
+    first = arrs[0]
+    key = (str(dev), first.dtype.str, first.shape)
+    buf = _PINNED.get(key)
+    if buf is None or buf.shape[0] < len(arrs):
+        buf = torch.empty((len(arrs), *first.shape), dtype=torch.from_numpy(first[:0]).dtype)
+        _PINNED[key] = buf = buf.pin_memory() if pin else buf
+    view = buf.numpy()
+    for i, a in enumerate(arrs):
+        view[i] = a
+    return buf[:len(arrs)].to(dev, dtype, copy=True)          # (always a new tensor: the buffer is reused for the next batch)
+
+
+def _staging_failed(exc: RuntimeError) -> None:
+    """The page-locked route did not work. A full GPU is the batch splitter's business (gpu_pipeline halves the batch);
+    anything else, e.g. no page-locked memory to be had, switches the route off for the rest of the run."""
+    if isinstance(exc, torch.cuda.OutOfMemoryError):
+        raise exc
+    _PINNED.clear()
+    _PINNED["ok"] = False
+
+
+def _stack(plans: list, name: str, dev: torch.device, dtype: torch.dtype, staged: bool = False) -> torch.Tensor:
+    """One field of every plan as a batch on the device. `staged`: big batches go through page-locked memory (CUDA only)."""
+    arrs = [np.asarray(getattr(p, name)) for p in plans]
+    if staged and dev.type == "cuda" and _PINNED["ok"] and arrs[0].nbytes * len(arrs) >= _PIN_FROM:
+        try:
+            return _stack_staged(arrs, dev, dtype)
+        except RuntimeError as exc:
+            _staging_failed(exc)
+    return torch.from_numpy(np.stack(arrs)).to(dev, dtype)
 
 
 def _vec(plans: list, name: str, dev: torch.device, dtype: torch.dtype) -> torch.Tensor:
@@ -611,9 +657,9 @@ def render_batch(ctx: RenderContext, plans: list, want_parts: bool = False, synt
     del clean
     snr = torch.full((b,), float("nan"), dtype=hd, device=dev)
     if add_noise:
-        noise = _stack(plans, "noise", dev, hd)                                             # [B, n_mic, n_out]
+        noise = _stack(plans, "noise", dev, hd, ctx.staged)                                 # [B, n_mic, n_out]
         if p0.shaped:
-            gain = _stack(plans, "gain", dev, hd)
+            gain = _stack(plans, "gain", dev, hd, ctx.staged)
         else:                                                 # the workers only drew the numbers: shape them here
             noise, gain = _device_noise(ctx, plans, noise)
         n_spec = torch.fft.rfft(noise.to(torch.float32), dim=-1).index_select(2, ctx.in_band)   # only a level: float32 is plenty

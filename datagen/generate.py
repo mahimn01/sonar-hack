@@ -309,6 +309,7 @@ def main() -> None:
     ap.add_argument("--gen-kernel", default="auto", choices=["auto", "on", "off"],
                     help="echo loop on CUDA: auto = the fused kernel (echo_paths.c) if its self-check passes on this GPU, "
                          "else PyTorch operations; off = PyTorch operations")
+    ap.add_argument("--gen-features", default="conv", choices=["conv", "fft"], help="long filter in front of the Doppler pictures: conv = a strided convolution (default); fft = the same sum through FFTs (much less GPU arithmetic, same numbers to 1e-15)")
     ap.add_argument("--gen-noise", default="cpu", choices=["cpu", "gpu"],
                     help="hall noise and gain wander: cpu = shaped in the worker processes, as render.py does (default); gpu = the workers only draw the random numbers and the GPU shapes them (about half the CPU work per clip; same audio to 1e-12)")
     args = ap.parse_args()
@@ -353,7 +354,8 @@ def main() -> None:
         device = "cpu" if args.gen_device == "torch-cpu" else args.gen_device
         print(f"{len(jobs)} clips on {device} (PyTorch), {args.workers} worker processes for the random draws and the labels")
         results = generate_gpu(jobs, args.profile, device, args.workers, precision=args.gen_precision, batch=args.gen_batch,
-                               stats=gpu_stats, gpus=args.gen_gpus, kernel=args.gen_kernel, noise=args.gen_noise)
+                               stats=gpu_stats, gpus=args.gen_gpus, kernel=args.gen_kernel, noise=args.gen_noise,
+                               features=args.gen_features)
     with open(out_dir / "manifest.jsonl", "w") as manifest:
         for res in results:
             n_clips += 1
@@ -388,7 +390,8 @@ def main() -> None:
         pool.shutdown()
     if gpu_stats:
         print(f"  echo loop: {gpu_stats['echo_loop']}" + (f" ({gpu_stats['kernel_note']})" if gpu_stats.get("kernel_note") else "")
-              + f"; plans from the workers: {gpu_stats.get('plan_transport')}; hall noise shaped {gpu_stats.get('noise_shaping')}")
+              + f"; plans from the workers: {gpu_stats.get('plan_transport')}; hall noise shaped {gpu_stats.get('noise_shaping')}; "
+              f"feature filter: {gpu_stats.get('feature_filter')}")
         print(f"  GPU path on {gpu_stats['device']}: batch {gpu_stats['batch']}, precision {gpu_stats['precision']}, {gpu_stats['batches']} batches, "
               f"render {gpu_stats['render_s']:.1f} s, features {gpu_stats['features_s']:.1f} s, {gpu_stats['redraws']} redraws"
               + (f"; {gpu_stats['oom_splits']} batch(es) did not fit in GPU memory and were split: use --gen-batch "

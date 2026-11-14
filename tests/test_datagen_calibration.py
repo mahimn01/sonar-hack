@@ -134,7 +134,7 @@ def test_fold_file_is_fitted_without_the_held_out_human(monkeypatch: pytest.Monk
         def __enter__(self): return self
         def __exit__(self, *exc) -> None: ...
 
-    def fake_stats(cal_path: str, n: int, sim) -> dict:
+    def fake_stats(cal_path: str, n: int, sim, backgrounds: tuple = ()) -> dict:
         scene = json.loads(Path(cal_path).read_text())["scene"]
         is_fast = scene["peak_speed"][1] >= 6.5                # the two fastest speed ranges make "fast" pictures
         return {"swipe_left": dict(fast if is_fast else slow, n=n), "strokes_found": 1.0}
@@ -150,6 +150,33 @@ def test_fold_file_is_fitted_without_the_held_out_human(monkeypatch: pytest.Monk
     assert cals["aarsh"]["hardware"] == base["hardware"]       # the laptop itself is the same in every fold
     assert cals["aarsh"]["overlay"] == base["overlay"]
     assert len(report["combinations"]) == 15
+
+
+def test_fold_trial_clips_stay_off_the_held_out_humans_recordings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """With real no-gesture recordings to lay the trial clips over, every fold uses only the OTHER humans' recordings."""
+    numbers = {k: 0.0 for k in calibration.KEYS}
+    rows = {p: [("swipe_left", numbers)] * 2 for p in ("lance", "lance2", "aarsh", "mahimn")}
+    used: dict = {}
+
+    class FakeSim:
+        def __init__(self, *a, **k) -> None: ...
+        def __enter__(self): return self
+        def __exit__(self, *exc) -> None: ...
+
+    def fake_stats(cal_path: str, n: int, sim, backgrounds: tuple = ()) -> dict:
+        tag = Path(cal_path).stem.split("_")[-2]               # fold_trial_<time>_<human>_<k>
+        used.setdefault(tag, set()).update(backgrounds)
+        assert "overlay" in json.loads(Path(cal_path).read_text())
+        return {"swipe_left": dict(numbers, n=n), "strokes_found": 1.0}
+
+    monkeypatch.setattr(calibration, "Sim", FakeSim)
+    monkeypatch.setattr(calibration, "sim_stats", fake_stats)
+    backgrounds = (("l1.npy", "lance"), ("l2.npy", "lance2"), ("a.npy", "aarsh"), ("m.npy", "mahimn"))
+    cals, report = calibration.fit_folds(json.loads(CAL.read_text()), rows, tmp_path, 1, 1, log=lambda text: None, backgrounds=backgrounds)
+    assert used == {"lance": {"a.npy", "m.npy"}, "aarsh": {"l1.npy", "l2.npy", "m.npy"}, "mahimn": {"l1.npy", "l2.npy", "a.npy"}}
+    assert sorted(cals) == ["aarsh", "lance", "mahimn"]
+    assert "never laid over that human's own recordings" in cals["lance"]["fold"]["note"]
+    assert sorted(report["sim"]) == ["aarsh", "lance", "mahimn"]
 
 
 # ------------------------------------------------------------------ labels of cut-up strokes

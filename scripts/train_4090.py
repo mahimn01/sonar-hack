@@ -282,6 +282,8 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
     how = [code_hash(GPU_CODE), args.gen_device.split(":")[0], args.gen_precision, args.gen_kernel] if on_gpu else []   # CPU keys are as before
     if on_gpu and args.gen_noise != "cpu":
         how += ["noise", args.gen_noise]
+    if on_gpu and args.gen_features != "conv":
+        how += ["features", args.gen_features]
     if args.calibration:                                     # a laptop fitted to real recordings instead of the generic one
         how += ["calibration", hashlib.sha256(Path(args.calibration).read_bytes()).hexdigest()[:12]]
     if args.motion:                                          # real hand paths for a share of the gestures
@@ -310,7 +312,7 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
         cmd += ["--calibration", args.calibration]
     if on_gpu:
         cmd += ["--gen-device", args.gen_device, "--gen-precision", args.gen_precision, "--gen-kernel", args.gen_kernel,
-                "--gen-noise", args.gen_noise]
+                "--gen-noise", args.gen_noise, "--gen-features", args.gen_features]
         if gen_batch or args.gen_batch:
             cmd += ["--gen-batch", str(gen_batch or args.gen_batch)]
         if args.gen_gpus:
@@ -338,7 +340,8 @@ def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log:
     clips = 100 if args.size == "tiny" else 1000
     key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE + GPU_CODE + PARITY_CODE), info.get("torch"), info.get("gpu"),
                  args.gen_device, args.gen_precision, args.gen_kernel, args.profile, clips,
-                 *(["noise", args.gen_noise] if args.gen_noise != "cpu" else []))
+                 *(["noise", args.gen_noise] if args.gen_noise != "cpu" else []),
+                 *(["features", args.gen_features] if args.gen_features != "conv" else []))
     marker = work / "parity" / f"passed_{key}.json"
     if marker.exists() and not args.recheck_parity:
         old = json.loads(marker.read_text())
@@ -349,7 +352,8 @@ def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log:
     report = work / "parity" / f"last_{key}.json"
     cmd = [PY, "scripts/check_gpu_parity.py", "--device", args.gen_device, "--precision", args.gen_precision,
            "--clips", str(clips), "--workers", str(args.workers), "--work", str(work / "parity"), "--data", args.data,
-           "--json", str(report), "--kernel", args.gen_kernel, "--noise", args.gen_noise]
+           "--json", str(report), "--kernel", args.gen_kernel, "--noise", args.gen_noise,
+           "--features", args.gen_features]
     if args.profile != "default":
         cmd += ["--profile", args.profile]
     try:
@@ -699,6 +703,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gen-kernel", default="auto", choices=["auto", "on", "off"],
                     help="echo loop on CUDA: auto = the fused CUDA kernel if its self-check passes on this GPU (else PyTorch "
                          "operations, automatically); off = PyTorch operations")
+    ap.add_argument("--gen-features", default="conv", choices=["conv", "fft"], help="long filter in front of the Doppler pictures: conv = a strided convolution (default); fft = the same sum through FFTs (much less GPU arithmetic, same numbers to 1e-15)")
     ap.add_argument("--gen-noise", default="cpu", choices=["cpu", "gpu"],
                     help="hall noise and gain wander: cpu = shaped in the worker processes, as render.py does (default); gpu = the workers only draw the random numbers and the GPU shapes them (about half the CPU work per clip; same audio to 1e-12)")
     ap.add_argument("--skip-parity", action="store_true", help="do not run the GPU-against-CPU picture check before making data on a GPU")

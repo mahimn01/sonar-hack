@@ -460,8 +460,14 @@ powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --sweep    # + 9
   drawing but shaping the hall noise and the gain wander (two long FFTs, two envelopes, a power per sample).
   `--gen-noise gpu` leaves only the drawing to the workers and shapes on the GPU: the same audio to 1e-12 and,
   on the Mac, bit-identical data sets, with the workers' stage 1.7x faster (145 -> 247 plans a second with 4
-  processes). It is **off by default until it has run on the 4090**; `bench_gpu.py` now times it next to the
-  default, and `check_gpu_parity.py --noise gpu` checks it.
+  processes).
+- The Doppler pictures cost 3.1 ms of GPU per clip there, a third of all GPU time, nearly all of it in one long
+  filter computed as a strided convolution in float64. `--gen-features fft` computes the same sum through FFTs
+  (same numbers to 2e-15, bit-identical data sets on the Mac); on a GPU that is far less arithmetic.
+- Both options are **off by default until they have run on the 4090**. `bench_gpu.py` times them together in a
+  block headed `NEW OPTIONS`, next to the default, and `check_gpu_parity.py --noise gpu --features fft` checks
+  them. If the estimates hold (workers about 170 plans a second, GPU about 7 ms per clip), the pipeline goes
+  from 57-79 to roughly 130 clips a second with the GPU busy nearly all the time. That is an estimate.
 - `--gen-precision fast` (float32 FFTs) buys nothing there (52 clips/s against 57) and moves a burst in about 1
   clip in 25, so `ref` stays the default.
 - The kernel's self-check on that card: echoes within 2.6e-07 of the PyTorch path. The picture check passed on
@@ -477,6 +483,7 @@ powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --sweep    # + 9
 | `--gen-precision fast` | float32 for the three big FFT steps instead of float64. Possibly faster (see `bench_gpu.py`); about 1 clip in 25 then gets a burst boundary moved by a frame, so the default is the exact `ref` |
 | `--gen-kernel off` | the echo loop as plain PyTorch operations instead of the fused CUDA kernel (same pictures, slower). Automatic when the kernel's self-check fails |
 | `--gen-noise gpu` | the worker processes only draw the random numbers of the hall noise and the gain wander; the GPU shapes them (about half the CPU work per clip, same audio). Default `cpu` until measured on the 4090 |
+| `--gen-features fft` | the feature code's long filter through FFTs instead of a strided convolution (same pictures, much less GPU arithmetic). Default `conv` until measured on the 4090 |
 | `--gen-batch N` | clips per GPU batch (default: fills the card's free memory; a batch that does not fit is split in two automatically and the log says so) |
 | `--gen-gpus N` | on a machine with several GPUs: how many to use (default all; clips are rendered on each, training runs are dealt out in turn) |
 | `--skip-parity`, `--recheck-parity` | skip / repeat the picture check |
@@ -538,7 +545,12 @@ engine's own code, reduces every picture to six numbers (how strong, how wide in
 filled, and where each tone's energy sits), does the same for simulated clips, and changes one simulator
 setting at a time, keeping a change only when the simulated numbers come closer to the recorded ones. The
 result is a small JSON file; `calibration/macbook_v1.json` was fitted on the Mac (20 trial clips per gesture
-and setting), and the 4090 refits it with 150.
+and setting), and the 4090 refits it with 150. From that refit on, the trial clips are laid over the real
+"nobody gesturing" recordings, as most training clips are, and only the echo level of clips without a recording
+underneath is fitted on pure simulation. Reason, measured on the recordings: next to the tones the real hall is
+10-25 dB louder at low Doppler than pure simulation (people moving about), and the engine scales every picture by
+that floor. With simple picture numbers a plain classifier tells pure simulation from recordings almost always
+(0.98, where 0.5 would mean "cannot"), clips laid over recordings less easily (0.92).
 
 How far simulated gesture pictures are from recorded ones (0 = same averages, 1 = one "scale" apart on average;
 scales: 6 dB, 60 Hz, 0.05, 0.15, 40 Hz, 40 Hz): **1.72 with the generic laptop, 0.41 fitted.** The same in plain
@@ -582,9 +594,11 @@ What you need to know to use it:
 Limits, plainly:
 - It is a fit of summary numbers by trial and error, not gradient descent through the renderer: for a recorded
   gesture the true path of the hand is unknown, so there is nothing to line a single simulated clip up with.
-- Speaker and microphone colouration, reflectivity and the room were not fitted one by one; clips laid over real
-  recordings bring the real room and noise with them, and their echo level (`"overlay"` in the file) was set from
-  a 48-clip comparison, not searched.
+- What is measured straight off the recordings rather than searched: the tone levels at the microphone, and (from
+  the 4090's refit on) the noise floor around the tones, -81 dBFS as white noise over the whole band on these
+  recordings. Speaker and microphone colouration, the reflectivity of hand against arm, and the room's reflections
+  were not fitted one by one; clips laid over real recordings bring the real room and noise with them. In
+  `macbook_v1.json` their echo level (`"overlay"`) was set from a 48-clip comparison; the refit searches it.
 - Still different from the recordings: the real right-tone pictures are brighter than the left-tone ones by
   about 0.10 (simulated: about equal), and lance's swipes show as broadband stripes in both tones that no
   setting reproduces well.
