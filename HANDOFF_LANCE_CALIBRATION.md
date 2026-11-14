@@ -4,7 +4,27 @@ Everything here runs on the 4090 box, from the repo folder, in **Windows PowerSh
 after `git pull`. The new code was smoke-tested on a Mac with the GPU code running on the CPU; it has not run
 on a CUDA card yet, so the short steps come first. If one fails, the last section says what to do.
 
+## Update, 14 Nov, 2:30 pm: parts C and E are done. Only the optional part F is left
+
+**Both worked, thank you.** All 20 sets are made: the 12 of part C in 28 minutes (13:15 to 13:40) and the 8
+`_rel12` sets of part E in 18 minutes (13:43 to 13:59). The eight sets that mix two kinds of clip went
+through as expected (24 to 28 of their 64 to 65 batches part-filled). `models-release-cal\` and
+`models-release-base\` arrived as well. The code has not changed since `a57e584`: this update is text only.
+
+**Please do not run the set maker again** (`scripts\make_calibrated_sets.py`, the commands of parts C and E).
+The 1 pm update below still lists them as steps 2 and 3; both are done. The recall session's training reads
+the 20 sets from `train_out\synth_cal` for one and a half to two hours. Run again, either command normally
+skips its sets in a few seconds, but it deletes and rebuilds a finished set if something that set depends
+on has changed since: a recording added under `mac\`, or a file in `calibration\`.
+
+**What is left of this handoff:** only part F, and it is optional (the same comparison for every person,
+about 35 minutes). It wants the GPU to itself, and so does the recall session's training: one at a time,
+in the order the coordinator gives.
+
 ## Update, 14 Nov, 1 pm: the hang in part E is fixed. What to run now
+
+*(Added at 2:30 pm: everything this section asks for is done: steps 1, 2 and 3 of its list, and the two model
+folders have arrived. Do not repeat steps 2 and 3; see the update above.)*
 
 **What happened.** Part E stopped twice on its first set, with the log frozen after `12000 clips on cuda`, the
 GPU idle and one Python thread spinning. Your dumps pointed at the right place, thank you. The cause was my
@@ -31,10 +51,10 @@ before, so nothing you already made needs to be made again.
 # 1. if a set maker is still running and stuck on a _bg set (log frozen, GPU idle): stop it with Ctrl+C
 git pull
 Select-String -Path datagen\gpu_pipeline.py -Pattern "held_up" -Quiet      # must print True: the fix is here
-# 2. part C again, same command: it skips the sets that are done and makes the missing ones (the four _bg sets)
-.venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,motion,plain 2>&1 | Tee-Object round3\r3_sets.log
-# 3. part E: the bg and plain sets cut the new way
-.venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,plain --rel-off-db 12 2>&1 | Tee-Object round3\r3_sets_rel12.log
+# 2. DONE at 13:40, do not run it again (see the 2:30 pm update): part C, the 12 sets
+#    .venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,motion,plain 2>&1 | Tee-Object round3\r3_sets.log
+# 3. DONE at 13:59, do not run it again: part E, the bg and plain sets cut the new way
+#    .venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,plain --rel-off-db 12 2>&1 | Tee-Object round3\r3_sets_rel12.log
 ```
 How to tell it works: within a minute of `12000 clips on cuda` the first progress line appears
 (`  200/12000 clips, ...`), and each `_bg` set ends with a line like
@@ -159,7 +179,7 @@ GPU parity check: ...        (runs ONCE for this new code, about 5 minutes; run 
 and at the end of each run `Honest score on mahimn: ...` and `Verdict: ...`.
 **The two `Honest score` lines, and the two small tables above them (rows = truth), are the headline of this round.**
 
-## Part C. The 12 synthetic sets for the scoring suite (45-70 minutes, unattended)
+## Part C. The 12 synthetic sets for the scoring suite (done on 14 Nov in 28 minutes; do not run it again, see the 2:30 pm update)
 
 ```powershell
 .venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,motion,plain 2>&1 | Tee-Object round3\r3_sets.log
@@ -201,7 +221,7 @@ pipeline three ways; the one to look at is the block headed `... NEW OPTIONS: --
 its `random draws`, `Doppler columns`, `END TO END` and `GPU load` lines against the first block's. If both
 are fine they become the default next round.
 
-## Part E: the same sets with the new burst cutting (about 30 minutes, unattended)
+## Part E: the same sets with the new burst cutting (done on 14 Nov in 18 minutes; do not run it again, see the 2:30 pm update)
 
 ```powershell
 git pull
@@ -287,9 +307,8 @@ Get-ChildItem train_out_cal\runs | Sort-Object Name | Select-Object -Last 1 | Fo
 Get-ChildItem train_out_base\runs | Sort-Object Name | Select-Object -Last 1 | ForEach-Object { Copy-Item "$($_.FullName)\log.txt" round3\base\log.txt }
 ```
 then commit `round3\` and `models-release-cal\` on `model-sat-am` and push, as you did for round 2.
-**Still missing on 14 Nov, 1 pm: `models-release-cal\`** (six files: `gesture.onnx`, `gesture.json`, `gesture.pt`,
-`metrics.json`, `confusion.txt`, `TRAINING_RUN.json`). `models-release-base\` is welcome too. Git does not ignore
-these two folders, so a plain `git add models-release-cal models-release-base` is enough.
+Received on 14 Nov, 2 pm (19dedf0, 8929e1f): part E's log and the index of all 20 sets, `models-release-cal\` and
+`models-release-base\` (six files each). Thank you; nothing from parts A, B, C and E is missing any more.
 What matters most, in this order: `round3\r3_train_cal.log` and `r3_train_base.log` (the two honest scores),
 `round3\calibration\` (the fitted files; the Mac needs them back), `r3_fit.log`, `r3_folds.log`, `r3_sets.log`, `INDEX.json`,
 and from part D `r3_parity_new.log`, `r3_bench.log` and the `train_out\bench\bench_<time>.json` it names; from part E
