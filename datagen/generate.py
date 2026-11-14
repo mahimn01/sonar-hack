@@ -92,13 +92,16 @@ def _setup(profile: str | None) -> tuple:
     return _CORE, _TX
 
 
-def label_segments(stream: ad.Stream, events: list, core: ad.Core | None = None) -> list:
+def label_segments(stream: ad.Stream, events: list, core: ad.Core | None = None, drop_partial: bool = False) -> list:
     """Give every movement burst a label.
 
     stroke : the burst that covers at least half of the scripted stroke -> the gesture label
     aux    : other bursts within 1.2 s of the stroke (hand raise before, hand dropping back after) -> "none"
     burst  : everything else that moved (fidgeting, bystanders, clicks) -> "none"
     With `core` given, each entry also carries the padded training picture in the core's dataset format.
+    `drop_partial`: a burst that holds a PIECE of the stroke, but less than half of it, is left out instead of
+    being called "none". (The engine cuts a burst after 1.4 s; with a fitted laptop the hand's way to the start is
+    loud enough to open the burst early, so that cut can fall inside the stroke. Half a gesture is not "none".)
     """
     out = []
     for k, (seg, win) in enumerate(zip(stream.segments, stream.windows)):
@@ -112,8 +115,12 @@ def label_segments(stream: ad.Stream, events: list, core: ad.Core | None = None)
             overlap = min(t1, ev["t_end"]) - max(t0, ev["t_start"])
             if overlap >= 0.5 * (ev["t_end"] - ev["t_start"]):
                 label, kind = ev["label"], "stroke"
-            elif kind != "stroke" and t1 > ev["t_start"] - 1.2 and t0 < ev["t_end"] + 1.2:
+            elif drop_partial and overlap > 0.0 and kind != "stroke":
+                kind = "cut"
+            elif kind not in ("stroke", "cut") and t1 > ev["t_start"] - 1.2 and t0 < ev["t_end"] + 1.2:
                 kind = "aux"
+        if kind == "cut":
+            continue
         item = {"label": label, "window": win, "t_start": t0, "t_end": t1, "is_stroke": kind == "stroke", "kind": kind,
                 "peak_db": float(getattr(seg, "peak_db", 0.0))}
         if core is not None:
@@ -158,7 +165,8 @@ def unpack_job(job: tuple) -> dict:
             "mics": job[9] if len(job) > 9 else None,
             "tweak": job[10] if len(job) > 10 else None,  # fixed overrides, only used by the parity fixture
             "motion": job[11] if len(job) > 11 else None,  # file with real tracked hand paths (motion.py), or None
-            "motion_share": job[12] if len(job) > 12 else 0.0}
+            "motion_share": job[12] if len(job) > 12 else 0.0,
+            "calibration": job[13] if len(job) > 13 else None}  # file with a laptop fitted to real recordings, or None
 
 
 def draw_world(rng: np.random.Generator, core: ad.Core, j: dict, hw_profile: Profile, use_real: bool, n: int) -> tuple:
@@ -167,6 +175,9 @@ def draw_world(rng: np.random.Generator, core: ad.Core, j: dict, hw_profile: Pro
     Returns (scene, hardware, real excerpt or None, measurements of the real recording or None).
     The CPU and the GPU path both call this, so both make the same draws in the same order.
     """
+    from . import calibration
+
+    calibration.activate(j["calibration"])  # None = the generic laptop of hardware.py (the default)
     centre = STORY / 2 + rng.uniform(-0.35, 0.35) if j["scene"] in GESTURE4 + ("wave",) else None
     motion = None
     if j["motion"] and j["motion_share"] > 0:  # real hand paths for a share of the gestures (off: formulas only)
@@ -237,7 +248,7 @@ def make_clip(job: tuple, capture: dict | None = None) -> dict:
     if core.available and (core.module("pipeline") is not None or core.module("gestures") is not None):
         try:
             stream = ad.stream_features(core, rx)
-            result["examples"] = label_segments(stream, scene.events, core)
+            result["examples"] = label_segments(stream, scene.events, core, drop_partial=bool(j["calibration"]))
             if rng.random() < 0.2:
                 idle = idle_example(rng, stream, core, scene.events)
                 if idle is not None:
@@ -282,6 +293,8 @@ def main() -> None:
     ap.add_argument("--swap-mics", action="store_true", help="the real laptop's microphone channels are swapped (left = channel 1)")
     ap.add_argument("--swap-speakers", action="store_true", help="the real laptop's speaker channels are swapped")
     ap.add_argument("--mics", type=int, default=None, help="microphone channels of the real laptop (default: the simulator's 2)")
+    ap.add_argument("--calibration", default=None, help="laptop fitted to real recordings (.json from datagen.calibration); "
+                                                        "default: none, the generic laptop of hardware.py")
     ap.add_argument("--motion", default=None, help="library of real tracked hand paths (.npz from datagen.mocap_extract); "
                                                    "default: none, every gesture comes from the formulas in kinematics.py")
     ap.add_argument("--motion-share", type=float, default=0.5, help="share of gesture clips that replay a real hand path (with --motion)")
@@ -296,6 +309,8 @@ def main() -> None:
     ap.add_argument("--gen-kernel", default="auto", choices=["auto", "on", "off"],
                     help="echo loop on CUDA: auto = the fused kernel (echo_paths.c) if its self-check passes on this GPU, "
                          "else PyTorch operations; off = PyTorch operations")
+    ap.add_argument("--gen-noise", default="cpu", choices=["cpu", "gpu"],
+                    help="hall noise and gain wander: cpu = shaped in the worker processes, as render.py does (default); gpu = the workers only draw the random numbers and the GPU shapes them (about half the CPU work per clip; same audio to 1e-12)")
     args = ap.parse_args()
     backgrounds = tuple(p for p in args.background.split(",") if p)
 
@@ -319,7 +334,9 @@ def main() -> None:
         seen[kind] = seen.get(kind, 0) + 1
         jobs.append((args.seed * 1_000_003 + i, str(kind), args.profile, args.min_snr, seen[kind] <= args.save_audio,
                      backgrounds, args.background_share, args.swap_mics, args.swap_speakers, args.mics)
-                    + ((None, str(Path(args.motion).resolve()), args.motion_share) if args.motion else ()))
+                    + ((None, str(Path(args.motion).resolve()) if args.motion else None, args.motion_share if args.motion else 0.0,
+                         str(Path(args.calibration).resolve()) if args.calibration else None)
+                        if (args.motion or args.calibration) else ()))
 
     t0 = time.time()
     xs, ys, groups, peaks, n_clips, n_missed, errors = [], [], [], [], 0, 0, 0
@@ -336,7 +353,7 @@ def main() -> None:
         device = "cpu" if args.gen_device == "torch-cpu" else args.gen_device
         print(f"{len(jobs)} clips on {device} (PyTorch), {args.workers} worker processes for the random draws and the labels")
         results = generate_gpu(jobs, args.profile, device, args.workers, precision=args.gen_precision, batch=args.gen_batch,
-                               stats=gpu_stats, gpus=args.gen_gpus, kernel=args.gen_kernel)
+                               stats=gpu_stats, gpus=args.gen_gpus, kernel=args.gen_kernel, noise=args.gen_noise)
     with open(out_dir / "manifest.jsonl", "w") as manifest:
         for res in results:
             n_clips += 1
@@ -371,7 +388,7 @@ def main() -> None:
         pool.shutdown()
     if gpu_stats:
         print(f"  echo loop: {gpu_stats['echo_loop']}" + (f" ({gpu_stats['kernel_note']})" if gpu_stats.get("kernel_note") else "")
-              + f"; plans from the workers: {gpu_stats.get('plan_transport')}")
+              + f"; plans from the workers: {gpu_stats.get('plan_transport')}; hall noise shaped {gpu_stats.get('noise_shaping')}")
         print(f"  GPU path on {gpu_stats['device']}: batch {gpu_stats['batch']}, precision {gpu_stats['precision']}, {gpu_stats['batches']} batches, "
               f"render {gpu_stats['render_s']:.1f} s, features {gpu_stats['features_s']:.1f} s, {gpu_stats['redraws']} redraws"
               + (f"; {gpu_stats['oom_splits']} batch(es) did not fit in GPU memory and were split: use --gen-batch "

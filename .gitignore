@@ -13,6 +13,9 @@ models/
 .DS_Store
 node_modules/
 train_out/
+train_out_*/
+# scratch files of the calibration search (the fitted files next to it ARE committed)
+calibration/work/
 # The trained models handed back from the training box ARE committed (TRAINING.md, steps 8 and 9)
 !models-release*/
 !models-release*/**

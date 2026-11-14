@@ -34,6 +34,7 @@ from pathlib import Path
 import numpy as np
 from scipy import fft as sfft
 
+from . import calibration
 from .adapter import Core, pre_roll
 from .hardware import Hardware, Profile, Response, sample_hardware
 from .render import render
@@ -134,10 +135,12 @@ def matched_hardware(rng: np.random.Generator, core: Core, m: Measured, profile:
     hw.clock_ppm = m.clock_ppm
     hw.gain_drift_db, hw.gain_step_db = 0.0, 0.0
     # per-speaker level: each tone tells us how loud "its" speaker arrives
+    levels = []
     for s in range(hw.n_spk):
         played = (hw.n_spk - 1 - s) if hw.swap_speakers else s  # render() swaps the channels after this
         mine = [k for k, sp in enumerate(core.tone_speakers) if sp == played]
         level = float(m.tone_mic_db[mine].mean() - m.direct_gain_db) if mine else 0.0
+        levels.append(level)
         jitter = rng.normal(0.0, 2.0)  # the echo path is not coloured exactly like the leakage path
         f_all = np.concatenate([[min(core.tones) - 2000.0], [core.tones[k] for k in mine], m.band_freqs])
         g_all = np.concatenate([[level], [level] * len(mine), m.band_gain_db + rng.normal(0.0, 1.5)])
@@ -152,6 +155,7 @@ def matched_hardware(rng: np.random.Generator, core: Core, m: Measured, profile:
     # line the virtual direct path up with the real one, so echoes sit at the right delay behind it
     d0 = int(round(hw.static_delays[0][0][0] * core.fs))
     hw.latency_samples = int((m.period_offset - d0) % core.period)
+    calibration.adjust_overlay(rng, hw, levels)  # nothing happens (and nothing is drawn) unless a calibration is active
     return hw
 
 

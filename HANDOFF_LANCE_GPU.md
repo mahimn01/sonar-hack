@@ -1,5 +1,9 @@
 # Handoff: the GPU data pipeline on the RTX 4090 (for Lance)
 
+> **Round 2 is done** (KERNEL OK, PARITY OK, 57 clips/s; results in `round2/` on branch `model-sat-am`).
+> The next thing to run is **`HANDOFF_LANCE_CALIBRATION.md`** (round 3). This file stays as the reference for the
+> GPU pipeline's own checks.
+
 Everything below runs on the 4090 box, from the repo folder, in **Windows PowerShell**. It assumes
 `TRAINING.md` steps 1-3 are done (the `.venv` exists and `torch.cuda.is_available()` is `True`).
 Nothing here was run on a CUDA GPU yet: the code was written and checked on a Mac without one, so the
@@ -21,7 +25,7 @@ data was made 5.8x faster than on the 24 CPU threads, and it told us three thing
 |---|---|
 | the echo loop is 14.3 of 18 ms per clip on the GPU | it is now one CUDA kernel (step 1 below is its self-check) |
 | GPU load only 61 %; end to end 33 clips/s although rendering alone did 55; random draws only 103 clips/s with 24 processes | the GPU now renders in its own thread while the main program keeps the CPU workers fed, and the workers hand their results over through shared memory instead of one pipe (your 103 clips/s was that pipe). The bench line `END TO END (plans via shared memory)` and the GPU load next to it show what that bought |
-| held-out person: 0.30 of gestures recognised, although 0.73 on held-out synthetic clips | half of the synthetic gestures now replay REAL hand paths (section 4b). In a test here, a model trained on formula gestures recognised 0.26 of real-path gestures, one trained on the mix 0.51 |
+| held-out person: 0.30 of gestures recognised, although 0.73 on held-out synthetic clips | half of the synthetic gestures now replay REAL hand paths (section 4b). (Correction, Nov 14: a bug replayed those paths far too fast in round 2, so round 2 did not test them; see `HANDOFF_LANCE_CALIBRATION.md`) |
 
 Please run, in this order, and send back what each section below asks for:
 ```powershell

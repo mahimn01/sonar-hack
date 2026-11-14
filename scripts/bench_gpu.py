@@ -157,13 +157,14 @@ def run_gpu(args: argparse.Namespace) -> dict:
     from datagen.gpu_pipeline import GpuRenderer, default_batch, finish_clip, generate_gpu, plan_clip
 
     device = "cpu" if args.device == "torch-cpu" else args.device
-    gpu = GpuRenderer(args.profile, device, args.precision, kernel=args.kernel)
+    gpu = GpuRenderer(args.profile, device, args.precision, kernel=args.kernel, noise=args.noise)
     dev = gpu.device
     cuda = dev.type == "cuda"
     batch = args.batch or default_batch(device, gpu.precision)
     jobs = bench_jobs(args.clips, args.profile)
     out: dict = {"device": str(dev), "precision": gpu.precision, "clips": len(jobs), "batch": batch, "torch": torch.__version__,
-                 "echo_loop": gpu.echo_impl, "kernel_note": gpu.kernel_note}
+                 "echo_loop": gpu.echo_impl, "kernel_note": gpu.kernel_note,
+                 "noise_shaping": "on the GPU" if gpu.shape_on_device else "in the CPU workers"}
     if cuda:
         p = torch.cuda.get_device_properties(dev)
         out["gpu"] = f"{p.name}, {p.total_memory / 2**30:.0f} GB"
@@ -177,7 +178,7 @@ def run_gpu(args: argparse.Namespace) -> dict:
     with ProcessPoolExecutor(args.workers) as pool:
         list(pool.map(plan_clip, [(j, 0, None, True) for j in jobs[:args.workers]]))          # start the workers
         t0 = time.perf_counter()
-        planned = list(pool.map(plan_clip, [(j, 0, None, dev.type != "mps") for j in jobs], chunksize=1))
+        planned = list(pool.map(plan_clip, [(j, 0, None, dev.type != "mps", None, gpu.shape_on_device) for j in jobs], chunksize=1))
         out["plan_clips_per_s"] = len(jobs) / (time.perf_counter() - t0)
         plans = [p["plan"] for p in planned]
         # warm up (FFT plans, memory pool), then time the stages
@@ -323,6 +324,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--only", choices=["cpu", "gpu", "train"], help="run just one part")
     ap.add_argument("--precisions", default="ref,fast", help="GPU number formats to time (default ref,fast)")
     ap.add_argument("--kernel", default="auto", help=argparse.SUPPRESS)
+    ap.add_argument("--noise", default="cpu", help=argparse.SUPPRESS)
     ap.add_argument("--child", help=argparse.SUPPRESS)
     ap.add_argument("--precision", default="auto", help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
@@ -345,18 +347,23 @@ def main(argv: list[str] | None = None) -> int:
             for k, v in sorted(r["stages_ms"].items(), key=lambda kv: -kv[1]):
                 print(f"     {k:<52} {v:8.1f} ms/clip  {100 * v / r['ms_per_clip_cpu']:5.1f} %")
     if args.only in (None, "gpu"):
-        runs = [(p, "auto") for p in args.precisions.split(",") if p]
+        runs = [(p, "auto", "cpu") for p in args.precisions.split(",") if p]
         if args.device.startswith("cuda"):                       # the same once more without the fused kernel, to see what it buys
-            runs.insert(1, (runs[0][0], "off"))
-        for prec, kernel in runs:
+            runs.insert(1, (runs[0][0], "off", "cpu"))
+        if not args.device.startswith("mps"):                    # ... and with the hall noise shaped on the GPU (--gen-noise gpu)
+            runs.insert(1, (runs[0][0], "auto", "gpu"))
+        for prec, kernel, noise in runs:
             print(f"\n2. GPU clip maker on {args.device}, number format '{prec}'"
-                  + (", fused kernel OFF" if kernel == "off" else "") + f", {args.clips} clips ...")
-            report[f"gpu_{prec}" + ("_nokernel" if kernel == "off" else "")] = r = child(args, "gpu", ["--precision", prec, "--kernel", kernel])
+                  + (", fused kernel OFF" if kernel == "off" else "")
+                  + (", hall noise shaped on the GPU (--gen-noise gpu)" if noise == "gpu" else "") + f", {args.clips} clips ...")
+            report[f"gpu_{prec}" + ("_nokernel" if kernel == "off" else "") + ("_noisegpu" if noise == "gpu" else "")] = r = \
+                child(args, "gpu", ["--precision", prec, "--kernel", kernel, "--noise", noise])
             if not r:
                 continue
             print(f"   {r.get('gpu', r['device'])}; batch {r['batch']}; PyTorch {r['torch']}")
             print(f"   echo loop: {r['echo_loop']}" + (f" ({r['kernel_note']})" if r.get("kernel_note") else ""))
-            print(f"     random draws (CPU, {r['workers']} processes)          {r['plan_clips_per_s']:9.1f} clips/s   (results pickled, the old way)")
+            print(f"     random draws (CPU, {r['workers']} processes)          {r['plan_clips_per_s']:9.1f} clips/s   (results pickled, the old way; "
+                  f"hall noise shaped {r.get('noise_shaping', 'in the CPU workers')})")
             print(f"     rendering (GPU)                                 {r['render_clips_per_s']:9.1f} clips/s")
             for k, v in r["render_stage_ms_per_clip"].items():
                 print(f"        {k:<44} {v:7.2f} ms/clip")

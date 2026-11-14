@@ -409,7 +409,7 @@ fixed set of 1,000 clips with both codes and compares them: every gesture, every
 non-gesture, clips on a recording, one-microphone clips, swapped channels, and hard cases (fastest
 strokes, clipping, +-120 ppm clock mismatch, loudest and quietest rooms). If `data/` has
 recordings, their audio goes through both feature codes too. It refuses to train if they differ.
-A pass is remembered for this exact code, PyTorch and GPU; `--recheck-parity` repeats it,
+A pass is remembered for this exact code, PyTorch and GPU (in `train_out/parity/`, whatever `--out` says); `--recheck-parity` repeats it,
 `--skip-parity` skips it (not recommended). What it measured here (CPU reference against the same
 GPU code run on a CPU; the 4090 repeats this on its own hardware in its first run):
 
@@ -444,27 +444,30 @@ with the expected output of each step and what to send back:
 powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1            # the full run; data on the GPU, check included
 powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --sweep    # + 9 fine-tuning runs, 4 at a time
 ```
-Please send back the output of `bench_gpu.py` (and its JSON file under `train_out/bench/`): nothing
-here was timed on a 4090, and its numbers decide what to speed up next.
 
-**Speed, honestly.** Nothing below was measured on a 4090.
-- Measured on the Mac Studio's CPU: the old code needs 0.92 s of one core per clip. The GPU path
-  needs about 40 ms of CPU per clip (29-33 ms for the random draws, 9-11 ms for the bursts and
-  labels), so the CPU work drops about 20-fold. The GPU code run on that CPU is no faster than the
-  old code (3.4 clips a second against 3.7 with 4 processes): the gain needs a GPU.
-- Measured on the Mac Studio's own GPU (Apple M1 Max, all float32, plain PyTorch echo loop): 13.7
-  clips a second end to end against 6.8 for the old code on 6 cores (2x). The echo loop takes
-  72 ms of its 83 ms per clip; the FFT steps together 9 ms, the Doppler pictures 2 ms. That is
-  the first run of this code on any GPU.
-- The echo loop is therefore a fused CUDA kernel on NVIDIA cards. Its arithmetic was verified on
-  the Mac (the same C file compiled for the CPU agrees with the PyTorch loop to 2.5e-7 and passes
-  the picture check against the CPU reference), but **its GPU launch has never run**:
-  `python -m datagen.echo_kernel` is its self-check on the 4090, and the picture check covers it.
-- Estimates for the 4090 (not measurements): with the plain PyTorch loop 10-30 ms of GPU per clip,
-  i.e. 2-6 minutes for the 12,000 clips instead of 10-13; with the kernel well under 1 ms for the
-  loop, after which the FFT steps and the CPU's random draws (about 2 ms per clip on 16 cores) set
-  the pace: roughly 30-60 s for 12,000 clips. `python scripts/bench_gpu.py` prints the real
-  figures, with and without the kernel.
+**Speed, measured on the RTX 4090** (Lance's runs of Nov 14; the bench output is in `round2/` on branch
+`model-sat-am`). "Clips a second" is end to end: random draws, rendering, pictures, labels.
+
+| | clips a second | where the time goes |
+|---|---|---|
+| old CPU code, 24 processes | 5.5 | 1.07 s of one core per clip; that machine's 24 threads together do only 6x one core |
+| GPU path, echo loop as plain PyTorch operations | 32 | the echo loop: 15.3 of 19.7 ms of GPU per clip |
+| GPU path, echo loop as the fused CUDA kernel (the default) | 57 in the 384-clip bench, 79 over a 12,000-clip run | echo loop 1.96 ms per clip (7.8x less); rendering alone 162 clips/s, Doppler pictures 327 clips/s |
+
+- A full training run went from 15.9 to 10.6 minutes, and making its 24,000 clips from about 10 to 4.9 minutes.
+- What sets the pace now is the CPU: the random draws reach about 100 clips a second with 24 processes on that
+  machine, and the GPU waits for them (load 49 % on average in the bench). Two thirds of that CPU time is not
+  drawing but shaping the hall noise and the gain wander (two long FFTs, two envelopes, a power per sample).
+  `--gen-noise gpu` leaves only the drawing to the workers and shapes on the GPU: the same audio to 1e-12 and,
+  on the Mac, bit-identical data sets, with the workers' stage 1.7x faster (145 -> 247 plans a second with 4
+  processes). It is **off by default until it has run on the 4090**; `bench_gpu.py` now times it next to the
+  default, and `check_gpu_parity.py --noise gpu` checks it.
+- `--gen-precision fast` (float32 FFTs) buys nothing there (52 clips/s against 57) and moves a burst in about 1
+  clip in 25, so `ref` stays the default.
+- The kernel's self-check on that card: echoes within 2.6e-07 of the PyTorch path. The picture check passed on
+  1,040 clips with the kernel in use.
+- On the Mac Studio (for comparison): the old code needs 0.92 s of one core per clip; the GPU path on the Apple
+  GPU (M1 Max, all float32, no kernel) makes 13.7 clips a second against 6.8 for the old code on 6 cores.
 
 **Options.**
 
@@ -473,9 +476,11 @@ here was timed on a 4090, and its numbers decide what to speed up next.
 | `--gen-device cpu` | the original CPU code for clips and session pictures (the reference; no picture check needed) |
 | `--gen-precision fast` | float32 for the three big FFT steps instead of float64. Possibly faster (see `bench_gpu.py`); about 1 clip in 25 then gets a burst boundary moved by a frame, so the default is the exact `ref` |
 | `--gen-kernel off` | the echo loop as plain PyTorch operations instead of the fused CUDA kernel (same pictures, slower). Automatic when the kernel's self-check fails |
+| `--gen-noise gpu` | the worker processes only draw the random numbers of the hall noise and the gain wander; the GPU shapes them (about half the CPU work per clip, same audio). Default `cpu` until measured on the 4090 |
 | `--gen-batch N` | clips per GPU batch (default: fills the card's free memory; a batch that does not fit is split in two automatically and the log says so) |
 | `--gen-gpus N` | on a machine with several GPUs: how many to use (default all; clips are rendered on each, training runs are dealt out in turn) |
 | `--skip-parity`, `--recheck-parity` | skip / repeat the picture check |
+| `--calibration auto\|none\|FILE` | the virtual laptop the clips are drawn around: fitted to the real recordings (section 12b) or the generic one |
 | `--sweep-jobs N`, `--no-overlap` | training runs sharing the GPU (default 4) / make all data first, then train |
 | `--gen-device mps` | Apple GPU, opt-in. Checked on an M1 Max: it passes the picture check with its own, looser limits (Apple GPUs have no float64, so about 1 clip in 13 gets a burst boundary moved by a frame) and is about 2x faster than 6 CPU cores. `--gen-batch 32` on a Mac with 32 GB or more |
 
@@ -506,23 +511,84 @@ everything around the hand, the arm, the body, the room, are as before).
   `datagen/mocap_extract.py` on the clips (its header and the library's README have the commands).
   That gives paths with exactly the demo's geometry.
 
-**Does it help? One experiment, on synthetic test clips only** (640 gesture + 160 other training
-clips per run, 3 seeds each, MacBook-free, 2 microphones; "real paths" = test clips whose gestures
-replay library paths):
+**Does it help? Not known yet.** An earlier version of this section showed an experiment on synthetic test
+clips (a model trained on formula gestures recognised 0.26 of "real-path" gestures, one trained on the mix
+0.51). That experiment is void, and so is the "motion library" arm of the 4090's round-2 run (0.32 of the
+held-out person's gestures against 0.31 without it): until Nov 14 a bug replayed every library path at the
+fastest tempo the code allows, a 0.07 s stroke, so neither tested real movements. (A loaded library clip
+carried no peak speed, and the tempo was computed from it.) It is fixed, with a test
+(`tests/test_datagen_calibration.py`). The real test is the held-out person's score with and without
+`--motion none`; round 3 (`HANDOFF_LANCE_CALIBRATION.md`) measures it.
 
-| trained on | tested on | gestures recognised at 0.6 | non-gestures that trigger |
+## 12b. The virtual laptop fitted to the real recordings
+
+`datagen/hardware.py` draws a different imaginary laptop for every clip, around a guess of a 15-inch HP. For the
+MacBook the recordings were made on, that guess is wrong where it matters. Read off the recordings:
+
+| | the generic laptop assumes | the MacBook recordings show |
+|---|---|---|
+| microphone | two, on top of the lid | one, on the deck next to the LEFT speaker |
+| speaker tones at the microphone | 40-78 dB below what is played | 15-21 dB below (left tone 6.4 dB louder than the right) |
+| which tone tells left from right | mostly the two microphones | the LEFT speaker's tone: a left swipe moves it up about 50-100 Hz, a right swipe down; the right tone hardly moves |
+| hand height during a gesture | 3-10 cm | 10-25 cm above the keys |
+| fastest moment of a stroke | 0.5-2.2 m/s | 0.9-5.5 m/s |
+
+`datagen/calibration.py` fits the simulator to this: it cuts the recorded gestures into pictures with the
+engine's own code, reduces every picture to six numbers (how strong, how wide in Doppler, how saturated, how
+filled, and where each tone's energy sits), does the same for simulated clips, and changes one simulator
+setting at a time, keeping a change only when the simulated numbers come closer to the recorded ones. The
+result is a small JSON file; `calibration/macbook_v1.json` was fitted on the Mac (20 trial clips per gesture
+and setting), and the 4090 refits it with 150.
+
+How far simulated gesture pictures are from recorded ones (0 = same averages, 1 = one "scale" apart on average;
+scales: 6 dB, 60 Hz, 0.05, 0.15, 40 Hz, 40 Hz): **1.72 with the generic laptop, 0.41 fitted.** The same in plain
+numbers, left swipe / right swipe, synthetic movement laid over real recordings (48 clips each, so the Hz
+figures carry about +-20):
+
+| | left tone moves by | right tone moves by | picture peak |
 |---|---|---|---|
-| formula gestures | formula gestures | 0.75 | 0.17 |
-| formula gestures | real paths | **0.26** | 0.21 |
-| half formula, half real paths | formula gestures | 0.65 | 0.12 |
-| half formula, half real paths | real paths | **0.51** | 0.21 |
+| recorded gestures | +53 / -42 Hz | -4 / +13 Hz | 43 dB |
+| generic laptop (what rounds 1 and 2 trained on) | +2 / -17 Hz | -25 / +34 Hz | 26-31 dB |
+| fitted laptop | +67 / -50 Hz | +24 / -10 Hz | 38-42 dB |
 
-A model that has only seen formula strokes misses three of four gestures made with real hand
-movements. That is the same size as the gap Lance measured on real recordings (0.73 on held-out
-synthetic clips, 0.30 on the held-out person), which is why the mix is now the default. Limits of
-this experiment: the test paths come from the same 15 people as the training paths (placed, sized
-and mirrored anew, but not strangers), the sets are small, and it says nothing yet about real
-recordings. The real test is the held-out person's score with and without `--motion none`.
+So the generic synthetic gestures were faint and carried the left/right cue on the wrong tone, with the opposite
+sign. A model trained mostly on them is taught the wrong thing about this laptop.
+
+What you need to know to use it:
+- `train_4090.py --calibration auto` (the default) uses the newest `calibration/macbook_v<N>.json` when the
+  recordings have one microphone, `--calibration none` gives the generic laptop (the old behaviour, byte for
+  byte), `--calibration <file>` any other file. `datagen.generate --calibration <file>` is the same switch there.
+- **Honest scores need one file per held-out person.** How the laptop is built does not depend on who sits in
+  front of it, so that part is fitted on every recording. How people move (hand height, speed) does, so
+  `python -m datagen.calibration --real <recordings> --folds calibration/macbook_v<N>.json` writes
+  `macbook_v<N>_no_<person>.json`, fitted without that person (lance and lance2 count as one). `--calibration auto`
+  picks that file by itself when one person is held out, and says so in the log.
+- `scripts/make_calibrated_sets.py` makes one synthetic set per held-out person and per recipe
+  (`train_out/synth_cal/...`; its header has the list) for the leave-one-person-out scoring.
+- A recording that somebody set aside in a folder named `excluded` (e.g. `mac/excluded/<session>`: left and
+  right turned out flipped) is skipped by the training script, the fit and the set maker.
+- With a fitted laptop, three more things change in the synthetic clips, because the recordings showed them:
+  a stroke is never faster than a hand can be accelerated (30-150 m/s^2, so a short stroke cannot be as fast as
+  a long sweep); the hand reaches the start of the stroke within 0.7 s and strokes almost at once; and a burst
+  that holds less than half of the stroke is left out instead of being labelled "none". (The engine cuts a burst
+  after 1.4 s. On the loud fitted laptop the way to the start already opens the burst, so that cut can fall
+  inside the stroke. In a 96-clip test 29 % of the fitted gesture clips ended up without a labelled stroke and
+  added stroke fragments as "none"; with these changes 11 % have no labelled stroke (13 of 120) and no fragment
+  is called "none".)
+- The picture check includes clips drawn around the fitted laptop. In those, about 2 clips in 100 get a burst
+  moved or dropped by rounding (10 times the generic rate): the fitted clips are loud, so there is more movement
+  right at the burst detector's threshold. Every stage before the rounding agrees as closely as for generic clips.
+
+Limits, plainly:
+- It is a fit of summary numbers by trial and error, not gradient descent through the renderer: for a recorded
+  gesture the true path of the hand is unknown, so there is nothing to line a single simulated clip up with.
+- Speaker and microphone colouration, reflectivity and the room were not fitted one by one; clips laid over real
+  recordings bring the real room and noise with them, and their echo level (`"overlay"` in the file) was set from
+  a 48-clip comparison, not searched.
+- Still different from the recordings: the real right-tone pictures are brighter than the left-tone ones by
+  about 0.10 (simulated: about equal), and lance's swipes show as broadband stripes in both tones that no
+  setting reproduces well.
+- Whether it raises the held-out score is what round 3 measures. It has not been measured yet.
 
 ## 13. Speed: the training step on the GPU
 

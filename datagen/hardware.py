@@ -336,6 +336,9 @@ def sample_hardware(rng: np.random.Generator, profile: Profile | None = None, fs
     hw.gain_step_db = float(rng.choice([-1.0, 1.0]) * rng.uniform(2.0, 6.0)) if rng.random() < p.p_gain_step else 0.0
     hw.clock_ppm = _u(rng, p.clock_ppm) if rng.random() < p.p_clock_drift else 0.0
     hw.latency_samples = int(rng.integers(p.latency_samples[0], p.latency_samples[1] + 1))
+    from . import calibration
+
+    calibration.adjust_hardware(rng, hw)  # a laptop fitted to real recordings, if one is active (else nothing, no draws)
     return hw
 
 

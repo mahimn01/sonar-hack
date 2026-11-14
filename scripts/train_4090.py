@@ -65,8 +65,10 @@ FEATURE_CODE = ["sonar/config.py", "sonar/tx.py", "sonar/dsp.py", "sonar/fronten
                 "sonar/features.py", "sonar/pipeline.py", "sonar/presence.py", "sonar/breathing.py", "sonar/dataset.py"]
 GENERATOR_CODE = ["datagen/adapter.py", "datagen/background.py", "datagen/generate.py", "datagen/hardware.py",
                   "datagen/kinematics.py", "datagen/physics.py", "datagen/quicklook.py", "datagen/render.py",
-                  "datagen/scenes.py", "datagen/motion.py"]
+                  "datagen/scenes.py", "datagen/motion.py", "datagen/calibration.py"]
 MOTION_LIBRARY = "datagen/motion_library/unica_v1.npz"   # real tracked hand paths (see datagen/motion_library/README.md)
+MACBOOK_CALIBRATION = "calibration/macbook_v1.json"      # the simulator fitted to the MacBook recordings (datagen/calibration.py);
+                                                         # a newer calibration/macbook_v<N>.json is used instead when there is one
 # The GPU versions of the two lists above (only part of a cache key when the GPU path is used).
 GPU_CODE = ["datagen/plan.py", "datagen/render_torch.py", "datagen/gpu_pipeline.py", "sonar/features_torch.py",
             "datagen/echo_kernel.py", "datagen/echo_paths.c"]
@@ -278,6 +280,10 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
     bg_ids = [(p, os.path.getsize(p), int(os.path.getmtime(p))) for p in backgrounds or []]
     on_gpu = args.gen_device != "cpu"
     how = [code_hash(GPU_CODE), args.gen_device.split(":")[0], args.gen_precision, args.gen_kernel] if on_gpu else []   # CPU keys are as before
+    if on_gpu and args.gen_noise != "cpu":
+        how += ["noise", args.gen_noise]
+    if args.calibration:                                     # a laptop fitted to real recordings instead of the generic one
+        how += ["calibration", hashlib.sha256(Path(args.calibration).read_bytes()).hexdigest()[:12]]
     if args.motion:                                          # real hand paths for a share of the gestures
         how += ["motion", os.path.getsize(args.motion), hashlib.sha256(Path(args.motion).read_bytes()).hexdigest()[:12], args.motion_share]
     key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE), per_class, negatives, args.profile, seed, swap, mics, bg_ids, *how)
@@ -300,8 +306,11 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
         cmd += ["--mics", str(mics)]
     if args.motion:
         cmd += ["--motion", args.motion, "--motion-share", str(args.motion_share)]
+    if args.calibration:
+        cmd += ["--calibration", args.calibration]
     if on_gpu:
-        cmd += ["--gen-device", args.gen_device, "--gen-precision", args.gen_precision, "--gen-kernel", args.gen_kernel]
+        cmd += ["--gen-device", args.gen_device, "--gen-precision", args.gen_precision, "--gen-kernel", args.gen_kernel,
+                "--gen-noise", args.gen_noise]
         if gen_batch or args.gen_batch:
             cmd += ["--gen-batch", str(gen_batch or args.gen_batch)]
         if args.gen_gpus:
@@ -322,10 +331,14 @@ def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log:
 
     Runs scripts/check_gpu_parity.py (1,000 fixed clips through both paths; 100 for a tiny smoke test).
     A pass is remembered for this exact code, PyTorch, GPU and number format, so later runs do not repeat it.
+    The note of a pass lives in train_out/parity/ whatever --out says: a second run with its own output
+    folder must not spend the 4-5 minutes again (it did, until 2026-11-14).
     """
+    work = REPO / "train_out"
     clips = 100 if args.size == "tiny" else 1000
     key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE + GPU_CODE + PARITY_CODE), info.get("torch"), info.get("gpu"),
-                 args.gen_device, args.gen_precision, args.gen_kernel, args.profile, clips)
+                 args.gen_device, args.gen_precision, args.gen_kernel, args.profile, clips,
+                 *(["noise", args.gen_noise] if args.gen_noise != "cpu" else []))
     marker = work / "parity" / f"passed_{key}.json"
     if marker.exists() and not args.recheck_parity:
         old = json.loads(marker.read_text())
@@ -336,7 +349,7 @@ def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log:
     report = work / "parity" / f"last_{key}.json"
     cmd = [PY, "scripts/check_gpu_parity.py", "--device", args.gen_device, "--precision", args.gen_precision,
            "--clips", str(clips), "--workers", str(args.workers), "--work", str(work / "parity"), "--data", args.data,
-           "--json", str(report), "--kernel", args.gen_kernel]
+           "--json", str(report), "--kernel", args.gen_kernel, "--noise", args.gen_noise]
     if args.profile != "default":
         cmd += ["--profile", args.profile]
     try:
@@ -378,7 +391,10 @@ def inventory(root: Path, profile: str, allow_sim: bool, log: Log) -> list[dict[
             row["why"] = f"cannot read it ({type(exc).__name__}: {str(exc)[:80]})"
             rows.append(row)
             continue
-        if row["session"] in seen:
+        if "excluded" in {part.lower() for part in folder.relative_to(root).parts}:
+            # e.g. mac/excluded/<session>: a recording somebody set aside (wrong labels, flipped left/right ...)
+            row["why"] = "it is in a folder named 'excluded'"
+        elif row["session"] in seen:
             row["why"] = "same session id as a folder above (a second copy)"
         elif row["seconds"] < 8:
             row["why"] = f"only {row['seconds']} s of audio (still recording, or copied while it was)"
@@ -668,6 +684,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--motion", default="auto",
                     help="real tracked hand paths for part of the synthetic gestures: auto = " + MOTION_LIBRARY +
                          " if it exists, none = every gesture from the formulas (the old behaviour), or a library file")
+    ap.add_argument("--calibration", default="auto",
+                    help="simulate the laptop the recordings were made on: auto = the newest calibration/macbook_v<N>.json when the recordings have one "
+                         "microphone (a MacBook), none = the generic laptop (the old behaviour), or a file from datagen.calibration")
     ap.add_argument("--motion-share", type=float, default=0.5, help="share of synthetic gestures that replay a real hand path (default 0.5)")
     ap.add_argument("--gen-device", default="auto", choices=["auto", "cpu", "cuda", "mps", "torch-cpu"],
                     help="where the synthetic clips and session pictures are computed: auto = cuda when training on cuda, "
@@ -680,6 +699,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gen-kernel", default="auto", choices=["auto", "on", "off"],
                     help="echo loop on CUDA: auto = the fused CUDA kernel if its self-check passes on this GPU (else PyTorch "
                          "operations, automatically); off = PyTorch operations")
+    ap.add_argument("--gen-noise", default="cpu", choices=["cpu", "gpu"],
+                    help="hall noise and gain wander: cpu = shaped in the worker processes, as render.py does (default); gpu = the workers only draw the random numbers and the GPU shapes them (about half the CPU work per clip; same audio to 1e-12)")
     ap.add_argument("--skip-parity", action="store_true", help="do not run the GPU-against-CPU picture check before making data on a GPU")
     ap.add_argument("--recheck-parity", action="store_true", help="run that check again even if it already passed for this code")
     ap.add_argument("--sweep-jobs", type=int, default=0,
@@ -778,6 +799,31 @@ def main(argv: list[str] | None = None) -> int:
                 "(fine-tune later by running this again once data/ holds the recorded sessions)")
         summary["swap"] = {"mics": swap[0], "speakers": swap[1]}
         summary["microphones"] = mics
+        cal_note = ""
+        if args.calibration == "auto":
+            sys.path.insert(0, str(REPO))
+            from datagen.calibration import fold_path, human_of, newest
+
+            base = newest(REPO / "calibration") or (REPO / MACBOOK_CALIBRATION)
+            args.calibration = str(base) if (mics == 1 and base.exists()) else ""
+            if args.calibration and val_people:
+                # the honest score tests on held-out people: draw the synthetic clips around a laptop whose
+                # "how people move" part was fitted WITHOUT them (lance and lance2 are one human)
+
+                held = sorted({human_of(p) for p in val_people})
+                if len(held) == 1 and fold_path(base, held[0]).exists():
+                    args.calibration = str(fold_path(base, held[0]))
+                    cal_note = f"; how people move was fitted without {held[0]}, who is held out for the score"
+                else:
+                    cal_note = (f"; NOTE: there is no file fitted without {', '.join(held)} (scripts/make_calibrated_sets.py "
+                                "writes them), so the held-out score is slightly flattered")
+        elif args.calibration == "none":
+            args.calibration = ""
+        elif not Path(args.calibration).exists():
+            raise StepFailed(f"--calibration {args.calibration}: no such file")
+        summary["calibration"] = rel(Path(args.calibration)) if args.calibration else None
+        log("virtual laptop: " + (f"fitted to real recordings ({rel(Path(args.calibration))}; --calibration none for the generic one)"
+                                  + cal_note if args.calibration else "the generic one of datagen/hardware.py"))
         if mics == 1:
             log("one microphone channel (a MacBook): no two-microphone direction cue; left/right swipes rely on the two speakers")
 

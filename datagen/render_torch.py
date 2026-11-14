@@ -101,6 +101,7 @@ class RenderContext:
         # paths x baseband samples handled per step of the echo loop (memory against speed)
         self.chunk_elems = chunk_elems or {"cuda": 12_000_000, "mps": 8_000_000}.get(dev.type, 1_500_000)
         self.hd = torch.float32 if dev.type == "mps" else torch.float64        # per-clip sums (MPS has no float64)
+        self.smooth_tables: dict = {}                                          # _device_noise: spline and babble tables
 
         freqs = sfft.rfftfreq(n_total, 1.0 / fs)
         self.n_freq = len(freqs)
@@ -380,6 +381,89 @@ def synth_paths_torch(ctx: RenderContext, sub: dict, env_ri: torch.Tensor) -> tu
 # --------------------------------------------------------------------------
 # The whole renderer for one batch
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Hall noise and gain wander finished on the device (the other half of plan._noise_split / _gain_split)
+# --------------------------------------------------------------------------
+def _smooth_full(ctx: "RenderContext", ctrl: torch.Tensor, rate: float) -> torch.Tensor:
+    """The last steps of physics.smooth_noise for a batch: low-rate samples [B, m] -> [B, n_out], zero mean, unit variance.
+
+    The spline is scipy's CubicSpline (not-a-knot) through samples at k / rate, evaluated at every audio sample.
+    """
+    n, fs = ctx.n_out, float(ctx.fs)
+    if rate < fs:
+        m = ctrl.shape[1]
+        key = (m, rate, ctrl.dtype)
+        if key not in ctx.smooth_tables:
+            from scipy.interpolate import CubicSpline
+
+            x = np.arange(m) / rate
+            slopes = CubicSpline(x, np.eye(m)).derivative()(x)      # row k: the slope at knot k as a mix of the samples
+            t = np.arange(n) / fs
+            piece = np.clip(np.floor(t * rate).astype(np.int64), 0, m - 2)
+            ctx.smooth_tables[key] = (torch.from_numpy(slopes).to(ctx.device, ctrl.dtype), torch.from_numpy(piece).to(ctx.device),
+                                      torch.from_numpy(t - x[piece]).to(ctx.device, ctrl.dtype))
+        slopes, piece, dt = ctx.smooth_tables[key]
+        dx = 1.0 / rate
+        s = ctrl @ slopes.T
+        v0, s0 = ctrl[:, :-1], s[:, :-1]
+        slope = (ctrl[:, 1:] - v0) / dx
+        tt = (s0 + s[:, 1:] - 2.0 * slope) / dx
+        y = (tt / dx).index_select(1, piece)                         # scipy's pieces, highest power first
+        for c in ((slope - s0) / dx - tt, s0, v0):
+            y = y * dt + c.index_select(1, piece)
+    else:
+        y = ctrl
+    y = y - y.mean(dim=1, keepdim=True)
+    return y / (y.std(dim=1, keepdim=True, unbiased=False) + 1e-12)
+
+
+def _device_noise(ctx: "RenderContext", plans: list, noise: torch.Tensor) -> tuple:
+    """For plans made with shape_on_device: add the shaped hall babble to `noise` [B, n_mic, n_out] and build the gain [B, n_out].
+
+    The arithmetic is render._noise's and render._gain_track's, on the numbers the workers drew (float64 on CUDA:
+    it agrees with the CPU functions to about 1e-14).
+    """
+    dev, dtype, n, fs = ctx.device, noise.dtype, ctx.n_out, float(ctx.fs)
+    b, n_mic = len(plans), noise.shape[1]
+    gain = torch.empty((b, n), device=dev, dtype=dtype)
+    if ("babble", dtype) not in ctx.smooth_tables:
+        f = torch.fft.rfftfreq(n, 1.0 / fs, device=dev, dtype=dtype)
+        shape = 1.0 / torch.sqrt(1.0 + (f / 400.0) ** 2) / (1.0 + (f / 3500.0) ** 2)
+        shape[0] = 0.0
+        ctx.smooth_tables[("babble", dtype)] = (shape, torch.arange(n, device=dev, dtype=dtype))
+    shape, k = ctx.smooth_tables[("babble", dtype)]
+
+    def rows(part: list, name: str, width: int) -> torch.Tensor:      # clips without that piece get zeros (their level is 0)
+        got = [getattr(p, name) for p in part]
+        return torch.from_numpy(np.stack([np.zeros(width) if a is None else np.asarray(a) for a in got])).to(dev, dtype)
+
+    for a in range(0, b, 48):                                         # in pieces: every temporary here is [clips, n_out] float64
+        part = plans[a:a + 48]
+        with_babble = [p for p in part if p.babble is not None]
+        if with_babble:
+            w = torch.fft.irfft(torch.fft.rfft(rows(part, "babble", n), dim=1) * shape, n=n, dim=1)
+            env = _smooth_full(ctx, rows(part, "babble_env", len(with_babble[0].babble_env)), with_babble[0].babble_par[0])
+            w = w * (0.35 + env.abs())
+            del env
+            level = torch.tensor([p.babble_par[1] for p in part], device=dev, dtype=dtype)
+            w = w * (level / (w.std(dim=1, unbiased=False) + 1e-12))[:, None]
+            fac = torch.tensor([list(p.babble_par[2]) or [0.0] * n_mic for p in part], device=dev, dtype=dtype)
+            noise[a:a + len(part)] += w[:, None, :] * fac[:, :, None]
+            del w
+        g_db = torch.zeros((len(part), n), device=dev, dtype=dtype)
+        with_wander = [p for p in part if p.gain_ctrl is not None]
+        if with_wander:
+            drift = torch.tensor([p.gain_par[1] if p.gain_ctrl is not None else 0.0 for p in part], device=dev, dtype=dtype)
+            g_db += drift[:, None] * _smooth_full(ctx, rows(part, "gain_ctrl", len(with_wander[0].gain_ctrl)), with_wander[0].gain_par[0])
+        if any(p.gain_par[2] >= 0 for p in part):
+            k0 = torch.tensor([p.gain_par[2] for p in part], device=dev)
+            step = torch.tensor([p.gain_par[3] if p.gain_par[2] >= 0 else 0.0 for p in part], device=dev, dtype=dtype)
+            g_db += step[:, None] * ((k[None, :] - k0[:, None].to(dtype)) / (0.02 * fs)).clamp_(0.0, 1.0)
+        gain[a:a + len(part)] = torch.pow(10.0, g_db / 20.0)
+        del g_db
+    return noise, gain
+
+
 def _stack(plans: list, name: str, dev: torch.device, dtype: torch.dtype) -> torch.Tensor:
     return torch.from_numpy(np.stack([np.asarray(getattr(p, name)) for p in plans])).to(dev, dtype)
 
@@ -408,8 +492,8 @@ def render_batch(ctx: RenderContext, plans: list, want_parts: bool = False, synt
     b, n_out, n_total, pre, fs = len(plans), ctx.n_out, ctx.n_total, ctx.pre, ctx.fs
     n_mic = p0.mic.shape[0]
     for p in plans:
-        if (p.n_out, p.n_total, p.pre, p.include_static, p.add_noise, p.mic.shape[0]) != \
-                (n_out, n_total, pre, p0.include_static, p0.add_noise, n_mic):
+        if (p.n_out, p.n_total, p.pre, p.include_static, p.add_noise, p.mic.shape[0], p.shaped) != \
+                (n_out, n_total, pre, p0.include_static, p0.add_noise, n_mic, p0.shaped):
             raise ValueError("plans of different clip types in one batch")
     include_static, add_noise = p0.include_static, p0.add_noise
     synth = synth or synth_paths_torch
@@ -528,12 +612,16 @@ def render_batch(ctx: RenderContext, plans: list, want_parts: bool = False, synt
     snr = torch.full((b,), float("nan"), dtype=hd, device=dev)
     if add_noise:
         noise = _stack(plans, "noise", dev, hd)                                             # [B, n_mic, n_out]
+        if p0.shaped:
+            gain = _stack(plans, "gain", dev, hd)
+        else:                                                 # the workers only drew the numbers: shape them here
+            noise, gain = _device_noise(ctx, plans, noise)
         n_spec = torch.fft.rfft(noise.to(torch.float32), dim=-1).index_select(2, ctx.in_band)   # only a level: float32 is plenty
         n0 = 2.0 * (n_spec.real.to(hd) ** 2 + n_spec.imag.to(hd) ** 2).mean((1, 2)) / (n_out * fs)
         del n_spec
         snr = torch.where(has_key, 10.0 * torch.log10(p_key / (n0 * SNR_REF_HZ) + 1e-30), snr)
-        rx = (rx + noise) * _stack(plans, "gain", dev, hd)[:, None, :]
-        del noise
+        rx = (rx + noise) * gain[:, None, :]
+        del noise, gain
     if want_parts:
         out["converter_in"] = rx.clone()
     rx = rx.clamp_(-1.0, 1.0)

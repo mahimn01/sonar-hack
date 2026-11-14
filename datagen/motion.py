@@ -243,6 +243,13 @@ class MotionLibrary:
         self.by_label: dict[str, list[int]] = {}
         for i, c in enumerate(clips):
             self.by_label.setdefault(c["label"], []).append(i)
+            if "peak_speed" not in c:
+                # The file stores the path only. The stroke's fastest moment is read off it here, because
+                # place_motion sets the tempo from it. (Until 2026-11-14 a loaded clip had no peak speed, which
+                # made place_motion replay every clip at the fastest tempo it allows.)
+                i0, i1 = c["stroke"]
+                step = np.linalg.norm(np.diff(np.asarray(c["pos"][i0:i1 + 1], np.float64), axis=0), axis=1)
+                c["peak_speed"] = float(step.max() * c["fps"]) if len(step) else 0.0
 
     def __len__(self) -> int:
         return len(self.clips)
@@ -332,11 +339,17 @@ def place_motion(rng: np.random.Generator, t: np.ndarray, clip: dict, mirrored: 
         # clips are often smaller and slower (in-car style), so the real SHAPE of the stroke is kept and its
         # size and speed are brought into the range people use in front of the laptop.
         want_travel = rng.uniform(0.16, 0.56) if axis == 0 else rng.uniform(0.12, max(0.14, y_max - 0.19))
-        want_speed = float(np.exp(rng.uniform(np.log(0.5), np.log(2.2))))
+        from . import calibration
+
+        v_lo, v_hi = calibration.speed_range((0.5, 2.2))                   # the fitted range, if a calibration is active
+        want_speed = float(np.exp(rng.uniform(np.log(v_lo), np.log(v_hi))))
         scale = want_travel / max(travel, 1e-6)
         speed = max(float(clip.get("peak_speed", 0.0)) * scale, 1e-6)
         stroke_s = (i1 - i0) / fps
-        stretch = float(np.clip(speed / want_speed, 0.2 / max(stroke_s, 1e-6), 1.2 / max(stroke_s, 1e-6)))   # > 1 = slower
+        fastest = 0.07 / max(stroke_s, 1e-6)
+        if calibration.ACTIVE is not None:   # at most 2.5x the recorded tempo, and never faster than a hand can be accelerated
+            fastest = max(0.4, calibration.min_stroke_seconds(rng, want_travel) / max(stroke_s, 1e-6))
+        stretch = float(np.clip(speed / want_speed, fastest, 1.2 / max(stroke_s, 1e-6)))  # > 1 = slower
     mid = 0.5 * (pos[i0] + pos[i1])
     pos = (pos - mid) * scale + centre
     pos[:, 1] = np.maximum(pos[:, 1], 0.05)                              # never through the screen
@@ -354,6 +367,10 @@ def place_motion(rng: np.random.Generator, t: np.ndarray, clip: dict, mirrored: 
     # before the clip: the hand comes up from where it rests (smooth, like kinematics.Path.move)
     d_in = float(np.linalg.norm(pos[0] - home))
     prep = float(np.clip(d_in / rng.uniform(0.35, 0.9), 0.3, 1.2))
+    if label != "other":
+        from . import calibration
+
+        prep = calibration.lead_in(prep, 0.0)[0]                         # unchanged unless a calibration is active
     before = t < t_a
     s = minjerk((t[before] - (t_a - prep)) / prep)[:, None]
     out[before] = home + (pos[0] - home) * s

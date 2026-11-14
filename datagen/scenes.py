@@ -35,6 +35,7 @@ from .kinematics import (
     torso_scatterers,
     walker_scatterers,
 )
+from . import calibration
 from .physics import unit
 
 GESTURES = ("swipe_left", "swipe_right", "push", "pull", "wave")
@@ -84,7 +85,7 @@ def _zone(rng: np.random.Generator, person: Person) -> tuple:
     """Where in front of the screen the gesture happens: (y_max, z0)."""
     y_max = float(np.clip(person.chest[1] - 0.10, 0.22, 0.62))
     z0 = rng.uniform(0.10, 0.45) if person.standing else rng.uniform(0.05, 0.38)
-    return y_max, z0
+    return y_max, calibration.hand_height(rng, z0)  # the fitted height above the deck, if a calibration is active
 
 
 def _relax(t: np.ndarray, t_from: float, factor: float) -> np.ndarray:
@@ -152,6 +153,7 @@ def _swipe(rng: np.random.Generator, t: np.ndarray, duration: float, direction: 
     y0 = rng.uniform(0.12, y_max)
     # real recorded swipes last ~0.4-0.8 s and peak near 1 m/s; keep fast flicks too, cap at ~3.5 m/s
     dur = max(_logu(rng, 0.25, 1.1), 1.875 * 2 * a / 3.5)
+    dur = calibration.stroke_seconds(rng, 2 * a, dur)  # from the fitted speed range, if a calibration is active
     start = np.array([xc - direction * a, y0 + rng.normal(0, 0.03), z0 + rng.normal(0, 0.03)])
     end = np.array([xc + direction * a, y0 + rng.normal(0, 0.04), max(0.02, z0 + rng.normal(0, 0.04))])
     bulge = np.array([0.0, rng.normal(0, 0.04), rng.normal(0, 0.03)])
@@ -169,6 +171,7 @@ def _swipe(rng: np.random.Generator, t: np.ndarray, duration: float, direction: 
     gap = rng.uniform(0.05, 0.5)
     prep = max(rng.uniform(0.35, 1.0), 1.875 * float(np.linalg.norm(start - home)) / (v_stroke * rng.uniform(0.3, 0.75)))
     prep = min(prep, 1.4)  # must fit before the stroke
+    prep, gap = calibration.lead_in(prep, gap)  # unchanged unless a calibration is active
     path = Path(t, start if hover else home, t0=t1 - (0.0 if hover else prep + gap))
     if not hover:
         path.move(start, prep, bulge=np.array([0.0, rng.uniform(0.0, 0.10), rng.uniform(-0.08, 0.04)]))
@@ -208,6 +211,7 @@ def _push_pull(rng: np.random.Generator, t: np.ndarray, duration: float, label: 
     y_near = rng.uniform(0.07, max(0.09, min(0.26, y_far - 0.12)))
     travel = y_far - y_near
     dur = max(_logu(rng, 0.22, 0.9), 1.875 * travel / 3.0)  # real pushes/pulls: ~0.5-0.7 s
+    dur = calibration.stroke_seconds(rng, travel, dur)
     far = np.array([x0 + rng.normal(0, 0.02), y_far, z0 + rng.normal(0, 0.03)])
     near = np.array([x0, y_near, max(0.03, z0 + rng.normal(0, 0.03))])
     bulge = np.array([rng.normal(0, 0.015), 0.0, rng.normal(0, 0.02)])
@@ -219,6 +223,7 @@ def _push_pull(rng: np.random.Generator, t: np.ndarray, duration: float, label: 
     if label == "push":
         hover = rng.random() < 0.3
         prep, gap = rng.uniform(0.4, 1.0), rng.uniform(0.05, 0.5)
+        prep, gap = calibration.lead_in(prep, gap)
         path = Path(t, far if hover else home, t0=t1 - (0.0 if hover else prep + gap))
         if not hover:
             path.move(far, prep)
@@ -236,6 +241,7 @@ def _push_pull(rng: np.random.Generator, t: np.ndarray, duration: float, label: 
     else:
         approach = rng.random() < 0.65  # hand first drifts in slowly, then pulls back fast
         appr, gap = rng.uniform(0.6, 1.5), rng.uniform(0.1, 0.7)
+        appr, gap = calibration.lead_in(appr, gap)
         path = Path(t, home if approach else near, t0=t1 - (appr + gap if approach else 0.0))
         if approach:
             path.move(near, appr)

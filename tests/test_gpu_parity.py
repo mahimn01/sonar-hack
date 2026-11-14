@@ -140,6 +140,54 @@ def test_plan_makes_the_same_random_draws_as_render(clips):
     assert states[0] == states[1]
 
 
+def test_noise_shaped_on_the_device_is_the_noise_of_render(clips):
+    """--gen-noise gpu: the workers only draw the hall noise and the gain wander, the renderer shapes them.
+    The draws use up the random generator exactly like render(), and the finished audio is the same."""
+    from datagen.gpu_pipeline import GpuRenderer, plan_clip
+    from datagen.hardware import Profile, sample_hardware
+    from datagen.plan import _gain_split, _noise_split, make_plan
+    from datagen.render import _gain_track, _noise, render
+
+    # 1. the generator ends where render() leaves it, for a whole clip ...
+    core, (tx, pre, n) = g._setup(None)
+    j = g.unpack_job(clips[0][0])
+    states = []
+    for split in (None, True):
+        rng = np.random.default_rng(j["seed"])
+        scene, hw, _, _ = g.draw_world(rng, core, j, Profile(band_hz=core.band), False, n)
+        if split:
+            plan = make_plan(tx, hw, scene, n, rng, pre, core.band, shape_on_device=True)
+            assert plan.shaped is False and plan.gain is None and plan.babble is not None
+        else:
+            render(tx, hw, scene, n, rng, pre=pre, band=core.band)
+        states.append(rng.bit_generator.state)
+    assert states[0] == states[1]
+    # ... and for laptops with every kind of extra: interfering tones, clicks, a gain step, no babble, no wander
+    for k, tweak in enumerate(({}, {"tones": [(19200.0, -15.0, 2.0)]}, {"gain_step_db": 6.0, "hf_burst_rate": 3.0},
+                               {"babble_dbfs": -200.0}, {"gain_drift_db": 0.0})):
+        hw = sample_hardware(np.random.default_rng(40 + k), Profile(), 48000)
+        for name, value in tweak.items():
+            setattr(hw, name, value)
+        r1, r2 = np.random.default_rng(7 + k), np.random.default_rng(7 + k)
+        _noise(hw, 9600, r1)
+        _gain_track(hw, 9600, r1)
+        _noise_split(hw, 9600, r2)
+        _gain_split(hw, 9600, r2)
+        assert r1.bit_generator.state == r2.bit_generator.state, tweak
+
+    # 2. the same clips with the shaping in the workers and on the device
+    jobs = [job for job, _ in clips] + [_job(9000611, "pull", tweak={"hw": {"gain_step_db": -6.0, "tones": [(19200.0, -15.0, 2.0)]}}),
+                                        _job(9000612, "none", tweak={"hw": {"babble_dbfs": -200.0, "gain_drift_db": 0.0}})]
+    ref = GpuRenderer(None, "cpu").render([plan_clip((job, 0, None, True))["plan"] for job in jobs], want_parts=True)
+    gpu = GpuRenderer(None, "cpu", noise="gpu")
+    assert gpu.shape_on_device
+    got = gpu.render([plan_clip((job, 0, None, True, None, True))["plan"] for job in jobs], want_parts=True)
+    a, b = got["converter_in"].numpy(), ref["converter_in"].numpy()
+    assert np.abs(a - b).max() < 1e-12 * np.abs(b).max()            # float64 arithmetic in another order, nothing more
+    assert np.mean(got["rx"].numpy() != ref["rx"].numpy()) < 1e-5   # a sample exactly on a rounding edge may fall the other way
+    np.testing.assert_allclose(got["snr_db"].numpy(), ref["snr_db"].numpy(), atol=1e-6, equal_nan=True)
+
+
 def test_stored_reference_matches_the_fixture():
     """tests/fixtures/gpu_parity_reference.npz belongs to today's fixture (regenerate it when the fixture changes)."""
     assert parity.REFERENCE_FILE.exists(), "run: python scripts/check_gpu_parity.py --device torch-cpu --write-reference"

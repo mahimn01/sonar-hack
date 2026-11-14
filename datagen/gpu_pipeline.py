@@ -48,7 +48,7 @@ def overlay_tx(core: ad.Core, n: int) -> tuple[np.ndarray, int]:
     return _TX_OVERLAY[key]
 
 
-_BIG = ("noise", "gain", "pos", "rho", "nrm", "real")     # the arrays that make a plan several megabytes
+_BIG = ("noise", "gain", "babble", "pos", "rho", "nrm", "real")     # the arrays that make a plan several megabytes
 SLOT_BYTES = 12 * 2**20                                   # one shared-memory slot (a plan that does not fit is pickled as before)
 
 
@@ -94,6 +94,7 @@ def plan_clip(task: tuple) -> dict:
 
     job, attempt, carry, noise64 = task[:4]
     slot = task[4] if len(task) > 4 else None
+    shape_on_device = bool(task[5]) if len(task) > 5 else False       # the renderer shapes the hall noise (plan._noise_split)
     j = g.unpack_job(job)
     core, (tx, pre, n) = g._setup(j["profile"])
     hw_profile = Profile(band_hz=core.band, swap_mics=j["swap_mics"], swap_speakers=j["swap_speakers"])
@@ -111,7 +112,7 @@ def plan_clip(task: tuple) -> dict:
         plan = make_plan(tx_o, hw, scene, n, rng, pre_o, core.band, add_noise=False, include_static=False, noise_dtype=dtype)
         plan.real = np.ascontiguousarray(excerpt, dtype=np.float32)
     else:
-        plan = make_plan(tx, hw, scene, n, rng, pre, core.band, noise_dtype=dtype)
+        plan = make_plan(tx, hw, scene, n, rng, pre, core.band, noise_dtype=dtype, shape_on_device=shape_on_device)
     meta = g.clip_meta(j, scene, hw, float("nan"), use_real, 0)       # echo_snr_db and n_mics are filled in after the GPU
     _to_slot(plan, slot)
     return {"plan": plan, "state": {"rng": rng.bit_generator.state, "use_real": use_real, "meta": meta}}
@@ -134,7 +135,8 @@ def finish_clip(task: tuple) -> dict:
     rng = np.random.default_rng()
     rng.bit_generator.state = state["rng"]
     events = meta["events"]
-    result = {"meta": meta, "examples": g.label_segments(stream, events, core), "audio": audio, "error": None}
+    result = {"meta": meta, "examples": g.label_segments(stream, events, core, drop_partial=bool(j["calibration"])),
+              "audio": audio, "error": None}
     if rng.random() < 0.2:
         idle = g.idle_example(rng, stream, core, events)
         if idle is not None:
@@ -168,9 +170,11 @@ class GpuRenderer:
     """Holds the per-run tables on the device; turns plans into audio and Doppler columns."""
 
     def __init__(self, profile: str | None, device: str, precision: str = "auto", synth: Callable | None = None,
-                 kernel: str = "auto") -> None:
+                 kernel: str = "auto", noise: str = "cpu") -> None:
         """kernel: "auto" = use the fused CUDA kernel for the echo loop if its probe passes on this GPU (else the
-        PyTorch operations), "off" = PyTorch operations, "on" = the kernel without asking the probe."""
+        PyTorch operations), "off" = PyTorch operations, "on" = the kernel without asking the probe.
+        noise: "cpu" = the worker processes shape the hall noise and the gain wander (as render.py does), "gpu" = they
+        only draw the random numbers and this renderer shapes them (about half the CPU work per clip; not on Apple GPUs)."""
         import torch
 
         from .render_torch import pick_precision
@@ -195,6 +199,7 @@ class GpuRenderer:
             if ok:
                 self.synth, self.echo_impl = echo_kernel.synth_paths_cuda, "fused CUDA kernel"
             self.kernel_note = why
+        self.shape_on_device = noise == "gpu" and self.device.type != "mps"
         self.oom_splits = 0                  # batches that did not fit in memory and were split
         self._ctx: dict = {}
         self._fe: dict = {}
@@ -313,7 +318,7 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
                  batch: int = 0, synth: Callable | None = None, stats: dict | None = None,
                  capture: Callable | None = None, gpu: "GpuRenderer | list | None" = None,
                  pool: ProcessPoolExecutor | None = None, gpus: int = 0, kernel: str = "auto",
-                 shared: bool = True) -> Iterator[dict]:
+                 shared: bool = True, noise: str = "cpu") -> Iterator[dict]:
     """Yield one result per job, in job order: the same dicts generate.make_clip returns.
 
     device "cuda" uses every visible GPU (`gpus` limits how many): each GPU renders its own batches.
@@ -326,7 +331,7 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
     from concurrent.futures import ThreadPoolExecutor
 
     if gpu is None:
-        fleet = [GpuRenderer(profile, d, precision, synth, kernel) for d in gpu_devices(device, gpus)]
+        fleet = [GpuRenderer(profile, d, precision, synth, kernel, noise) for d in gpu_devices(device, gpus)]
     else:
         fleet = list(gpu) if isinstance(gpu, (list, tuple)) else [gpu]
     batch = batch or default_batch(str(fleet[0].device), fleet[0].precision)
@@ -335,7 +340,9 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
     stats = stats if stats is not None else {}
     stats.update({"batch": batch, "precision": fleet[0].precision, "device": ", ".join(str(f.device) for f in fleet),
                   "render_s": 0.0, "features_s": 0.0, "redraws": 0, "batches": 0, "oom_splits": 0,
-                  "echo_loop": fleet[0].echo_impl, "kernel_note": fleet[0].kernel_note})
+                  "echo_loop": fleet[0].echo_impl, "kernel_note": fleet[0].kernel_note,
+                  "noise_shaping": "on the GPU" if fleet[0].shape_on_device else "in the CPU workers"})
+    shape_on_device = fleet[0].shape_on_device
     todo: deque = deque((i, job, 0, None) for i, job in enumerate(jobs))
     planning: dict[Future, tuple] = {}
     ready: dict[tuple, list] = defaultdict(list)             # clip type -> planned clips waiting for a GPU
@@ -368,7 +375,8 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
             while todo and len(planning) + n_ready < ahead:
                 i, job, attempt, carry = todo.popleft()
                 k = free.pop() if free else None
-                planning[pool.submit(plan_clip, (job, attempt, carry, noise64, slots[k].name if k is not None else None))] = (i, job, attempt, k)
+                planning[pool.submit(plan_clip, (job, attempt, carry, noise64, slots[k].name if k is not None else None,
+                                                 shape_on_device))] = (i, job, attempt, k)
             # hand full batches (or, when nothing else is coming, the rest) to idle GPUs
             while idle:
                 more_coming = bool(planning) or bool(todo)

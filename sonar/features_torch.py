@@ -51,7 +51,10 @@ class TorchFrontend:
     """Audio [B, n, n_mics] -> Doppler columns, as dsp.Prefilter -> ToneDemod -> DopplerSTFT produce them."""
 
     def __init__(self, cfg: SonarConfig, n_mics: int | None = None, device: torch.device | str = "cpu",
-                 precision: str = "auto") -> None:
+                 precision: str = "auto", fir: str = "conv") -> None:
+        """fir: how the long filter in front (prefilter and tone band-pass in one, then every 24th sample) is computed.
+        "conv" = as a strided convolution (the default); "fft" = the same sum through FFTs (_decimate_fft):
+        much less arithmetic on a GPU, same numbers to rounding. Apple GPUs always use "conv"."""
         n_mics = cfg.n_mics if n_mics is None else n_mics
         self.cfg = cfg if n_mics == cfg.n_mics else cfg.with_(n_mics=n_mics)
         cfg = self.cfg
@@ -70,6 +73,9 @@ class TorchFrontend:
         rev = w[:, ::-1]
         weight = np.stack([part for t in range(cfg.n_tones) for part in (rev[t].real, rev[t].imag)])
         self.weight = torch.from_numpy(weight.copy()[:, None, :]).to(dev, self.rd)      # [2*tones, 1, Lw]
+        self.fir = "conv" if (single or fir != "fft") else "fft"
+        self._w = w                                                     # [tones, Lw] the filter itself, for the FFT route
+        self._wf: dict = {}                                             # FFT length -> its spectrum on the device
         self.tones = np.asarray(cfg.tone_hz, np.float64)
         self.sos = demod._sos
         stft = DopplerSTFT(cfg, n_mics)
@@ -91,6 +97,39 @@ class TorchFrontend:
             self._hp[m] = (torch.from_numpy(h).to(self.device, self.cd), n_fft)
         return self._rot[m], self._hp[m][0], self._hp[m][1]
 
+    def _decimate_fft(self, x: torch.Tensor) -> torch.Tensor:
+        """x [R, n] real -> [R, tones, ceil(n / decim)] complex: sample 0, decim, 2*decim, ... of (filter * x), from silence.
+
+        The strided convolution computes every output sample as a sum over the whole filter (several hundred
+        taps). Here: one FFT of the input, a multiplication with the filter's spectrum, and "keep every decim-th
+        sample" done in the frequency domain, where it means adding up the decim stretches of the spectrum
+        (all of them, so the filter's small stop-band leakage is kept exactly as the convolution has it).
+        """
+        cfg = self.cfg
+        r, n = x.shape
+        d, m = cfg.decim, math.ceil(n / cfg.decim)
+        n_fft = -(-(n + self.lw - 1) // d) * d                         # long enough that nothing wraps around; a multiple of decim
+        while True:                                                    # ... and a length FFTs are fast for
+            rest = n_fft
+            for p in (2, 3, 5, 7):
+                while rest % p == 0:
+                    rest //= p
+            if rest == 1:
+                break
+            n_fft += d
+        if n_fft not in self._wf:
+            self._wf = {n_fft: torch.from_numpy(np.fft.fft(self._w, n_fft, axis=1)).to(self.device, self.cd)}
+        wf = self._wf[n_fft]
+        out = torch.empty((r, cfg.n_tones, m), device=self.device, dtype=self.cd)
+        rows = max(1, int(1.5e8 // n_fft))                              # about 2.4 GB of complex128 at a time, three such arrays alive
+        for a in range(0, r, rows):
+            spec = torch.fft.fft(x[a:a + rows], n=n_fft, dim=-1)
+            for t in range(cfg.n_tones):
+                folded = (spec * wf[t]).reshape(-1, d, n_fft // d).sum(1) / d
+                out[a:a + rows, t] = torch.fft.ifft(folded, dim=-1)[:, :m]
+            del spec
+        return out
+
     @torch.no_grad()
     def baseband(self, rx: torch.Tensor) -> torch.Tensor:
         """rx [B, n, n_mics] -> high-passed complex baseband [B, n_mics, tones, m] (ToneDemod.process output)."""
@@ -99,12 +138,19 @@ class TorchFrontend:
         if n_mics != self.n_mics:
             raise ValueError(f"expected {self.n_mics} microphone channels, got {n_mics}")
         x = rx.to(self.device, self.rd).transpose(1, 2).reshape(b * n_mics, 1, n)
-        x = torch.nn.functional.pad(x, (self.lw - 1, 0))                                # filters start from silence
-        y = torch.nn.functional.conv1d(x, self.weight, stride=cfg.decim)                # [B*mics, 2*tones, m]
-        m = y.shape[-1]
-        rot, hp, n_fft = self._tables(m)
-        z = torch.complex(y[:, 0::2], y[:, 1::2]) * rot[None]                           # [B*mics, tones, m]
-        del y, x
+        if self.fir == "fft":
+            z = self._decimate_fft(x[:, 0])                                             # [B*mics, tones, m]
+            m = z.shape[-1]
+            rot, hp, n_fft = self._tables(m)
+            z = z * rot[None]
+        else:
+            x = torch.nn.functional.pad(x, (self.lw - 1, 0))                            # filters start from silence
+            y = torch.nn.functional.conv1d(x, self.weight, stride=cfg.decim)            # [B*mics, 2*tones, m]
+            m = y.shape[-1]
+            rot, hp, n_fft = self._tables(m)
+            z = torch.complex(y[:, 0::2], y[:, 1::2]) * rot[None]                       # [B*mics, tones, m]
+            del y
+        del x
         # 5 Hz high-pass started in steady state = zero-state filtering of (z - first sample)
         d = z - z[..., :1]
         out = torch.fft.ifft(torch.fft.fft(d, n=n_fft, dim=-1) * hp, dim=-1)[..., :m]

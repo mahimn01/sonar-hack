@@ -1,0 +1,385 @@
+{
+ "hardware": {
+  "mic_pos": [
+   -0.16,
+   0.1,
+   0.004
+  ],
+  "mic_jitter": [
+   0.02,
+   0.03,
+   0.002
+  ],
+  "spk_x": [
+   0.12,
+   0.15
+  ],
+  "spk_y": [
+   0.06,
+   0.14
+  ],
+  "spk_tilt_deg": [
+   0.0,
+   25.0
+  ],
+  "left_minus_right_db": 6.4,
+  "direct_gain_db": [
+   -21.1,
+   -15.1
+  ],
+  "echo_ref_db": [
+   -14.0,
+   2.0
+  ],
+  "noise_dbfs": [
+   -92.0,
+   -84.0
+  ]
+ },
+ "scene": {
+  "hand_height": [
+   0.1,
+   0.25
+  ],
+  "peak_speed": [
+   0.9,
+   5.5
+  ]
+ },
+ "overlay": {
+  "echo_ref_db": [
+   -10.0,
+   8.0
+  ],
+  "equal_speakers": true,
+  "note": "for clips laid over real recordings; set 2026-11-14 from a 48-clip comparison on 2 recordings (picture peak and per-tone brightness against the real gestures), not searched like the rest"
+ },
+ "version": 1,
+ "device": "MacBook Pro, one microphone",
+ "made": "2026-11-14 03:58",
+ "source": "/Users/mahimnpatel/Documents/Dev/sonar-hack-recall/mac/data",
+ "measured": {
+  "sessions": [
+   {
+    "session": "20261113-232748_lance_scene",
+    "tone_db": [
+     -14.906358959701105,
+     -21.030663673107114
+    ],
+    "direct_gain_db": -17.96851131640411,
+    "clock_ppm": 0.14656909799473722,
+    "noise_dbfs_per_hz": -88.64974291318123,
+    "noise_dbfs_if_white": -44.84763049606517,
+    "peak": 0.6638253927230835
+   },
+   {
+    "session": "20261113-233427_lance_breathing",
+    "tone_db": [
+     -17.211428706029544,
+     -23.03947763275395
+    ],
+    "direct_gain_db": -20.125453169391747,
+    "clock_ppm": 0.07896032862131547,
+    "noise_dbfs_per_hz": -88.16067667536609,
+    "noise_dbfs_if_white": -44.35856425825003,
+    "peak": 0.30091118812561035
+   },
+   {
+    "session": "20261113-235154_lance2_scene",
+    "tone_db": [
+     -15.04498223282373,
+     -17.73805958804938
+    ],
+    "direct_gain_db": -16.391520910436554,
+    "clock_ppm": -0.3405662744542159,
+    "noise_dbfs_per_hz": -88.58387268423279,
+    "noise_dbfs_if_white": -44.781760267116724,
+    "peak": 0.5999317169189453
+   },
+   {
+    "session": "20261113-235900_lance2_breathing",
+    "tone_db": [
+     -16.586637749697783,
+     -20.04025753096679
+    ],
+    "direct_gain_db": -18.313447640332285,
+    "clock_ppm": -0.2731970022239667,
+    "noise_dbfs_per_hz": -85.63715649858077,
+    "noise_dbfs_if_white": -41.8350440814647,
+    "peak": 0.6479479074478149
+   },
+   {
+    "session": "20261114-000902_mahimn_scene",
+    "tone_db": [
+     -14.689514659658926,
+     -22.514599523002133
+    ],
+    "direct_gain_db": -18.60205709133053,
+    "clock_ppm": -0.025496888961600628,
+    "noise_dbfs_per_hz": -89.62559977588009,
+    "noise_dbfs_if_white": -45.82348735876404,
+    "peak": 1.0
+   },
+   {
+    "session": "20261114-001650_mahimn_breathing",
+    "tone_db": [
+     -14.864151652138577,
+     -21.683578640692357
+    ],
+    "direct_gain_db": -18.273865146415467,
+    "clock_ppm": -0.022865571151367795,
+    "noise_dbfs_per_hz": -87.13924675733841,
+    "noise_dbfs_if_white": -43.33713434022235,
+    "peak": 0.39189422130584717
+   },
+   {
+    "session": "20261114-020852_aarsh_scene",
+    "tone_db": [
+     -11.22897027099157,
+     -21.580516985032496
+    ],
+    "direct_gain_db": -16.404743628012035,
+    "clock_ppm": -0.13183535534216528,
+    "noise_dbfs_per_hz": -88.32356610330021,
+    "noise_dbfs_if_white": -44.52145368618414,
+    "peak": 1.0
+   },
+   {
+    "session": "20261114-021645_aarsh_breathing",
+    "tone_db": [
+     -13.549389749388945,
+     -19.551531084145385
+    ],
+    "direct_gain_db": -16.550460416767166,
+    "clock_ppm": -0.08508232484966283,
+    "noise_dbfs_per_hz": -87.32949195861487,
+    "noise_dbfs_if_white": -43.52737954149881,
+    "peak": 0.8384956121444702
+   }
+  ],
+  "tone_db_median": [
+   -14.885255305919841,
+   -21.305590329069805
+  ],
+  "between_line_power_dbfs_median": -44.440008972217086
+ },
+ "real": {
+  "swipe_left": {
+   "peak_db": 43.1413783704321,
+   "extent_hz": 215.77690972222223,
+   "saturated": 0.029718243634259255,
+   "filled": 0.8064814814814815,
+   "left_tone_hz": 52.613606170155045,
+   "right_tone_hz": -4.055724464239341,
+   "n": 54
+  },
+  "swipe_right": {
+   "peak_db": 42.962161690845384,
+   "extent_hz": 214.69184027777777,
+   "saturated": 0.02856626157407407,
+   "filled": 0.7668981481481482,
+   "left_tone_hz": -42.29861929384935,
+   "right_tone_hz": 13.351046851587705,
+   "n": 54
+  },
+  "push": {
+   "peak_db": 42.65004716675967,
+   "extent_hz": 220.48938679245282,
+   "saturated": 0.019147995283018866,
+   "filled": 0.816745283018868,
+   "left_tone_hz": 37.788880314819394,
+   "right_tone_hz": 17.307618333843013,
+   "n": 53
+  }
+ },
+ "real_per_person": {
+  "lance": {
+   "swipe_left": {
+    "peak_db": 43.369774113375534,
+    "extent_hz": 236.97916666666666,
+    "saturated": 0.019018554687499998,
+    "filled": 0.6875,
+    "left_tone_hz": -18.436025752095887,
+    "right_tone_hz": -32.61601004337364,
+    "n": 12
+   },
+   "swipe_right": {
+    "peak_db": 40.871888806726844,
+    "extent_hz": 235.02604166666666,
+    "saturated": 0.01621907552083333,
+    "filled": 0.6104166666666667,
+    "left_tone_hz": -25.373803420479536,
+    "right_tone_hz": -18.625378618115672,
+    "n": 12
+   },
+   "push": {
+    "peak_db": 40.343804922311136,
+    "extent_hz": 226.6690340909091,
+    "saturated": 0.011718750000000002,
+    "filled": 0.7647727272727273,
+    "left_tone_hz": 48.605419985394285,
+    "right_tone_hz": 25.943478012170644,
+    "n": 11
+   }
+  },
+  "lance2": {
+   "swipe_left": {
+    "peak_db": 45.84562855462769,
+    "extent_hz": 231.77083333333334,
+    "saturated": 0.05020833333333333,
+    "filled": 0.7741666666666667,
+    "left_tone_hz": 21.87621875710558,
+    "right_tone_hz": 1.5158281808686425,
+    "n": 15
+   },
+   "swipe_right": {
+    "peak_db": 46.32140385885291,
+    "extent_hz": 233.46354166666666,
+    "saturated": 0.05797526041666666,
+    "filled": 0.7383333333333333,
+    "left_tone_hz": 4.8085144256895616,
+    "right_tone_hz": -10.544801818369548,
+    "n": 15
+   },
+   "push": {
+    "peak_db": 45.41301895568698,
+    "extent_hz": 228.64583333333334,
+    "saturated": 0.025299479166666663,
+    "filled": 0.7941666666666668,
+    "left_tone_hz": 39.55420765943303,
+    "right_tone_hz": 11.89663325850455,
+    "n": 15
+   }
+  },
+  "aarsh": {
+   "swipe_left": {
+    "peak_db": 42.67696034228466,
+    "extent_hz": 211.45833333333334,
+    "saturated": 0.03116536458333333,
+    "filled": 0.8441666666666666,
+    "left_tone_hz": 106.6417581360137,
+    "right_tone_hz": 2.935334081871155,
+    "n": 15
+   },
+   "swipe_right": {
+    "peak_db": 43.309809664791445,
+    "extent_hz": 205.02604166666666,
+    "saturated": 0.02291015625,
+    "filled": 0.8416666666666666,
+    "left_tone_hz": -72.26271687051863,
+    "right_tone_hz": 51.5920302512313,
+    "n": 15
+   },
+   "push": {
+    "peak_db": 41.54035184554128,
+    "extent_hz": 208.15104166666657,
+    "saturated": 0.02208984375,
+    "filled": 0.8733333333333333,
+    "left_tone_hz": -16.33317327249607,
+    "right_tone_hz": -23.59234130650087,
+    "n": 15
+   }
+  },
+  "mahimn": {
+   "swipe_left": {
+    "peak_db": 40.11319243242851,
+    "extent_hz": 179.98046874999997,
+    "saturated": 0.012996419270833332,
+    "filled": 0.9187499999999998,
+    "left_tone_hz": 94.54978240139451,
+    "right_tone_hz": 8.801297125871855,
+    "n": 12
+   },
+   "swipe_right": {
+    "peak_db": 40.418821897521994,
+    "extent_hz": 182.97526041666663,
+    "saturated": 0.011222330729166667,
+    "filled": 0.865625,
+    "left_tone_hz": -80.6522303458062,
+    "right_tone_hz": 27.396053909183156,
+    "n": 12
+   },
+   "push": {
+    "peak_db": 42.69750697286806,
+    "extent_hz": 220.05208333333334,
+    "saturated": 0.014591471354166668,
+    "filled": 0.8218749999999999,
+    "left_tone_hz": 93.31962675350304,
+    "right_tone_hz": 67.28009452331226,
+    "n": 12
+   }
+  }
+ },
+ "sim_before": {
+  "swipe_left": {
+   "peak_db": 29.44114288408097,
+   "extent_hz": 117.64322916666661,
+   "saturated": 0.008962673611111112,
+   "filled": 0.47847222222222224,
+   "left_tone_hz": 30.820552364993425,
+   "right_tone_hz": -6.1187212086195135,
+   "n": 18
+  },
+  "swipe_right": {
+   "peak_db": 20.64299707143051,
+   "extent_hz": 84.79352678571426,
+   "saturated": 0.00575474330357143,
+   "filled": 0.36785714285714277,
+   "left_tone_hz": -0.9735666611490643,
+   "right_tone_hz": 15.497754330861474,
+   "n": 14
+  },
+  "push": {
+   "peak_db": 28.705483348452336,
+   "extent_hz": 112.41629464285714,
+   "saturated": 0.010616629464285713,
+   "filled": 0.5160714285714286,
+   "left_tone_hz": 51.55496192840517,
+   "right_tone_hz": 44.66961432538447,
+   "n": 14
+  },
+  "strokes_found": 0.7666666666666667
+ },
+ "sim_after": {
+  "swipe_left": {
+   "peak_db": 48.79309812351747,
+   "extent_hz": 182.4448529411764,
+   "saturated": 0.04536420036764706,
+   "filled": 0.75,
+   "left_tone_hz": 31.67435580459712,
+   "right_tone_hz": -25.77605035607506,
+   "n": 17
+  },
+  "swipe_right": {
+   "peak_db": 45.32715119844738,
+   "extent_hz": 208.18014705882354,
+   "saturated": 0.04377872242647058,
+   "filled": 0.7198529411764706,
+   "left_tone_hz": -38.72271153837179,
+   "right_tone_hz": 12.543323565468638,
+   "n": 17
+  },
+  "push": {
+   "peak_db": 44.282509203369095,
+   "extent_hz": 207.03125,
+   "saturated": 0.026520647321428566,
+   "filled": 0.7598214285714285,
+   "left_tone_hz": 39.74138175915634,
+   "right_tone_hz": 40.068376753065,
+   "n": 14
+  },
+  "strokes_found": 0.8
+ },
+ "gap": {
+  "before": 1.7208139498801813,
+  "after": 0.4073781944475613,
+  "scales": {
+   "peak_db": 6.0,
+   "extent_hz": 60.0,
+   "saturated": 0.05,
+   "filled": 0.15,
+   "left_tone_hz": 40.0,
+   "right_tone_hz": 40.0
+  }
+ }
+}

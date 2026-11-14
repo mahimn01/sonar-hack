@@ -81,6 +81,13 @@ class ClipPlan:
     gain: np.ndarray | None = None   # [n_out] slow gain wander
     real: np.ndarray | None = None   # [n_out, n_real_mics] float32 real background excerpt (overlay clips)
     shm: list | None = None          # where the big arrays sit while they travel in shared memory (gpu_pipeline._to_slot)
+    # ---- only with make_plan(shape_on_device=True): the device finishes the noise and builds the gain ----
+    shaped: bool = True              # False: `noise` has no babble yet and `gain` is None
+    babble: np.ndarray | None = None       # [n_out] the babble's random draws, not yet shaped
+    babble_env: np.ndarray | None = None   # [m] low-rate samples of its loudness envelope
+    babble_par: tuple = (0.0, 0.0, ())     # (rate of babble_env in Hz, level, factor per microphone)
+    gain_ctrl: np.ndarray | None = None    # [m] low-rate samples of the slow gain wander
+    gain_par: tuple = (0.0, 0.0, -1, 0.0)  # (rate of gain_ctrl in Hz, wander in dB rms, sample of the step or -1, step in dB)
 
 
 def _pack_response(r: object) -> tuple:
@@ -89,12 +96,93 @@ def _pack_response(r: object) -> tuple:
     return ("resp", np.array([float(getattr(r, k)) for k in RESP_FIELDS], np.float64))
 
 
+# --------------------------------------------------------------------------
+# Hall noise and gain wander as "draw here, shape on the device"
+#
+# render._noise and render._gain_track draw random numbers AND shape them: two long FFTs for the hall
+# babble, two slow envelopes evaluated at every sample, a power per sample for the gain. The shaping is
+# two thirds of a worker's time per clip and the GPU does it in batches in a fraction of that. The three
+# functions below draw exactly what the originals draw, in the same order (the generator ends in the same
+# state, tests/test_gpu_parity.py), and hand the unshaped pieces on. render_torch._device_noise is the
+# other half. render.py itself is not touched: it stays the reference.
+# --------------------------------------------------------------------------
+def _smooth_ctrl(rng: np.random.Generator, n: int, fs: float, cutoff_hz: float) -> tuple:
+    """physics.smooth_noise up to its low-rate samples: (samples, their rate in Hz).
+
+    What is left for the device: a cubic spline through them at the audio rate, minus the mean, divided
+    by the standard deviation. A rate equal to `fs` means the samples already are the full track.
+    """
+    if n <= 1:
+        return np.zeros(n), float(fs)
+    cutoff_hz = max(float(cutoff_hz), 1e-3)
+    rate = min(float(fs), 16.0 * cutoff_hz)
+    m = int(np.ceil(n * rate / fs)) + 4
+    pad = int(np.ceil(2.0 * rate / cutoff_hz)) + 4
+    x = rng.standard_normal(m + 2 * pad)
+    spec = np.fft.rfft(x)
+    f = np.fft.rfftfreq(len(x), 1.0 / rate)
+    spec *= np.exp(-0.5 * (f / cutoff_hz) ** 2)
+    y = np.fft.irfft(spec, len(x))[pad: pad + m]
+    return (y, rate) if rate < fs else (y[:n], float(fs))
+
+
+def _noise_split(hw: Hardware, n: int, rng: np.random.Generator) -> tuple:
+    """render._noise with the hall babble left unshaped.
+
+    Returns (everything but the babble [n_mic, n], the babble's draws [n] or None, its envelope samples or
+    None, (envelope rate, babble level, factor per microphone)).
+    """
+    fs = hw.fs
+    out = rng.standard_normal((hw.n_mic, n)) * 10.0 ** (hw.noise_dbfs / 20.0)
+    direct = 0.35 * 10.0 ** (hw.direct_gain_db / 20.0)
+    raw = env = None
+    par: tuple = (0.0, 0.0, ())
+    if hw.babble_dbfs > -150.0:
+        raw = rng.standard_normal(n)
+        env, env_rate = _smooth_ctrl(rng, n, fs, 4.0)
+        fac = 1.0 + 0.1 * rng.standard_normal((hw.n_mic, 1))
+        par = (float(env_rate), float(10.0 ** (hw.babble_dbfs / 20.0)), tuple(float(v) for v in fac[:, 0]))
+    # broadband ultrasonic clicks and steady interfering tones: a few short pieces, done here as in render._noise
+    n_burst = rng.poisson(hw.hf_burst_rate * n / fs) if hw.hf_burst_rate > 0 else 0
+    for _ in range(int(n_burst)):
+        start = int(rng.integers(0, max(1, n - 64)))
+        length = int(min(n - start, fs * rng.uniform(0.002, 0.03)))
+        if length < 8:
+            continue
+        burst = rng.standard_normal(length) * np.exp(-np.arange(length) / (length / rng.uniform(2.0, 6.0)))
+        burst -= np.convolve(burst, np.ones(8) / 8.0, mode="same")
+        level = direct * 10.0 ** ((hw.hf_burst_db + rng.normal(0.0, 5.0)) / 20.0)
+        burst *= level / (np.abs(burst).max() + 1e-12)
+        out[:, start: start + length] += burst[None, :] * (1.0 + 0.2 * rng.standard_normal((hw.n_mic, 1)))
+    if hw.tones:
+        t = np.arange(n) / fs
+        for f_t, level_db, drift in hw.tones:
+            a = direct * 10.0 ** (level_db / 20.0)
+            ph = 2 * np.pi * (f_t * t + 0.5 * drift * t * t)
+            for m in range(hw.n_mic):
+                out[m] += a * np.cos(ph + rng.uniform(0, 2 * np.pi))
+    return out, raw, env, par
+
+
+def _gain_split(hw: Hardware, n: int, rng: np.random.Generator) -> tuple:
+    """render._gain_track as its pieces: (wander samples or None, (their rate, wander in dB, sample of the step or -1, step in dB))."""
+    ctrl, rate, k0, step = None, float(hw.fs), -1, 0.0
+    if hw.gain_drift_db > 0:
+        ctrl, rate = _smooth_ctrl(rng, n, hw.fs, 0.7)
+    if hw.gain_step_db != 0.0:
+        k0 = int(rng.integers(n // 8, max(n // 8 + 1, 7 * n // 8)))
+        step = float(hw.gain_step_db)
+    return ctrl, (float(rate), float(hw.gain_drift_db), k0, step)
+
+
 def make_plan(tx: np.ndarray, hw: Hardware, scene, n_out: int, rng: np.random.Generator, pre: int, band: tuple,
               add_noise: bool = True, key_tags: tuple = KEY_TAGS, include_static: bool = True,
-              noise_dtype: type = np.float64) -> ClipPlan:
+              noise_dtype: type = np.float64, shape_on_device: bool = False) -> ClipPlan:
     """Everything render(tx, hw, scene, n_out, rng, pre, band, ...) would use, random draws included.
 
     The random draws happen here in exactly render()'s order, so `rng` ends in the same state.
+    `shape_on_device`: draw the hall noise and the gain wander but leave their shaping to the renderer
+    (the plan then has shaped = False; see the block above).
     """
     tx = np.asarray(tx)
     if tx.ndim != 2:
@@ -176,8 +264,15 @@ def make_plan(tx: np.ndarray, hw: Hardware, scene, n_out: int, rng: np.random.Ge
 
     # ---- the random draws, in render()'s order: hum phase, then noise, then gain wander ----
     hum_ph = rng.uniform(0.0, 2 * np.pi, 2) if hw.hum_hz > 0.0 else np.zeros(2)
-    noise = gain = None
-    if add_noise:
+    noise = gain = babble = babble_env = gain_ctrl = None
+    babble_par, gain_par, shaped = (0.0, 0.0, ()), (0.0, 0.0, -1, 0.0), True
+    if add_noise and shape_on_device:
+        noise, babble, babble_env, babble_par = _noise_split(hw, n_out, rng)
+        gain_ctrl, gain_par = _gain_split(hw, n_out, rng)
+        noise = noise.astype(noise_dtype, copy=False)
+        babble = None if babble is None else babble.astype(noise_dtype, copy=False)
+        shaped = False
+    elif add_noise:
         noise = _noise(hw, n_out, rng).astype(noise_dtype, copy=False)
         gain = _gain_track(hw, n_out, rng).astype(noise_dtype, copy=False)
 
@@ -195,4 +290,5 @@ def make_plan(tx: np.ndarray, hw: Hardware, scene, n_out: int, rng: np.random.Ge
         spk_resp=[_pack_response(r) for r in hw.spk_resp], mic_resp=[_pack_response(r) for r in hw.mic_resp],
         t_ctrl=t_ctrl, pos=pos, rho=rho, nrm=nrm, use_spec=use_spec, spec_q=spec_q, spec_floor=spec_floor, key=key,
         wobble=wob, wobble_tau0=tau0, wobble_amp=amp0, events=events, noise=noise, gain=gain,
+        shaped=shaped, babble=babble, babble_env=babble_env, babble_par=babble_par, gain_ctrl=gain_ctrl, gain_par=gain_par,
     )
