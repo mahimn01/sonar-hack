@@ -23,9 +23,12 @@ How to run (from the repo root)
     cd ~/Documents/Dev/sonar-hack
     datagen/.venv/bin/python -m datagen.generate --out datagen/out/synth_v5 --per-class 650
 
-Useful options: --workers 8, --save-audio 20 (keep the first 20 clips per class
-as FLAC so you can listen / replay them), --min-snr 6 (drop gestures too faint
-to see), --seed 0, --profile default|low|mono|split (core signal profile).
+Useful options: --workers N (default: every CPU core), --save-audio 20 (keep the
+first 20 clips per class as FLAC so you can listen / replay them), --min-snr 6
+(drop gestures too faint to see), --seed 0, --profile default|low|mono|split (core
+signal profile), --swap-mics / --swap-speakers (the real laptop's left/right
+channels are the other way round; train.py and scripts/train_4090.py measure this
+from recorded swipes).
 
 Best realism, once the demo laptop has recorded a few minutes of "nobody
 gesturing" with the probe signal playing (people may sit, type, walk past):
@@ -33,6 +36,8 @@ gesturing" with the probe signal playing (people may sit, type, walk past):
         --per-class 650 --background data/<scene session>/audio.wav
 Then the laptop, room and noise in every example are REAL and only the hand is
 synthetic (see background.py). --background-share 0.7 mixes both kinds.
+Each background is converted once to a float32 .npy in <out>/backgrounds/ and
+memory-mapped, so many workers share one copy instead of loading one each.
 
 What it changes
 ---------------
@@ -51,6 +56,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -143,7 +150,10 @@ def make_clip(job: tuple) -> dict:
     """Worker: one random clip -> labelled model inputs (+ optional raw audio)."""
     seed, scene_label, profile, min_snr, keep_audio = job[:5]
     backgrounds, bg_share = (job[5], job[6]) if len(job) > 5 else ((), 0.0)
+    swap_mics, swap_speakers = (job[7], job[8]) if len(job) > 8 else (False, False)
+    mics = job[9] if len(job) > 9 else None
     core, (tx, pre, n) = _setup(profile)
+    hw_profile = Profile(band_hz=core.band, swap_mics=swap_mics, swap_speakers=swap_speakers)
     rng = np.random.default_rng(seed)
     use_real = bool(backgrounds) and rng.random() < bg_share
     # a gesture that is physically inaudible should not be labelled as a gesture: redraw the room
@@ -152,14 +162,17 @@ def make_clip(job: tuple) -> dict:
         scene = sample_scene(rng, scene_label, STORY, event_center=centre, lead_in=LEAD_IN, distractors=not use_real)
         if use_real:  # real laptop + room + noise, synthetic moving scene on top
             audio, measured = _background(str(rng.choice(list(backgrounds))), core)
-            rx, info = bg.inject(bg.random_excerpt(rng, audio, n, core.period), core, scene, rng, measured=measured)
+            rx, info = bg.inject(bg.random_excerpt(rng, audio, n, core.period), core, scene, rng, measured=measured,
+                                 profile=hw_profile)
             hw, snr = info["hardware"], info["echo_snr_db"]
         else:
-            hw = sample_hardware(rng, Profile(band_hz=core.band), core.fs)
+            hw = sample_hardware(rng, hw_profile, core.fs)
             if core.n_speakers >= 2:
                 hw.tx_route = "stereo"
             out = render(tx, hw, scene, n, rng, pre=pre, band=core.band)
             rx, snr = out.rx, out.echo_snr_db
+        if mics:  # the real laptop has fewer microphones (a MacBook records one channel): keep the left one
+            rx = rx[:, :mics]
         if scene_label not in GESTURE4 or not np.isfinite(snr) or snr >= min_snr:
             break
     meta = {
@@ -168,6 +181,7 @@ def make_clip(job: tuple) -> dict:
         "events": scene.events,
         "echo_snr_db": None if not np.isfinite(snr) else round(float(snr), 1),
         "real_background": use_real,
+        "n_mics": int(rx.shape[1]),
         "hardware": hw.summary(),
         "scene_meta": {k: (v if not isinstance(v, np.generic) else v.item()) for k, v in scene.meta.items()
                        if not isinstance(v, np.ndarray)},
@@ -186,23 +200,47 @@ def make_clip(job: tuple) -> dict:
     return result
 
 
+def default_workers() -> int:
+    """Every CPU core (Windows process pools allow at most 61 workers)."""
+    n = os.cpu_count() or 1
+    return min(n, 61) if sys.platform == "win32" else n
+
+
+def cache_backgrounds(paths: tuple, out_dir: Path) -> tuple:
+    """Convert each background recording once to float32 .npy (memory-mapped by every worker)."""
+    folder = out_dir / "backgrounds"
+    folder.mkdir(parents=True, exist_ok=True)
+    cached = []
+    for i, path in enumerate(paths):
+        target = folder / f"{i:03d}_{Path(path).parent.name or Path(path).stem}.npy"
+        np.save(target, np.ascontiguousarray(bg.load_audio(path), dtype=np.float32))
+        cached.append(str(target))
+    return tuple(cached)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Generate synthetic gesture training data (see the file header).")
     ap.add_argument("--out", required=True, help="output folder (created if missing)")
     ap.add_argument("--per-class", type=int, default=300, help="clips per gesture class")
     ap.add_argument("--negatives", type=float, default=2.0, help="negative-only clips, as a multiple of --per-class")
-    ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--workers", type=int, default=default_workers(), help="parallel processes (default: every CPU core)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--min-snr", type=float, default=6.0, help="redraw gesture clips whose echo is fainter than this (dB in 25 Hz)")
     ap.add_argument("--save-audio", type=int, default=0, help="keep raw audio of the first K clips of each class")
     ap.add_argument("--profile", default=None, help="core signal profile (default / low / mono / split)")
     ap.add_argument("--background", default="", help="comma-separated REAL no-gesture recordings (.wav/.flac/.npy) to build on")
     ap.add_argument("--background-share", type=float, default=1.0, help="share of clips built on a real background (when given)")
+    ap.add_argument("--swap-mics", action="store_true", help="the real laptop's microphone channels are swapped (left = channel 1)")
+    ap.add_argument("--swap-speakers", action="store_true", help="the real laptop's speaker channels are swapped")
+    ap.add_argument("--mics", type=int, default=None, help="microphone channels of the real laptop (default: the simulator's 2)")
     args = ap.parse_args()
     backgrounds = tuple(p for p in args.background.split(",") if p)
 
     out_dir = Path(args.out)
     (out_dir / "audio").mkdir(parents=True, exist_ok=True)
+    if backgrounds:
+        backgrounds = cache_backgrounds(backgrounds, out_dir)
+        print(f"{len(backgrounds)} background recording(s), memory-mapped from {out_dir / 'backgrounds'}")
     core, _ = _setup(args.profile)
     print(core.describe())
     labels = list(core.gesture_labels)
@@ -217,14 +255,17 @@ def main() -> None:
     for i, kind in enumerate(kinds):
         seen[kind] = seen.get(kind, 0) + 1
         jobs.append((args.seed * 1_000_003 + i, str(kind), args.profile, args.min_snr, seen[kind] <= args.save_audio,
-                     backgrounds, args.background_share))
+                     backgrounds, args.background_share, args.swap_mics, args.swap_speakers, args.mics))
 
     t0 = time.time()
+    print(f"{len(jobs)} clips on {args.workers} worker processes")
     xs, ys, groups, peaks, n_clips, n_missed, errors = [], [], [], [], 0, 0, 0
+    mic_counts: set = set()
     with ProcessPoolExecutor(args.workers) as pool, open(out_dir / "manifest.jsonl", "w") as manifest:
         for res in pool.map(make_clip, jobs, chunksize=4):
             n_clips += 1
             meta = res["meta"]
+            mic_counts.add(meta["n_mics"])
             if res["error"]:
                 errors += 1
                 if errors == 1:
@@ -252,6 +293,10 @@ def main() -> None:
 
     y = np.array(ys, dtype=np.int64)
     cfg = core.cfg.to_dict() if core.cfg is not None and hasattr(core.cfg, "to_dict") else {"tones": core.tones}
+    if len(mic_counts) > 1:
+        raise SystemExit(f"clips came out with different microphone counts {sorted(mic_counts)}: give --mics")
+    if mic_counts and "n_mics" in cfg:
+        cfg["n_mics"] = int(mic_counts.pop())  # the pictures were made from this many channels; train.py reads it here
     if xs:
         # exactly the file layout of sonar/dataset.py, so `python -m sonar.train --dataset <this file>` works.
         # Every clip is its own "session" and "person"; source = "synthetic" keeps it out of validation there.

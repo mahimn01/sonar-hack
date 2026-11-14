@@ -64,10 +64,10 @@ class MeasuredResponse(Response):
 
 
 def load_audio(path: str | Path) -> np.ndarray:
-    """Read a recording as float [n, n_mics]. Supports .wav / .flac / .npy."""
+    """Read a recording as float [n, n_mics]. Supports .wav / .flac / .npy (a float32 .npy is memory-mapped)."""
     path = Path(path)
     if path.suffix == ".npy":
-        x = np.load(path)
+        x = np.load(path, mmap_mode="r")  # memory-mapped: all generator workers share one copy in the page cache
     else:
         import soundfile as sf
 
@@ -120,13 +120,14 @@ def measure(real: np.ndarray, core: Core, seconds: float = 2.0) -> Measured:
     return Measured(float(tone_mic.mean()), tone_mic, offset, float(np.median(drift)), band_f, band_g)
 
 
-def matched_hardware(rng: np.random.Generator, core: Core, m: Measured) -> Hardware:
+def matched_hardware(rng: np.random.Generator, core: Core, m: Measured, profile: Profile | None = None) -> Hardware:
     """A random virtual laptop whose levels, alignment and colouration follow the real measurements.
 
     Geometry (mic spacing, speaker direction, echo strength) stays random: a
-    background recording cannot tell us those.
+    background recording cannot tell us those. `profile` carries fixed facts such as
+    swapped microphone / speaker channels.
     """
-    hw = sample_hardware(rng, Profile(band_hz=core.band), core.fs)
+    hw = sample_hardware(rng, profile or Profile(band_hz=core.band), core.fs)
     hw.tx_route = "stereo" if core.n_speakers >= 2 else "both"
     hw.direct_gain_db = m.direct_gain_db
     hw.adc_bits = 0  # the real recording is already quantised; the added echo must stay exact
@@ -134,7 +135,8 @@ def matched_hardware(rng: np.random.Generator, core: Core, m: Measured) -> Hardw
     hw.gain_drift_db, hw.gain_step_db = 0.0, 0.0
     # per-speaker level: each tone tells us how loud "its" speaker arrives
     for s in range(hw.n_spk):
-        mine = [k for k, sp in enumerate(core.tone_speakers) if sp == s]
+        played = (hw.n_spk - 1 - s) if hw.swap_speakers else s  # render() swaps the channels after this
+        mine = [k for k, sp in enumerate(core.tone_speakers) if sp == played]
         level = float(m.tone_mic_db[mine].mean() - m.direct_gain_db) if mine else 0.0
         jitter = rng.normal(0.0, 2.0)  # the echo path is not coloured exactly like the leakage path
         f_all = np.concatenate([[min(core.tones) - 2000.0], [core.tones[k] for k in mine], m.band_freqs])
@@ -143,7 +145,9 @@ def matched_hardware(rng: np.random.Generator, core: Core, m: Measured) -> Hardw
         hw.spk_resp[s] = MeasuredResponse(f_all[order], g_all[order], jitter)
     for mic in range(hw.n_mic):
         r = Response()
-        r.gain_db = float(m.tone_mic_db[:, mic].mean() - m.direct_gain_db)
+        real_mic = (hw.n_mic - 1 - mic) if hw.swap_mics else mic  # render() swaps the channels after this
+        real_mic = min(real_mic, m.tone_mic_db.shape[1] - 1)  # a one-microphone laptop (MacBook): every virtual mic follows it
+        r.gain_db = float(m.tone_mic_db[:, real_mic].mean() - m.direct_gain_db)
         hw.mic_resp[mic] = r
     # line the virtual direct path up with the real one, so echoes sit at the right delay behind it
     d0 = int(round(hw.static_delays[0][0][0] * core.fs))
@@ -158,6 +162,7 @@ def inject(
     rng: np.random.Generator,
     measured: Measured | None = None,
     hw: Hardware | None = None,
+    profile: Profile | None = None,
 ) -> tuple:
     """Add the echo of a synthetic moving scene to a real recording.
 
@@ -167,7 +172,7 @@ def inject(
     real = np.asarray(real, dtype=np.float32)
     n = len(real)
     measured = measured or measure(real, core)
-    hw = hw or matched_hardware(rng, core, measured)
+    hw = hw or matched_hardware(rng, core, measured, profile)
     pre = pre_roll(core, 2500 + core.period)
     out = render(core.tx(pre, n), hw, scene, n, rng, pre=pre, band=core.band, add_noise=False, include_static=False)
     mixed = np.clip(real + out.rx[:, : real.shape[1]], -1.0, 1.0).astype(np.float32)

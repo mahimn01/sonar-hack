@@ -22,6 +22,14 @@ How to run:
     python -m sonar.train --data data/ --dataset datagen/out/synth.npz --val-person alice
 Runs on CUDA (RTX 4090), Apple MPS or CPU, chosen automatically.
 
+Speed: the whole dataset sits on the training device in half precision and every
+batch is sampled and augmented there (batch_augment.py), so the GPU never waits
+for the CPU. On CUDA it also uses bf16 mixed precision, cuDNN autotuning, TF32,
+a fused optimizer, a 256-example batch with the learning rate scaled up to match,
+and the channels_last layout when a short timing test shows it is faster on that
+GPU. CPU and MPS keep full float32 maths and the original batch of 64.
+`--augment numpy` runs the original one-example-at-a-time loop.
+
 What it changes: writes gesture.onnx, gesture.json, gesture.pt, metrics.json and
 confusion.txt into --out. Reads the data only.
 """
@@ -29,17 +37,23 @@ confusion.txt into --out. Reads the data only.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 import time
+import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
 from .config import GESTURE_LABELS, SonarConfig
 from .dataset import Augmenter, build_dataset, center_crop, merge
 from .gestures import heuristic_classify
+
+BASE_BATCH = 64            # the batch the learning rate 2e-3 was tuned for
+BASE_LR = 2e-3
+CUDA_BATCH = 256           # default batch on CUDA (learning rate x sqrt(batch / 64)); one CPU check: similar to 64
 
 
 # ---------------------------------------------------------------------------
@@ -61,31 +75,47 @@ def remap_labels(data: dict[str, np.ndarray], keep: list[str]) -> dict[str, np.n
     return out
 
 
+def _describe_groups(chosen: list[str]) -> str:
+    shown = ", ".join(chosen[:5]) + (f", ... (+{len(chosen) - 5} more)" if len(chosen) > 5 else "")
+    return f"held-out sessions ({len(chosen)}): {shown}"
+
+
 def split_by_group(
     data: dict[str, np.ndarray], val_person: str | None, val_fraction: float, seed: int
 ) -> tuple[np.ndarray, np.ndarray, str]:
-    """(train indices, validation indices, description). Never splits inside a session if it can avoid it."""
+    """(train indices, validation indices, description). Never splits inside a session if it can avoid it.
+
+    val_person may name several people, comma-separated. val_fraction <= 0 means no validation at all.
+    """
     n = len(data["y"])
     real = data["source"] != "synthetic"
     idx = np.arange(n)
     rng = np.random.default_rng(seed)
     if val_person:
-        val = real & (data["person"] == val_person)
-        if not val.any():
-            raise ValueError(f"no examples of person {val_person!r}; people in the data: {sorted(set(data['person']))}")
-        return idx[~val], idx[val], f"held-out person {val_person!r}"
+        names = [p.strip() for p in str(val_person).split(",") if p.strip()]
+        people = sorted({str(p) for p in data["person"][real]})
+        missing = [p for p in names if p not in people]
+        if missing:
+            raise ValueError(f"no recorded examples of {missing}; people in the data: {people}")
+        val = real & np.isin(data["person"], names)
+        return idx[~val], idx[val], f"held-out person{'s' if len(names) > 1 else ''} {', '.join(names)}"
+    if val_fraction <= 0:
+        return idx, idx[:0], "none (trained on everything, no validation)"
     pool = real if real.any() else np.ones(n, dtype=bool)          # only synthetic data: validate on synthetic groups
     groups = sorted(set(data["group"][pool]))
     if len(groups) >= 3:
-        order = list(rng.permutation(groups))
+        order = [str(g) for g in rng.permutation(groups)]
+        sizes = dict(zip(*np.unique(data["group"], return_counts=True)))
         target = val_fraction * pool.sum()
         chosen: list[str] = []
+        taken = 0
         for g in order[:-1]:                                       # always leave at least one group for training
-            if np.isin(data["group"], chosen).sum() >= target:
+            if taken >= target:
                 break
             chosen.append(g)
+            taken += int(sizes[g])
         val = pool & np.isin(data["group"], chosen)
-        return idx[~val], idx[val], f"held-out sessions {chosen}"
+        return idx[~val], idx[val], _describe_groups(chosen)
     # one or two sessions: we have to split inside them. Neighbouring trials of one session look
     # alike, so this score is too optimistic.
     val = np.zeros(n, dtype=bool)
@@ -181,9 +211,108 @@ def fit_heuristic(x: np.ndarray, y: np.ndarray, labels: list[str], cfg: SonarCon
     return out
 
 
+def epoch_score(entry: dict[str, float]) -> float:
+    """How the best epoch is chosen: macro-F1 on the validation data, accuracy breaks ties, later epochs win ties."""
+    return entry["val_f1"] + 1e-3 * entry["val_acc"] + 1e-6 * (entry["epoch"] - 1)
+
+
 # ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
+def default_batch(device_type: str) -> int:
+    return CUDA_BATCH if device_type == "cuda" else BASE_BATCH
+
+
+def scaled_lr(batch: int) -> float:
+    """Peak learning rate for a batch size: 2e-3 at 64, grown with the square root of the batch (AdamW)."""
+    return BASE_LR * float(np.sqrt(batch / BASE_BATCH))
+
+
+def _check_device(device: Any) -> None:
+    import torch
+
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise ValueError("--device cuda, but this PyTorch has no working CUDA (torch.cuda.is_available() is False). "
+                         "Install the CUDA build of PyTorch (TRAINING.md, step 3) or use --device cpu.")
+    if device.type == "mps" and not torch.backends.mps.is_available():
+        raise ValueError("--device mps, but Apple MPS is not available here; use --device cpu")
+
+
+def load_init(model: Any, path: str | Path, labels: list[str], width: int) -> None:
+    """Start from earlier weights (e.g. synthetic pre-training). Classes and width must match this run."""
+    import torch
+
+    state = torch.load(str(path), map_location="cpu")
+    if isinstance(state, dict) and "model" in state:
+        saved_labels = [str(s) for s in state.get("labels", labels)]
+        if saved_labels != labels:
+            raise ValueError(f"--init {path} was trained for the classes {saved_labels}, this run has {labels}: "
+                             "use the same --labels for pre-training and fine-tuning")
+        if int(state.get("width", width)) != width:
+            raise ValueError(f"--init {path} has width {state.get('width')}, this run --width {width}: use the same width")
+        state = state["model"]
+    model.load_state_dict(state)
+
+
+def _stage(x: np.ndarray, y: np.ndarray, device: Any) -> tuple[Any, Any, bool]:
+    """The whole dataset on the training device, float16 (pinned host memory if a GPU is too small)."""
+    import torch
+
+    xt = torch.from_numpy(np.ascontiguousarray(x, dtype=np.float16))
+    yt = torch.from_numpy(np.ascontiguousarray(y, dtype=np.int64))
+    if device.type == "cuda":
+        free, _ = torch.cuda.mem_get_info(device)
+        if xt.numel() * 2 > 0.6 * free:
+            return xt.pin_memory(), yt, False
+    return xt.to(device), yt.to(device), True
+
+
+def _sync(device: Any) -> None:
+    import torch
+
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+    elif device.type == "mps":
+        torch.mps.synchronize()
+
+
+def _time_steps(model: Any, x: Any, y: Any, autocast: Callable[[], Any], device: Any, steps: int = 20) -> float:
+    """Seconds per training step of a throwaway copy of the model (for layout / compile decisions)."""
+    import copy
+
+    import torch
+    from torch import nn
+
+    m = copy.deepcopy(model).train()
+    opt = torch.optim.SGD(m.parameters(), lr=0.0)
+    for i in range(steps + 5):
+        if i == 5:
+            _sync(device)
+            t0 = time.perf_counter()
+        opt.zero_grad(set_to_none=True)
+        with autocast():
+            out = m(x)
+        nn.functional.cross_entropy(out.float(), y).backward()
+        opt.step()
+    _sync(device)
+    return (time.perf_counter() - t0) / steps
+
+
+def _channels_last_faster(model: Any, shape: tuple[int, ...], n_classes: int, device: Any,
+                          autocast: Callable[[], Any]) -> tuple[bool, str]:
+    """Time a few steps in both memory layouts on this GPU; channels_last only if it is clearly faster."""
+    import torch
+
+    with torch.random.fork_rng(devices=[device.index or 0] if device.type == "cuda" else []):
+        x = torch.rand(shape, device=device)
+        y = torch.randint(0, n_classes, (shape[0],), device=device)
+        plain = _time_steps(model, x, y, autocast, device)
+        cl = _time_steps(model.to(memory_format=torch.channels_last), x.contiguous(memory_format=torch.channels_last),
+                         y, autocast, device)
+        model.to(memory_format=torch.contiguous_format)
+    return cl < 0.95 * plain, f"{plain * 1e3:.2f} ms/step plain, {cl * 1e3:.2f} ms/step channels_last"
+
+
 def train_model(
     data: dict[str, np.ndarray],
     cfg: SonarConfig,
@@ -197,8 +326,18 @@ def train_model(
     width: int = 24,
     init: str | None = None,
     verbose: bool = True,
+    augment: str = "torch",
+    amp: str = "auto",
+    channels_last: str = "auto",
+    compile_model: bool = False,
 ) -> tuple[Any, np.ndarray, list[dict[str, float]]]:
-    """Returns (best model on CPU, validation logits, per-epoch history)."""
+    """Returns (best model on CPU, validation logits, per-epoch history).
+
+    augment="torch": data, sampling and augmentation stay on the training device (fast path).
+    augment="numpy": the original loop (dataset.Augmenter one example at a time on the CPU).
+    amp="auto" uses bf16 on CUDA only; channels_last="auto" is timed on CUDA only; compile_model
+    tries torch.compile and falls back to plain PyTorch if it is not available.
+    """
     import torch
     from torch import nn
 
@@ -208,63 +347,123 @@ def train_model(
     labels = [str(s) for s in data["labels"]]
     pad = int(data["pad"])
     device = pick_device(device_name)
-    x_all = data["X"].astype(np.float32)
-    y_all = data["y"]
-    model = GestureNet(x_all.shape[1], len(labels), width=width).to(device)
+    _check_device(device)
+    cuda = device.type == "cuda"
+    y_all = np.asarray(data["y"], dtype=np.int64)
+    model = GestureNet(data["X"].shape[1], len(labels), width=width).to(device)
     if init:
-        state = torch.load(init, map_location="cpu")
-        model.load_state_dict(state["model"] if "model" in state else state)
-    aug = Augmenter(cfg, labels, pad=pad, seed=seed)
-    rng = np.random.default_rng(seed)
+        load_init(model, init, labels, width)
+    if cuda:
+        torch.backends.cudnn.benchmark = True              # fixed input sizes: let cuDNN pick its fastest kernels
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+    use_amp = amp == "bf16" or (amp == "auto" and cuda and torch.cuda.is_bf16_supported())
+    autocast: Callable[[], Any] = (
+        (lambda: torch.autocast(device_type=device.type, dtype=torch.bfloat16)) if use_amp else contextlib.nullcontext
+    )
 
     # Class-balanced sampling: every class is drawn equally often.
     counts = np.bincount(y_all[train_idx], minlength=len(labels)).astype(float)
     weights = 1.0 / np.maximum(counts[y_all[train_idx]], 1.0)
     weights /= weights.sum()
     steps = max(20, int(np.ceil(len(train_idx) / batch)))
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-3)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-3, **({"fused": True} if cuda else {}))
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=lr, total_steps=epochs * steps, pct_start=0.15)
     loss_fn = nn.CrossEntropyLoss(label_smoothing=0.05)
-    x_val = torch.from_numpy(np.ascontiguousarray(center_crop(x_all[val_idx], cfg, pad))) if len(val_idx) else None
     y_val = y_all[val_idx]
+    x_val = (torch.from_numpy(np.ascontiguousarray(center_crop(data["X"][val_idx], cfg, pad), dtype=np.float32)).to(device)
+             if len(val_idx) else None)
+
+    if augment == "numpy":
+        aug = Augmenter(cfg, labels, pad=pad, seed=seed)
+        rng = np.random.default_rng(seed)
+        x_np = data["X"]
+
+        def next_batch() -> tuple[Any, Any]:
+            pick = rng.choice(train_idx, size=batch, p=weights)
+            xb, yb = zip(*(aug(x_np[i], int(y_all[i])) for i in pick))
+            return torch.from_numpy(np.stack(xb)).to(device), torch.tensor(yb, dtype=torch.long, device=device)
+    else:
+        from .batch_augment import BatchAugmenter
+
+        x_dev, y_dev, resident = _stage(data["X"], y_all, device)
+        baug = BatchAugmenter(cfg, labels, pad=pad, device=device)
+        pool = torch.from_numpy(np.asarray(train_idx, dtype=np.int64)).to(x_dev.device)
+        draw = torch.from_numpy(weights).float().to(x_dev.device)
+
+        def next_batch() -> tuple[Any, Any]:
+            i = pool[torch.multinomial(draw, batch, replacement=True)]
+            if resident:
+                return baug(x_dev[i], y_dev[i])
+            return baug(x_dev[i].pin_memory().to(device, non_blocking=True), y_dev[i].to(device, non_blocking=True))
+
+    shape = (batch, data["X"].shape[1], cfg.doppler_bins, cfg.gesture_frames)
+    notes = [f"augmentation {augment}", f"{'bf16 mixed' if use_amp else 'float32'} precision"]
+    use_cl = channels_last == "on"
+    if channels_last == "auto" and cuda:
+        use_cl, timing = _channels_last_faster(model, shape, len(labels), device, autocast)
+        notes.append(f"channels_last {'on' if use_cl else 'off'} ({timing})")
+    elif use_cl:
+        notes.append("channels_last on")
+    if use_cl:
+        model = model.to(memory_format=torch.channels_last)
+    layout = (lambda t: t.contiguous(memory_format=torch.channels_last)) if use_cl else (lambda t: t)
+    fwd: Callable[[Any], Any] = model
+    if compile_model:
+        state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+        t_c = time.time()
+        try:
+            compiled = torch.compile(model)
+            with torch.random.fork_rng(devices=[device.index or 0] if cuda else []):
+                xb, yb = next_batch()
+                with autocast():
+                    out = compiled(layout(xb))
+                loss_fn(out.float(), yb).backward()
+            fwd = compiled
+            notes.append(f"torch.compile on (compiled in {time.time() - t_c:.0f} s)")
+        except Exception as exc:                              # no Triton / no compiler: train without it
+            notes.append(f"torch.compile not available ({type(exc).__name__}: {str(exc).splitlines()[0][:120]})")
+        model.zero_grad(set_to_none=True)
+        model.load_state_dict(state)                          # undo the warm-up step's batch-norm updates
 
     if verbose:
         print(f"device {device}, {count_parameters(model)} weights, {len(train_idx)} train / {len(val_idx)} validation examples")
         print("train class counts:", {name: int(c) for name, c in zip(labels, counts)})
+        print(f"batch {batch}, peak learning rate {lr:.2e}, {steps} steps per epoch; " + "; ".join(notes))
     history: list[dict[str, float]] = []
     best = (-1.0, None, None)
     t0 = time.time()
     for epoch in range(epochs):
         model.train()
-        total = 0.0
+        total = torch.zeros((), device=device)
         for _ in range(steps):
-            pick = rng.choice(train_idx, size=batch, p=weights)
-            xb, yb = zip(*(aug(x_all[i], int(y_all[i])) for i in pick))
-            xb_t = torch.from_numpy(np.stack(xb)).to(device)
-            yb_t = torch.tensor(yb, dtype=torch.long, device=device)
+            xb, yb = next_batch()
             opt.zero_grad()
-            loss = loss_fn(model(xb_t), yb_t)
+            with autocast():
+                out = fwd(layout(xb))
+            loss = loss_fn(out.float(), yb)
             loss.backward()
             opt.step()
             sched.step()
-            total += loss.item()
-        entry = {"epoch": epoch + 1, "loss": total / steps}
+            total += loss.detach()
+        entry = {"epoch": epoch + 1, "loss": float(total) / steps}
         if x_val is not None:
             model.eval()
-            with torch.no_grad():
-                logits = torch.cat([model(x_val[i:i + 256].to(device)).cpu() for i in range(0, len(x_val), 256)]).numpy()
+            with torch.no_grad():                             # always float32: these numbers pick the model
+                logits = torch.cat([model(layout(x_val[i:i + 256])).float().cpu() for i in range(0, len(x_val), 256)]).numpy()
             m, _ = report(y_val, logits.argmax(axis=1), labels)
             entry.update({"val_acc": m["accuracy"], "val_f1": m["macro_f1"]})
-            score = m["macro_f1"] + 1e-3 * m["accuracy"] + 1e-6 * epoch          # later epochs win ties
+            score = epoch_score(entry)
             if score >= best[0]:
                 best = (score, {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}, logits)
+        entry["seconds"] = round(time.time() - t0, 2)
         history.append(entry)
         if verbose and (epoch % 5 == 4 or epoch == 0 or epoch == epochs - 1):
             extra = f"  val acc {entry['val_acc']:.3f}  macro-F1 {entry['val_f1']:.3f}" if "val_acc" in entry else ""
             print(f"epoch {epoch + 1:3d}/{epochs}  loss {entry['loss']:.3f}{extra}  ({time.time() - t0:.0f} s)")
     if best[1] is not None:
         model.load_state_dict(best[1])
-    model = model.cpu().eval()
+    model = model.to(memory_format=torch.contiguous_format).cpu().eval()
     return model, (best[2] if best[2] is not None else np.zeros((0, len(labels)))), history
 
 
@@ -277,10 +476,12 @@ def export_onnx(model: Any, path: Path, in_shape: tuple[int, int, int]) -> None:
         input_names=["input"], output_names=["logits"], opset_version=17,
         dynamic_axes={"input": {0: "batch"}, "logits": {0: "batch"}},
     )
-    try:
-        torch.onnx.export(model, (dummy,), str(path), dynamo=False, **kwargs)      # classic exporter: no extra packages
-    except TypeError:
-        torch.onnx.export(model, (dummy,), str(path), **kwargs)
+    with warnings.catch_warnings():                       # the classic exporter is chosen on purpose: no extra packages
+        warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*legacy TorchScript-based ONNX export")
+        try:
+            torch.onnx.export(model, (dummy,), str(path), dynamo=False, **kwargs)
+        except TypeError:
+            torch.onnx.export(model, (dummy,), str(path), **kwargs)
 
 
 def check_onnx(path: Path, model: Any, x: np.ndarray) -> tuple[float, float]:
@@ -312,17 +513,25 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--name", default="gesture", help="file name stem of the exported model")
     ap.add_argument("--labels", default=",".join(g for g in GESTURE_LABELS if g != "none"),
                     help="gesture classes to recognise; others are trained as 'none'")
-    ap.add_argument("--val-person", help="hold out every session of this person for validation")
-    ap.add_argument("--val-fraction", type=float, default=0.25)
+    ap.add_argument("--val-person", help="hold out every session of this person (or of several: alice,bob) for validation")
+    ap.add_argument("--val-fraction", type=float, default=0.25, help="share of sessions held out (0 = train on everything)")
     ap.add_argument("--epochs", type=int, default=60)
-    ap.add_argument("--batch", type=int, default=64)
-    ap.add_argument("--lr", type=float, default=2e-3)
+    ap.add_argument("--batch", type=int, default=None, help=f"examples per step (default {BASE_BATCH}; {CUDA_BATCH} on CUDA)")
+    ap.add_argument("--lr", type=float, default=None, help="peak learning rate (default 2e-3 x sqrt(batch / 64))")
     ap.add_argument("--width", type=int, default=24)
     ap.add_argument("--device", default="auto", help="auto | cuda | mps | cpu")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--init", help="start from these weights (gesture.pt of an earlier run, e.g. synthetic pre-training)")
     ap.add_argument("--aux-none", action="store_true", help="use wind-up / hand-return bursts of gesture trials as 'none'")
     ap.add_argument("--min-confidence", type=float, default=0.6, help="the engine's threshold, for the 'as deployed' score")
+    ap.add_argument("--augment", choices=["torch", "numpy"], default="torch",
+                    help="torch: batched on the training device (fast); numpy: the original per-example loop")
+    ap.add_argument("--amp", choices=["auto", "bf16", "off"], default="auto", help="bf16 mixed precision (auto: CUDA only)")
+    ap.add_argument("--channels-last", choices=["auto", "on", "off"], default="auto",
+                    help="memory layout (auto: timed on CUDA, off elsewhere)")
+    ap.add_argument("--compile", action="store_true", help="try torch.compile (needs Triton: Linux + CUDA)")
+    ap.add_argument("--temperature", type=float,
+                    help="confidence temperature to store when there is no validation data (e.g. from the run that picked the settings)")
     args = ap.parse_args(argv)
 
     try:
@@ -344,14 +553,33 @@ def main(argv: list[str] | None = None) -> int:
     if "INSIDE" in how:
         print("WARNING: fewer than 3 sessions, so validation examples come from the same sessions as training.")
 
-    model, val_logits, history = train_model(
-        data, cfg, train_idx, val_idx, epochs=args.epochs, batch=args.batch, lr=args.lr,
-        device_name=args.device, seed=args.seed, width=args.width, init=args.init,
-    )
+    from .model import pick_device
+
+    device_type = pick_device(args.device).type
+    batch = args.batch or default_batch(device_type)
+    lr = args.lr or scaled_lr(batch)
+    t_train = time.time()
+    try:
+        model, val_logits, history = train_model(
+            data, cfg, train_idx, val_idx, epochs=args.epochs, batch=batch, lr=lr,
+            device_name=args.device, seed=args.seed, width=args.width, init=args.init,
+            augment=args.augment, amp=args.amp, channels_last=args.channels_last, compile_model=args.compile,
+        )
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    train_seconds = time.time() - t_train
 
     pad = int(data["pad"])
     y_val = data["y"][val_idx]
-    metrics: dict[str, Any] = {"split": how, "n_train": int(len(train_idx)), "n_val": int(len(val_idx)), "history": history[-1]}
+    best_epoch = max(history, key=epoch_score)["epoch"] if history and "val_f1" in history[0] else len(history)
+    metrics: dict[str, Any] = {
+        "split": how, "n_train": int(len(train_idx)), "n_val": int(len(val_idx)), "history": history[-1],
+        "best_epoch": int(best_epoch), "train_seconds": round(train_seconds, 1),
+        "settings": {"device": device_type, "epochs": args.epochs, "batch": batch, "lr": lr, "width": args.width,
+                     "seed": args.seed, "augment": args.augment, "amp": args.amp, "channels_last": args.channels_last,
+                     "compile": args.compile, "init": args.init, "labels": labels},
+    }
     temperature = 1.0
     if len(val_idx):
         m, table = report(y_val, val_logits.argmax(axis=1), labels)
@@ -374,9 +602,21 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {name:<12} precision {v['precision']:.2f}  recall {v['recall']:.2f}  n={v['n']}")
     else:
         table = table_dep = "(no validation data)"
+        if args.temperature:
+            temperature = float(args.temperature)
+            print(f"no validation data: confidence temperature {temperature:.2f} taken from --temperature")
 
-    heur = fit_heuristic(center_crop(data["X"][train_idx].astype(np.float32), cfg, pad), data["y"][train_idx], labels, cfg)
-    print(f"\nphysics-classifier weights from {heur['n_swipes']} recorded swipes: "
+    # Which way round are this laptop's speakers / microphones? Measured on RECORDED swipes; synthetic
+    # swipes only stand in when fewer than 4 real swipes per direction are in the training data.
+    swipe_ids = [labels.index(s) for s in ("swipe_left", "swipe_right") if s in labels]
+    real_tr = train_idx[data["source"][train_idx] != "synthetic"]
+    fit_idx = real_tr[np.isin(data["y"][real_tr], swipe_ids)]
+    heur_source = "recorded"
+    if len(swipe_ids) < 2 or min(int((data["y"][fit_idx] == c).sum()) for c in swipe_ids) < 4:
+        fit_idx, heur_source = train_idx[np.isin(data["y"][train_idx], swipe_ids)], "synthetic"
+    heur = fit_heuristic(center_crop(data["X"][fit_idx].astype(np.float32), cfg, pad), data["y"][fit_idx], labels, cfg)
+    heur["source"] = heur_source
+    print(f"\nphysics-classifier weights from {heur['n_swipes']} {heur_source} swipes: "
           f"speakers {heur['w_speakers']:+.2f}, microphones {heur['w_mics']:+.2f}  (0 = that cue is useless on this device)")
 
     # How strong were the real gestures? The engine ignores bursts far weaker than that.
@@ -411,7 +651,8 @@ def main(argv: list[str] | None = None) -> int:
     (out / f"{args.name}.json").write_text(json.dumps(meta, indent=1))
     (out / "metrics.json").write_text(json.dumps(metrics, indent=1))
     (out / "confusion.txt").write_text(f"split: {how}\n\nraw:\n{table}\n\nas deployed:\n{table_dep}\n")
-    print(f"\nwrote {onnx_path} (+ .json, .pt), ONNX vs PyTorch max logit difference {diff:.2e}, {ms:.2f} ms per inference on CPU")
+    print(f"\ntraining took {train_seconds:.0f} s on {device_type}; best epoch {best_epoch}")
+    print(f"wrote {onnx_path} (+ .json, .pt), ONNX vs PyTorch max logit difference {diff:.2e}, {ms:.2f} ms per inference on CPU")
     if diff > 1e-3:
         print("WARNING: the exported ONNX model disagrees with PyTorch; do not deploy it.", file=sys.stderr)
         return 1

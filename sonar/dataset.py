@@ -151,23 +151,40 @@ def session_examples(
 def build_dataset(
     roots: list[str | Path], aux_as_none: bool = False, n_idle: int = 8, verbose: bool = True
 ) -> dict[str, np.ndarray]:
-    """All sessions under `roots` -> the dataset arrays described at the top of this file."""
+    """All sessions under `roots` -> the dataset arrays described at the top of this file.
+
+    A session that cannot be read (still being recorded, half copied, damaged) is skipped with a
+    warning; a session recorded with a different signal profile stops the build.
+    """
     examples: list[Example] = []
     cfg_json = ""
+    skipped: list[str] = []
     for root in roots:
         for folder in find_sessions(root):
-            meta, _, cfg = load_session(folder)
+            try:
+                meta, _, cfg = load_session(folder)
+            except (OSError, RuntimeError, ValueError, KeyError) as exc:
+                print(f"WARNING: skipped session {folder}: cannot read it ({type(exc).__name__}: {exc})", file=sys.stderr)
+                skipped.append(str(folder))
+                continue
             this = json.dumps(cfg.to_dict(), sort_keys=True)
             if cfg_json and _feature_key(json.loads(this)) != _feature_key(json.loads(cfg_json)):
                 raise ValueError(f"{folder} was recorded with a different signal profile than the other sessions")
             cfg_json = this
-            ex, rep = session_examples(folder, aux_as_none=aux_as_none, n_idle=n_idle)
+            try:
+                ex, rep = session_examples(folder, aux_as_none=aux_as_none, n_idle=n_idle)
+            except (OSError, RuntimeError, ValueError, KeyError, IndexError) as exc:
+                print(f"WARNING: skipped session {folder}: {type(exc).__name__}: {exc}", file=sys.stderr)
+                skipped.append(str(folder))
+                continue
             examples += ex
             if verbose:
                 print(
                     f"{rep['session']}: {rep['gestures']} gestures, {rep['missed']} prompts with no movement found, "
                     f"{rep['none']} other bursts, {rep['idle']} idle"
                 )
+    if skipped:
+        print(f"WARNING: {len(skipped)} session(s) skipped, see above", file=sys.stderr)
     if not examples:
         raise ValueError(f"no usable sessions under {[str(r) for r in roots]}")
     return pack(examples, cfg_json)
@@ -358,6 +375,7 @@ def main(argv: list[str] | None = None) -> int:
     except (ValueError, FileNotFoundError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(args.out, **data)
     counts = {str(name): int(np.sum(data["y"] == i)) for i, name in enumerate(data["labels"])}
     print(f"wrote {args.out}: {len(data['y'])} examples {counts}, picture shape {data['X'].shape[1:]}")

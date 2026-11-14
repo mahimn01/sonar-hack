@@ -79,6 +79,17 @@ def test_dataset_labels_and_split(cfg, sessions):
     assert rep["gestures"] + rep["missed"] == 16
 
 
+@pytest.mark.slow
+def test_unreadable_session_is_skipped_not_fatal(sessions, tmp_path, capsys):
+    """A session still being recorded or half copied (no audio yet) must not stop a long training run."""
+    broken = tmp_path / "20261114-000000_dan_gestures"
+    broken.mkdir()
+    (broken / "session.json").write_text((find_sessions(sessions)[0] / "session.json").read_text())
+    data = build_dataset([sessions, tmp_path], verbose=False)
+    assert len(set(data["group"])) == 3                          # the three good sessions, nothing from the broken one
+    assert "skipped session" in capsys.readouterr().err
+
+
 def test_augmenter_keeps_shape_and_physics(cfg):
     labels = ["none", "swipe_left", "swipe_right", "push", "pull"]
     aug = Augmenter(cfg, labels, seed=1)
@@ -101,6 +112,120 @@ def test_augmenter_keeps_shape_and_physics(cfg):
     assert int(np.argmax(faster[0].sum(axis=1))) == 44
     # a ridge at +78 Hz ends up at -78 Hz when the movement is played backwards
     assert int(np.argmax(aug.reverse(ridge, 3)[0][0].sum(axis=1))) == 22
+
+
+def test_batch_augmenter_matches_numpy_augmenter(cfg):
+    """The GPU (torch, whole batch) augmentation must compute exactly what dataset.Augmenter computes."""
+    torch = pytest.importorskip("torch")
+    from sonar.batch_augment import BatchAugmenter
+
+    labels = ["none", "swipe_left", "swipe_right", "push"]
+    na, ta = Augmenter(cfg, labels, seed=0), BatchAugmenter(cfg, labels)
+    rng = np.random.default_rng(1)
+    n, c, f, t = 6, cfg.n_feat_channels, cfg.doppler_bins, cfg.gesture_frames
+    x = rng.random((n, c, f, t + 2 * PAD)).astype(np.float32)
+    x[:, :-1] *= rng.random((n, c - 1, f, t + 2 * PAD)) > 0.5          # sparse power pictures, like real ones
+    x[:, -1] = 2 * x[:, -1] - 1                                       # lateral picture in -1..1
+    xt = torch.from_numpy(x)
+    s = np.array([0.84, 0.9, 1.0, 1.07, 1.19, 1.1972])
+    np.testing.assert_allclose(ta.stretch(xt.clone(), torch.tensor(s, dtype=torch.float32)).numpy(),
+                               np.stack([na.stretch(x[i], float(s[i])) for i in range(n)]), atol=5e-5)
+    shift = [-8, -3, 0, 2, 5, 8]
+    np.testing.assert_array_equal(ta.crop(xt, torch.tensor(shift)).numpy(),
+                                  np.stack([na.crop(x[i], shift[i]) for i in range(n)]))
+    xc = np.stack([na.crop(x[i], 0) for i in range(n)])
+    xct, y = torch.from_numpy(xc), np.array([0, 1, 2, 3, 1, 0])
+    for name in ("mirror", "reverse"):
+        got_x, got_y = getattr(ta, name)(xct, torch.tensor(y))
+        ref = [getattr(na, name)(xc[i], int(y[i])) for i in range(n)]
+        np.testing.assert_array_equal(got_x.numpy(), np.stack([r[0] for r in ref]))
+        assert got_y.tolist() == [r[1] for r in ref]
+    db = np.array([-9.0, -4.5, -0.3, 0.0, 2.2, 6.0])
+    np.testing.assert_allclose(ta.gain(xct, torch.tensor(db, dtype=torch.float32)).numpy(),
+                               np.stack([na.gain(xc[i], float(db[i])) for i in range(n)]), atol=1e-6)
+    e = rng.exponential(size=(n, cfg.n_power_channels, f, t))
+    ref = []
+    for i in range(n):
+        na.rng = type("FixedRng", (), {"exponential": lambda self, size, e=e[i]: e})()
+        ref.append(na.noise(xc[i]))
+    np.testing.assert_allclose(ta.noise(xct, torch.tensor(e, dtype=torch.float32)).numpy(), np.stack(ref), atol=1e-6)
+    start, width, level = [0, 10, 33, 76, 50, 5], [1, 2, 3, 3, 1, 2], [0.1, 0.2, 0.25, 0.4, 0.33, 0.15]
+    ref = xc.copy()
+    for i in range(n):
+        ref[i, :-1, :, start[i]:start[i] + width[i]] = np.maximum(ref[i, :-1, :, start[i]:start[i] + width[i]], level[i])
+    got = ta.click(xct, torch.tensor(start), torch.tensor(width), torch.tensor(level, dtype=torch.float32))
+    np.testing.assert_allclose(got.numpy(), ref, atol=1e-7)
+    in_time, start, width = [True, False, True, False, True, False], [0, 0, 73, 59, 40, 30], [2, 1, 6, 4, 3, 2]
+    ref = xc.copy()
+    for i in range(n):
+        if in_time[i]:
+            ref[i, :, :, start[i]:start[i] + width[i]] = 0.0
+        else:
+            ref[i, :, start[i]:start[i] + width[i], :] = 0.0
+    got = ta.mask(xct, torch.tensor(in_time), torch.tensor(start), torch.tensor(width))
+    np.testing.assert_array_equal(got.numpy(), ref)
+
+
+def test_batch_augmenter_one_microphone(cfg):
+    """A MacBook records one microphone channel: 2 pictures, no lateral picture, no mirror."""
+    torch = pytest.importorskip("torch")
+    from sonar.batch_augment import BatchAugmenter
+
+    mono = cfg.with_(n_mics=1)
+    labels = ["none", "swipe_left", "swipe_right", "push"]
+    na, ta = Augmenter(mono, labels, seed=0), BatchAugmenter(mono, labels)
+    assert mono.n_feat_channels == 2 and not ta.can_mirror
+    rng = np.random.default_rng(2)
+    x = (rng.random((4, 2, mono.doppler_bins, mono.gesture_frames + 2 * PAD)) * (rng.random((4, 2, 1, 1)) > 0.3)).astype(np.float32)
+    xt = torch.from_numpy(x)
+    s = [0.86, 1.0, 1.12, 1.19]
+    np.testing.assert_allclose(ta.stretch(xt.clone(), torch.tensor(s)).numpy(),
+                               np.stack([na.stretch(x[i], s[i]) for i in range(4)]), atol=5e-5)
+    xc = np.stack([na.crop(x[i], 0) for i in range(4)])
+    got_x, got_y = ta.reverse(torch.from_numpy(xc), torch.tensor([1, 2, 0, 3]))
+    np.testing.assert_array_equal(got_x.numpy(), np.stack([na.reverse(xc[i], 0)[0] for i in range(4)]))
+    db = [-7.0, -1.0, 0.5, 5.0]
+    np.testing.assert_allclose(ta.gain(torch.from_numpy(xc), torch.tensor(db)).numpy(),
+                               np.stack([na.gain(xc[i], db[i]) for i in range(4)]), atol=1e-6)
+    out, y = ta(xt, torch.tensor([1, 2, 0, 3]))
+    assert out.shape == (4, 2, mono.doppler_bins, mono.gesture_frames) and out.min() >= 0 and out.max() <= 1
+
+
+def test_batch_augmenter_full_recipe(cfg):
+    torch = pytest.importorskip("torch")
+    from sonar.batch_augment import BatchAugmenter
+
+    labels = ["none", "swipe_left", "swipe_right", "push", "pull"]
+    torch.manual_seed(0)
+    aug = BatchAugmenter(cfg, labels)
+    x = torch.rand(1200, cfg.n_feat_channels, cfg.doppler_bins, cfg.gesture_frames + 2 * PAD).half()
+    x[:, -1] = 2 * x[:, -1] - 1
+    y = torch.tensor([1, 3] * 600)
+    out, y2 = aug(x, y)
+    assert out.shape == (1200, cfg.n_feat_channels, cfg.doppler_bins, cfg.gesture_frames) and out.dtype == torch.float32
+    p = out[:, :cfg.n_power_channels]
+    assert p.min() >= 0 and p.max() <= 1 and out[:, -1].abs().max() <= 1
+    swipes, pushes = y2[y == 1], y2[y == 3]
+    assert set(swipes.tolist()) == {1, 2} and set(pushes.tolist()) == {3}      # mirror / reverse swap swipes only
+    # left -> right needs exactly one of mirror (p 0.5) and reverse (p 0.2): 0.5 * 0.8 + 0.5 * 0.2 = 0.5
+    assert abs((swipes == 2).float().mean().item() - 0.5) < 0.07
+
+
+def test_split_options():
+    data = {
+        "y": np.array([0, 1, 0, 1, 0, 1, 2, 2]),
+        "person": np.array(["ann", "ann", "bob", "bob", "cy", "cy", "synth-1", "synth-2"]),
+        "group": np.array(["s1", "s1", "s2", "s2", "s3", "s3", "synth-1", "synth-2"]),
+        "source": np.array(["gesture"] * 6 + ["synthetic"] * 2),
+    }
+    train, val, how = split_by_group(data, "ann,cy", 0.25, seed=0)
+    assert sorted(set(data["person"][val])) == ["ann", "cy"] and "ann" not in set(data["person"][train])
+    with pytest.raises(ValueError, match="people in the data: \\['ann', 'bob', 'cy'\\]"):   # synthetic ids not listed
+        split_by_group(data, "dan", 0.25, seed=0)
+    train, val, how = split_by_group(data, None, 0.0, seed=0)
+    assert len(val) == 0 and len(train) == 8
+    train, val, how = split_by_group(data, None, 0.3, seed=0)
+    assert how.startswith("held-out sessions (") and "np.str_" not in how and set(data["source"][val]) == {"gesture"}
 
 
 def test_metrics_helpers():
