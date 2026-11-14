@@ -88,7 +88,8 @@ continues where it stopped. If it stops again, push what exists anyway (below) s
 
 **What happened on 2026-11-14 (run `20261114-061651`), and what the suite now does about it.** Every big training
 run took about 73 s until about 08:25, then 260 to 4,900 s; one of the four worker processes never came back and its
-31 remaining runs were lost (509 of 540 arrived). From about 10:45 the other three ran at 38 s per run. The cause is
+31 remaining runs were lost (509 of 540 arrived). From about 10:45 the other three ran at 38 s per run. Lance's
+gap fill (11:22, `--stamp 20261114-061651 --workers 2`, 501 s) trained the 31: **Step B is complete, 540 of 540.** The cause is
 not known from the Mac; the likely one is GPU memory filling up, which on Windows does not fail but spills into
 normal memory and slows every run on the card. Since then (branch `recall`, after fcaeb40):
 
@@ -123,24 +124,28 @@ four at a time).
 
 ---
 
-## Step C — add what is new to the same run (GPU, about 1.5 hours with the GPU to itself)
+## Step C — add the recipes on the fitted simulator (GPU, about 1.5 hours with the GPU to itself)
 
-**Is it worth the GPU time?** Step B's answer is that 36 recipes cannot be told apart on these three people, and
-none clearly beats the model already shipped (`.runs/recall_partial_ranking.md` on the Mac). Step C adds 13 recipes
-that train on the simulator fitted to this MacBook. Run it if the question "does the fitted simulator help?" is
-wanted for the write-up; do not expect it to change the shipped model. It also trains the 31 runs Step B lost.
+**Is it worth the GPU time?** Step B is complete (540 of 540) and its answer is that 36 recipes cannot be told
+apart on these three people, and none clearly beats the model already shipped
+(`.runs/recall_partial_ranking.md` on the Mac). Step C adds 13 recipes that train on the simulator fitted to this
+MacBook. Run it if the question "does the fitted simulator help?" is wanted for the write-up; do not expect it to
+change the shipped model. Nothing of Step B has to be redone.
 
 It needs the calibrated sets from `HANDOFF_LANCE_CALIBRATION.md`
-(`train_out\synth_cal\macbook_v*\...\dataset.npz`); without them it only does the 31 lost runs (about 15 minutes).
+(`train_out\synth_cal\macbook_v*\...\dataset.npz`). Without them there is nothing to train and it only builds
+the two final models named at the end (about 5 minutes).
 
-**It must run in the folder Step B ran in**, because the run folder with the 509 finished runs is there. Step B's
-log names it: `C:\Users\lance\sonar-wt-recall-suite`. In another folder the same command starts from zero (3 hours).
+**It must run in the folder that holds the complete run**, or the same command starts from zero (3 hours). The
+gap fill's log names it: `C:\Users\lance\sonar-wt-recall` (the first run was in `sonar-wt-recall-suite`). The
+first lines below check that instead of trusting the name.
 
 ```powershell
-cd C:\Users\lance\sonar-wt-recall-suite
+# which folder holds the complete run? (554 files = 2 + 540 + 12)
+Get-ChildItem C:\Users\lance -Directory -Filter "sonar*" | ForEach-Object { $j = Join-Path $_.FullName "train_out\recall\suite\20261114-061651\jobs"; if (Test-Path $j) { "{0}   {1} result files" -f $_.FullName, (Get-ChildItem $j -Filter *.npz).Count } }
+cd C:\Users\lance\sonar-wt-recall         # the folder printed with 554 (change this line if another one has them)
 git fetch origin
 git merge origin/recall                   # newest suite code (watchdog, memory release); the recordings in mac\ stay
-dir train_out\recall\suite              # must list 20261114-061651
 
 # The calibrated sets must be visible HERE as train_out\synth_cal. The calibration handoff may have made them in
 # another folder: find it (it holds INDEX.json) and link it in instead of copying about 8 GB.
@@ -149,12 +154,13 @@ $cal                                      # must print a folder; nothing printed
 if ($cal -and -not (Test-Path train_out\synth_cal)) { cmd /c mklink /J train_out\synth_cal "$cal" }
 dir train_out\synth_cal                  # expect macbook_v2, macbook_v2_motion, macbook_v2_bg, macbook_v2_rel12, macbook_v2_bg_rel12; each with all / no_lance / no_aarsh / no_mahimn
 
-powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp 20261114-061651 --finals real_pre
+powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp 20261114-061651 --finals share50_none50,real_pre
 ```
 
 What to expect in the log: "calibrated simulator data: family macbook_v2 (.. sets found)", then
-"folds: ... training runs, 226 to do" (31 lost + 13 recipes x 15; fewer if a set is missing, and the log then names
-the recipe as "skipped"), and "DONE" at the end. If it says the folder "was built from other sessions, labels or code", stop and send that line back
+"folds: 735 training runs, 195 to do" (13 recipes x 15; fewer if a set is missing, and the log then names the
+recipe as "skipped"), and "DONE" at the end. `--finals` also builds the models that ship for the two recipes
+Step B's analysis picks (`share50_none50` by the rule, `real_pre` by the stricter setting). If it says the folder "was built from other sessions, labels or code", stop and send that line back
 instead of starting a fresh run.
 
 Push back (branch **`recall-results-2`**): the same folder again.
