@@ -1,0 +1,193 @@
+{
+ "session_id": "20261113-232748_lance_scene",
+ "person": "lance",
+ "script": "scene",
+ "notes": "",
+ "created": "2026-11-13T23:27:48",
+ "profile": "default",
+ "seed": 30468,
+ "software": "0.1.0",
+ "synthetic": false,
+ "format": 1,
+ "audio": "audio.wav",
+ "fs": 48000,
+ "n_mics": 1,
+ "n_samples": 9169920,
+ "config": {
+  "fs": 48000,
+  "frame_len": 960,
+  "n_out": 2,
+  "tone_hz": [
+   18500.0,
+   19000.0
+  ],
+  "tone_channels": [
+   0,
+   1
+  ],
+  "tone_amp": 0.35,
+  "chirp_lo_hz": 19500.0,
+  "chirp_hi_hz": 21500.0,
+  "chirp_amp": 0.5,
+  "chirp_channel": 0,
+  "fade_ms": 60.0,
+  "n_mics": 1,
+  "prefilter_atten_db": 100.0,
+  "prefilter_transition_hz": 2500.0,
+  "prefilter_margin_hz": 600.0,
+  "decim": 24,
+  "demod_pass_hz": 300.0,
+  "demod_atten_db": 90.0,
+  "clutter_hp_hz": 5.0,
+  "stft_win": 128,
+  "stft_fft": 256,
+  "doppler_bins": 64,
+  "feat_floor_margin_db": 3.0,
+  "feat_range_db": 36.0,
+  "gesture_frames": 80,
+  "cir_fft": 128,
+  "n_taps": 96,
+  "direct_tap": 4,
+  "cir_window": "hann",
+  "sync_frames": 16,
+  "ref_frames": 50,
+  "drift_loop_hz": 0.05,
+  "speaker_mic_distance_m": 0.25,
+  "seg_band_hz": [
+   20.0,
+   235.0
+  ],
+  "seg_on_db": 1.5,
+  "seg_off_db": 0.7,
+  "seg_min_peak_db": 3.0,
+  "seg_min_frames": 6,
+  "seg_max_frames": 70,
+  "seg_hang_frames": 10,
+  "seg_refractory_frames": 20,
+  "seg_opposite_lockout_frames": 60,
+  "gate_far_db": 12.0,
+  "gate_far_margin_db": 6.0,
+  "impulse_outer_hz": 200.0,
+  "impulse_ratio": 0.6,
+  "presence_max_range_m": 2.0,
+  "presence_near_m": 0.6,
+  "presence_enter_s": 0.3,
+  "presence_settle_s": 1.0,
+  "presence_absent_s": 5.0,
+  "presence_motionless_s": 40.0,
+  "presence_doppler_thresh_db": 6.0,
+  "presence_fast_hp_hz": 7.0,
+  "presence_slow_tau_s": 4.0,
+  "presence_fast_thresh_db": 8.0,
+  "presence_slow_thresh_db": 7.0,
+  "breath_fs": 10.0,
+  "breath_range_m": [
+   0.25,
+   1.6
+  ],
+  "breath_band_hz": [
+   0.1,
+   0.6
+  ],
+  "breath_min_s": 10.0,
+  "breath_max_s": 30.0,
+  "breath_update_s": 1.0,
+  "breath_min_conf": 0.45,
+  "heur_w_speakers": 1.0,
+  "heur_w_mics": 1.0
+ },
+ "backend": {
+  "mode": "separate",
+  "exclusive": false,
+  "input": "MacBook Pro Microphone",
+  "output": "MacBook Pro Speakers",
+  "samplerate": 48000,
+  "blocksize": 1920,
+  "latency": [
+   0.07102083333333334,
+   0.057375
+  ]
+ },
+ "dropouts": [],
+ "peak": 0.66383,
+ "events": [
+  {
+   "label": "calibration",
+   "kind": "calibration",
+   "start": 0,
+   "end": 288000
+  },
+  {
+   "label": "empty",
+   "kind": "scene",
+   "start": 288000,
+   "end": 1008000
+  },
+  {
+   "label": "walk_in",
+   "kind": "scene",
+   "start": 1008000,
+   "end": 1296000
+  },
+  {
+   "label": "present_still",
+   "kind": "scene",
+   "start": 1296000,
+   "end": 2496000
+  },
+  {
+   "label": "distractor",
+   "kind": "scene",
+   "start": 2496000,
+   "end": 3696000
+  },
+  {
+   "label": "walk_out",
+   "kind": "scene",
+   "start": 3696000,
+   "end": 3984000
+  },
+  {
+   "label": "empty",
+   "kind": "scene",
+   "start": 3984000,
+   "end": 4464000
+  },
+  {
+   "label": "walk_in",
+   "kind": "scene",
+   "start": 4464000,
+   "end": 4752000
+  },
+  {
+   "label": "present_still",
+   "kind": "scene",
+   "start": 4752000,
+   "end": 5952000
+  },
+  {
+   "label": "distractor",
+   "kind": "scene",
+   "start": 5952000,
+   "end": 7152000
+  },
+  {
+   "label": "distractor",
+   "kind": "scene",
+   "start": 7152000,
+   "end": 8352000
+  },
+  {
+   "label": "walk_out",
+   "kind": "scene",
+   "start": 8352000,
+   "end": 8640000
+  },
+  {
+   "label": "empty",
+   "kind": "scene",
+   "start": 8640000,
+   "end": 9120000
+  }
+ ]
+}

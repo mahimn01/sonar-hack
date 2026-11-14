@@ -1,0 +1,457 @@
+{
+ "session_id": "20261114-025724_mahimn_gestures",
+ "person": "mahimn",
+ "script": "gestures",
+ "notes": "",
+ "created": "2026-11-14T02:57:24",
+ "profile": "default",
+ "seed": 43044,
+ "software": "0.1.0",
+ "synthetic": false,
+ "format": 1,
+ "audio": "audio.wav",
+ "fs": 48000,
+ "n_mics": 1,
+ "n_samples": 11308800,
+ "config": {
+  "fs": 48000,
+  "frame_len": 960,
+  "n_out": 2,
+  "tone_hz": [
+   18500.0,
+   19000.0
+  ],
+  "tone_channels": [
+   0,
+   1
+  ],
+  "tone_amp": 0.35,
+  "chirp_lo_hz": 19500.0,
+  "chirp_hi_hz": 21500.0,
+  "chirp_amp": 0.5,
+  "chirp_channel": 0,
+  "fade_ms": 60.0,
+  "n_mics": 1,
+  "prefilter_atten_db": 100.0,
+  "prefilter_transition_hz": 2500.0,
+  "prefilter_margin_hz": 600.0,
+  "decim": 24,
+  "demod_pass_hz": 300.0,
+  "demod_atten_db": 90.0,
+  "clutter_hp_hz": 5.0,
+  "stft_win": 128,
+  "stft_fft": 256,
+  "doppler_bins": 64,
+  "feat_floor_margin_db": 3.0,
+  "feat_range_db": 36.0,
+  "gesture_frames": 80,
+  "cir_fft": 128,
+  "n_taps": 96,
+  "direct_tap": 4,
+  "cir_window": "hann",
+  "sync_frames": 16,
+  "ref_frames": 50,
+  "drift_loop_hz": 0.05,
+  "speaker_mic_distance_m": 0.25,
+  "seg_band_hz": [
+   20.0,
+   235.0
+  ],
+  "seg_on_db": 1.5,
+  "seg_off_db": 0.7,
+  "seg_min_peak_db": 3.0,
+  "seg_min_frames": 6,
+  "seg_max_frames": 70,
+  "seg_hang_frames": 10,
+  "seg_refractory_frames": 20,
+  "seg_opposite_lockout_frames": 60,
+  "gate_far_db": 12.0,
+  "gate_far_margin_db": 6.0,
+  "impulse_outer_hz": 200.0,
+  "impulse_ratio": 0.6,
+  "presence_max_range_m": 2.0,
+  "presence_near_m": 0.6,
+  "presence_enter_s": 0.3,
+  "presence_settle_s": 1.0,
+  "presence_absent_s": 5.0,
+  "presence_motionless_s": 40.0,
+  "presence_doppler_thresh_db": 6.0,
+  "presence_fast_hp_hz": 7.0,
+  "presence_slow_tau_s": 4.0,
+  "presence_fast_thresh_db": 8.0,
+  "presence_slow_thresh_db": 7.0,
+  "breath_fs": 10.0,
+  "breath_range_m": [
+   0.25,
+   1.6
+  ],
+  "breath_band_hz": [
+   0.1,
+   0.6
+  ],
+  "breath_min_s": 10.0,
+  "breath_max_s": 30.0,
+  "breath_update_s": 1.0,
+  "breath_min_conf": 0.45,
+  "heur_w_speakers": 1.0,
+  "heur_w_mics": 1.0
+ },
+ "backend": {
+  "mode": "separate",
+  "exclusive": false,
+  "input": "MacBook Pro Microphone",
+  "output": "MacBook Pro Speakers",
+  "samplerate": 48000,
+  "blocksize": 1920,
+  "latency": [
+   0.07102083333333334,
+   0.057375
+  ]
+ },
+ "dropouts": [],
+ "peak": 0.48186,
+ "events": [
+  {
+   "label": "calibration",
+   "kind": "calibration",
+   "start": 0,
+   "end": 288000
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 432000,
+   "end": 552960,
+   "rep": 1
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 658560,
+   "end": 779520,
+   "rep": 2
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 885120,
+   "end": 1006080,
+   "rep": 3
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 1111680,
+   "end": 1232640,
+   "rep": 4
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 1338240,
+   "end": 1459200,
+   "rep": 5
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 1564800,
+   "end": 1685760,
+   "rep": 6
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 1791360,
+   "end": 1912320,
+   "rep": 7
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 2017920,
+   "end": 2138880,
+   "rep": 8
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 2244480,
+   "end": 2365440,
+   "rep": 9
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 2471040,
+   "end": 2592000,
+   "rep": 10
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 2697600,
+   "end": 2818560,
+   "rep": 11
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 2924160,
+   "end": 3045120,
+   "rep": 12
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 3150720,
+   "end": 3271680,
+   "rep": 13
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 3377280,
+   "end": 3498240,
+   "rep": 14
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 3603840,
+   "end": 3724800,
+   "rep": 15
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 3830400,
+   "end": 3951360,
+   "rep": 16
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 4056960,
+   "end": 4177920,
+   "rep": 17
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 4283520,
+   "end": 4404480,
+   "rep": 18
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 4510080,
+   "end": 4631040,
+   "rep": 19
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 4736640,
+   "end": 4857600,
+   "rep": 20
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 4963200,
+   "end": 5084160,
+   "rep": 21
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 5189760,
+   "end": 5310720,
+   "rep": 22
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 5416320,
+   "end": 5537280,
+   "rep": 23
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 5642880,
+   "end": 5763840,
+   "rep": 24
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 5869440,
+   "end": 5990400,
+   "rep": 25
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 6096000,
+   "end": 6216960,
+   "rep": 26
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 6322560,
+   "end": 6443520,
+   "rep": 27
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 6549120,
+   "end": 6670080,
+   "rep": 28
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 6775680,
+   "end": 6896640,
+   "rep": 29
+  },
+  {
+   "label": "pull",
+   "kind": "gesture",
+   "start": 7002240,
+   "end": 7123200,
+   "rep": 30
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 7228800,
+   "end": 7349760,
+   "rep": 31
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 7455360,
+   "end": 7576320,
+   "rep": 32
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 7681920,
+   "end": 7802880,
+   "rep": 33
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 7908480,
+   "end": 8029440,
+   "rep": 34
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 8135040,
+   "end": 8256000,
+   "rep": 35
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 8361600,
+   "end": 8482560,
+   "rep": 36
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 8588160,
+   "end": 8709120,
+   "rep": 37
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 8814720,
+   "end": 8935680,
+   "rep": 38
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 9041280,
+   "end": 9162240,
+   "rep": 39
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 9267840,
+   "end": 9388800,
+   "rep": 40
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 9494400,
+   "end": 9615360,
+   "rep": 41
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 9720960,
+   "end": 9841920,
+   "rep": 42
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 9947520,
+   "end": 10068480,
+   "rep": 43
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 10174080,
+   "end": 10295040,
+   "rep": 44
+  },
+  {
+   "label": "swipe_right",
+   "kind": "gesture",
+   "start": 10400640,
+   "end": 10521600,
+   "rep": 45
+  },
+  {
+   "label": "push",
+   "kind": "gesture",
+   "start": 10627200,
+   "end": 10748160,
+   "rep": 46
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 10853760,
+   "end": 10974720,
+   "rep": 47
+  },
+  {
+   "label": "swipe_left",
+   "kind": "gesture",
+   "start": 11080320,
+   "end": 11201280,
+   "rep": 48
+  }
+ ]
+}
