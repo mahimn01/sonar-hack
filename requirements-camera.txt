@@ -1,0 +1,4 @@
+# Camera-labelled recording (python -m sonar.camrecord): the webcam + hand tracking that label the gestures.
+# Only the recording laptop needs this, on top of requirements.txt. Versions tested on 2026-11-14 in the comments.
+mediapipe>=0.10.14        # 1.2.3  hand tracking (Apache-2.0); pulls in opencv-contrib-python
+opencv-contrib-python     # 5.0.0.93  webcam + the on-screen window (do not also install opencv-python: same module)

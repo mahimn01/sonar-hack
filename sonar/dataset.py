@@ -113,15 +113,27 @@ def session_examples(
     windows: list[tuple[int, int]] = []
     for ev in meta.get("events", []):
         f0, f1 = stream.frame_of_sample(ev["start"]), stream.frame_of_sample(ev["end"])
+        if ev.get("exclude"):
+            # camera recorder (camrecord.py): a reading it was unsure about, or a free-form block in
+            # which the volunteer may have gestured unseen. Not a gesture example, and no "none" either.
+            windows.append((f0, f1))
+            continue
         if ev["label"] not in GESTURE_LABELS or ev["label"] == "none":
             continue
         windows.append((f0 - guard, f1 + 2 * guard))
         inside = [k for k, s in enumerate(stream.segments) if s.end >= f0 - 5 and s.start <= f1 + 25]
+        rank = lambda k: stream.segments[k].peak_db                     # noqa: E731
+        if ev.get("tight"):
+            # start/end bound the stroke itself (timed by the camera), not a 2.5 s prompt window:
+            # take the burst that covers the stroke, not the loudest one nearby (often the hand going back)
+            cover = lambda k: min(stream.segments[k].end, f1 + 3) - max(stream.segments[k].start, f0 - 1)   # noqa: E731
+            inside = [k for k in inside if cover(k) >= 0]
+            rank = lambda k: (cover(k), stream.segments[k].peak_db)     # noqa: E731
         if not inside:
             report["missed"] += 1
             report["missed_trials"].append({"label": ev["label"], "rep": ev.get("rep"), "t": round(ev["start"] / cfg.fs, 1)})
             continue
-        best = max(inside, key=lambda k: stream.segments[k].peak_db)
+        best = max(inside, key=rank)
         used[inside] = True
         examples.append(Example(cut(best), ev["label"], group, person, "gesture", float(stream.segments[best].peak_db)))
         report["gestures"] += 1
