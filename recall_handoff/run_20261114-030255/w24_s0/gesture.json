@@ -1,0 +1,250 @@
+{
+ "labels": [
+  "none",
+  "swipe_left",
+  "swipe_right",
+  "push"
+ ],
+ "temperature": 1.2782698426715537,
+ "input_shape": [
+  2,
+  64,
+  80
+ ],
+ "config": {
+  "fs": 48000,
+  "frame_len": 960,
+  "n_out": 2,
+  "tone_hz": [
+   18500.0,
+   19000.0
+  ],
+  "tone_channels": [
+   0,
+   1
+  ],
+  "tone_amp": 0.35,
+  "chirp_lo_hz": 19500.0,
+  "chirp_hi_hz": 21500.0,
+  "chirp_amp": 0.5,
+  "chirp_channel": 0,
+  "fade_ms": 60.0,
+  "n_mics": 1,
+  "prefilter_atten_db": 100.0,
+  "prefilter_transition_hz": 2500.0,
+  "prefilter_margin_hz": 600.0,
+  "decim": 24,
+  "demod_pass_hz": 300.0,
+  "demod_atten_db": 90.0,
+  "clutter_hp_hz": 5.0,
+  "stft_win": 128,
+  "stft_fft": 256,
+  "doppler_bins": 64,
+  "feat_floor_margin_db": 3.0,
+  "feat_range_db": 36.0,
+  "gesture_frames": 80,
+  "cir_fft": 128,
+  "n_taps": 96,
+  "direct_tap": 4,
+  "cir_window": "hann",
+  "sync_frames": 16,
+  "ref_frames": 50,
+  "drift_loop_hz": 0.05,
+  "speaker_mic_distance_m": 0.25,
+  "seg_band_hz": [
+   20.0,
+   235.0
+  ],
+  "seg_on_db": 1.5,
+  "seg_off_db": 0.7,
+  "seg_min_peak_db": 3.0,
+  "seg_min_frames": 6,
+  "seg_max_frames": 70,
+  "seg_hang_frames": 10,
+  "seg_refractory_frames": 20,
+  "seg_opposite_lockout_frames": 60,
+  "gate_far_db": 12.0,
+  "gate_far_margin_db": 6.0,
+  "impulse_outer_hz": 200.0,
+  "impulse_ratio": 0.6,
+  "presence_max_range_m": 2.0,
+  "presence_near_m": 0.6,
+  "presence_enter_s": 0.3,
+  "presence_settle_s": 1.0,
+  "presence_absent_s": 5.0,
+  "presence_motionless_s": 40.0,
+  "presence_doppler_thresh_db": 6.0,
+  "presence_fast_hp_hz": 7.0,
+  "presence_slow_tau_s": 4.0,
+  "presence_fast_thresh_db": 8.0,
+  "presence_slow_thresh_db": 7.0,
+  "breath_fs": 10.0,
+  "breath_range_m": [
+   0.25,
+   1.6
+  ],
+  "breath_band_hz": [
+   0.1,
+   0.6
+  ],
+  "breath_min_s": 10.0,
+  "breath_max_s": 30.0,
+  "breath_update_s": 1.0,
+  "breath_min_conf": 0.45,
+  "heur_w_speakers": 1.0,
+  "heur_w_mics": 1.0
+ },
+ "heuristic": {
+  "w_speakers": 0.37047380367423427,
+  "w_mics": 0.0,
+  "n_swipes": 84,
+  "t_speakers": 7.373679866532702,
+  "t_mics": 0.0,
+  "source": "recorded"
+ },
+ "gesture_peak_db_p10": 36.6,
+ "metrics": {
+  "split": "held-out person mahimn",
+  "n_train": 11381,
+  "n_val": 190,
+  "best_epoch": 43,
+  "train_seconds": 18.9,
+  "settings": {
+   "device": "cuda",
+   "epochs": 60,
+   "batch": 256,
+   "lr": 0.004,
+   "width": 24,
+   "seed": 0,
+   "augment": "torch",
+   "amp": "auto",
+   "channels_last": "auto",
+   "compile": false,
+   "init": "C:\\Users\\lance\\sonar-hack\\train_out\\pretrain\\6304ae0b2696\\gesture.pt",
+   "labels": [
+    "none",
+    "swipe_left",
+    "swipe_right",
+    "push"
+   ]
+  },
+  "validation": {
+   "accuracy": 0.7263,
+   "macro_f1": 0.605,
+   "per_class": {
+    "none": {
+     "precision": 0.99,
+     "recall": 0.872,
+     "f1": 0.927,
+     "n": 109
+    },
+    "swipe_left": {
+     "precision": 0.378,
+     "recall": 0.519,
+     "f1": 0.438,
+     "n": 27
+    },
+    "swipe_right": {
+     "precision": 0.333,
+     "recall": 0.37,
+     "f1": 0.351,
+     "n": 27
+    },
+    "push": {
+     "precision": 0.704,
+     "recall": 0.704,
+     "f1": 0.704,
+     "n": 27
+    }
+   },
+   "confusion": [
+    [
+     95,
+     5,
+     3,
+     6
+    ],
+    [
+     0,
+     14,
+     12,
+     1
+    ],
+    [
+     0,
+     16,
+     10,
+     1
+    ],
+    [
+     1,
+     2,
+     5,
+     19
+    ]
+   ]
+  },
+  "as_deployed": {
+   "accuracy": 0.6684,
+   "macro_f1": 0.474,
+   "per_class": {
+    "none": {
+     "precision": 0.774,
+     "recall": 0.945,
+     "f1": 0.851,
+     "n": 109
+    },
+    "swipe_left": {
+     "precision": 0.407,
+     "recall": 0.407,
+     "f1": 0.407,
+     "n": 27
+    },
+    "swipe_right": {
+     "precision": 0.263,
+     "recall": 0.185,
+     "f1": 0.217,
+     "n": 27
+    },
+    "push": {
+     "precision": 0.727,
+     "recall": 0.296,
+     "f1": 0.421,
+     "n": 27
+    }
+   },
+   "confusion": [
+    [
+     103,
+     2,
+     1,
+     3
+    ],
+    [
+     6,
+     11,
+     10,
+     0
+    ],
+    [
+     9,
+     13,
+     5,
+     0
+    ],
+    [
+     15,
+     1,
+     3,
+     8
+    ]
+   ]
+  },
+  "gesture_recall_deployed": 0.2963,
+  "false_triggers_deployed": 0.055,
+  "onnx_max_logit_diff": 1.6689300537109375e-06,
+  "onnx_ms_per_inference": 0.579
+ },
+ "trained": "2026-11-14 03:18:20",
+ "torch": "2.15.0+cu132"
+}

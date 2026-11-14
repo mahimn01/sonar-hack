@@ -1,0 +1,15 @@
+split: held-out person mahimn
+
+raw:
+                     none  swipe_left  swipe_righ        push   <- predicted
+none                   95           5           3           6
+swipe_left              0          14          12           1
+swipe_right             0          16          10           1
+push                    1           2           5          19
+
+as deployed:
+                     none  swipe_left  swipe_righ        push   <- predicted
+none                  103           2           1           3
+swipe_left              6          11          10           0
+swipe_right             9          13           5           0
+push                   15           1           3           8
