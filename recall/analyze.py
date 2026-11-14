@@ -92,10 +92,10 @@ class Run:
         out = [self.views(f"{arm}__{h}__s{s}") for s in self.seeds]
         return [v for v in out if v is not None]
 
-    def inner(self, arm: str, h: str, cut: str | None = None) -> tuple[np.ndarray, np.ndarray] | None:
-        """Held-out answers among the TRAINING humans of fold h: (logits, labels), scored rows only."""
+    def inner(self, arm: str, h: str, cut: str | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+        """Held-out answers among the TRAINING humans of fold h: (logits, labels, whose row it is), scored rows only."""
         r, y, scored = self.tab(arm, cut)
-        ls, ys = [], []
+        ls, ys, who = [], [], []
         for h2 in [x for x in self.humans if x != h]:
             l2 = self.logits(f"{arm}__{h}__in_{h2}__s{self.seeds[0]}", cut)
             if l2 is None:
@@ -103,7 +103,8 @@ class Run:
             m = scored & (r["human"] == h2)
             ls.append(l2[m])
             ys.append(y[m])
-        return np.concatenate(ls), np.concatenate(ys)
+            who.append(r["human"][m])
+        return np.concatenate(ls), np.concatenate(ys), np.concatenate(who)
 
 
 def apply(logits: np.ndarray, t: float, b: float) -> np.ndarray:
@@ -120,18 +121,25 @@ def rates(p: np.ndarray, y: np.ndarray, thr: float = 0.6) -> tuple[float, float]
     return (float((pred[g] == y[g]).mean()) if g.any() else 0.0, float((pred[~g] != 0).mean()) if (~g).any() else 0.0)
 
 
-def choose_point(logits: np.ndarray | list[np.ndarray], y: np.ndarray, budget: float = BUDGET, margin: float = 0.0) -> tuple[float, float]:
+def choose_point(logits: np.ndarray | list[np.ndarray], y: np.ndarray, budget: float = BUDGET, margin: float = 0.0,
+                 person: np.ndarray | None = None) -> tuple[float, float]:
     """(temperature, none handicap) with the most gestures recognised while false triggers stay <= budget - margin.
 
     `logits`: one model's answers, or a list of models' answers for the same rows; then the point is applied to
     each model and the probabilities are averaged, exactly as the packaged graph does (recall.package).
+    `person`: whose row each one is. Then EVERY person's own false-trigger share must stay within the budget,
+    not just their average (the "each person" setting; one person with easy non-gestures cannot hide another).
     Ties go to the point closest to "do nothing" (temperature 1, handicap 0).
     """
     members = logits if isinstance(logits, list) else [logits]
+    groups = [person == h for h in np.unique(person)] if person is not None else []
     best = (-1.0, 0.0, 1.0, 0.0)
     for t in (0.5, 0.6, 0.7, 0.85, 1.0, 1.25, 1.5, 2.0):
         for b in np.linspace(-3.0, 4.0, 29):
-            r, f = rates(np.mean([apply(l, t, b) for l in members], axis=0), y)
+            p = np.mean([apply(l, t, b) for l in members], axis=0)
+            r, f = rates(p, y)
+            if groups:
+                f = max(rates(p[g], y[g])[1] for g in groups)
             if f <= budget - margin:
                 key = (r, -(abs(np.log(t)) + 0.1 * abs(b)))
                 if key > (best[0], best[1]):
@@ -146,7 +154,7 @@ def operating_points(run: Run, arm: str, cut: str | None = None) -> dict[str, An
     the way the arm was trained on; the nested point is then chosen on the training humans' pictures cut that way.
     """
     out: dict[str, Any] = {"folds": {}}
-    pooled: dict[str, list] = {k: [] for k in ("t1", "nested", "y", "h", "members")}
+    pooled: dict[str, list] = {k: [] for k in ("t1", "nested", "each", "y", "h", "members")}
     r_, y_, scored_ = run.tab(arm, cut)
     for h in run.humans:
         test = scored_ & (r_["human"] == h)
@@ -155,17 +163,22 @@ def operating_points(run: Run, arm: str, cut: str | None = None) -> dict[str, An
             continue
         y = y_[test]
         inner = run.inner(arm, h, cut)
-        t, b = choose_point(*inner) if inner is not None else (1.0, 0.0)
+        t, b = choose_point(inner[0], inner[1]) if inner is not None else (1.0, 0.0)
+        te, be = choose_point(inner[0], inner[1], person=inner[2]) if inner is not None else (1.0, 0.0)   # each training person within budget
         p1 = np.mean([softmax(l[test], 1.0) for l in outer], axis=0)
         pn = np.mean([apply(l[test], t, b) for l in outer], axis=0)
+        pe = np.mean([apply(l[test], te, be) for l in outer], axis=0)
         to, bo = choose_point(np.log(p1 + 1e-12), y)                       # looks at the test human: an upper bound only
         r1, f1 = rates(p1, y)
         rn, fn = rates(pn, y)
+        re_, fe = rates(pe, y)
         ro, fo = rates(apply(np.log(p1 + 1e-12), to, bo), y)
         out["folds"][h] = {"t": t, "b": b, "recall_t1": r1, "false_t1": f1, "recall": rn, "false": fn, "recall_oracle": ro, "false_oracle": fo,
+                           "t_each": te, "b_each": be, "recall_each": re_, "false_each": fe,
                            "n_gesture": int((y != 0).sum()), "n_none": int((y == 0).sum())}
         pooled["t1"].append(p1)
         pooled["nested"].append(pn)
+        pooled["each"].append(pe)
         pooled["y"].append(y)
         pooled["h"].append(r_["human"][test])
         pooled["members"].append([l[test].astype(np.float64) for l in outer])
@@ -178,7 +191,13 @@ def operating_points(run: Run, arm: str, cut: str | None = None) -> dict[str, An
         ft, fb = choose_point(members, y)
         rf, ff = rates(np.mean([apply(l, ft, fb) for l in members], axis=0), y)
         out["final_point"] = {"t": ft, "b": fb, "recall_on_the_data_it_was_chosen_on": rf, "false_on_the_data_it_was_chosen_on": ff}
-        for key in ("t1", "nested"):
+        # ... and the stricter one: every one of the three people within the budget on their own held-out answers
+        et, eb = choose_point(members, y, person=hh)
+        pe_all = np.mean([apply(l, et, eb) for l in members], axis=0)
+        re_all, fe_all = rates(pe_all, y)
+        out["final_point_each"] = {"t": et, "b": eb, "recall_on_the_data_it_was_chosen_on": re_all, "false_on_the_data_it_was_chosen_on": fe_all,
+                                   "false_per_person": {str(h): rates(pe_all[hh == h], y[hh == h])[1] for h in np.unique(hh)}}
+        for key in ("t1", "nested", "each"):
             p = np.concatenate(pooled[key])
             s = score(np.log(p + 1e-12), y, LABELS)
             out[key] = {k: s[k] for k in ("recall", "false", "hits", "n_gesture", "false_n", "n_none", "per_class", "wrong_gesture", "silent")}
@@ -219,11 +238,12 @@ def shift_average(run: Run, arm: str) -> dict[str, Any] | None:
 
 
 def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = True, min_peak: float | None = None,
-                 use_point: bool = True, entering_cap_s: float | None = None, cut: str | None = None) -> dict[str, Any]:
+                 use_point: bool = True, entering_cap_s: float | None = None, cut: str | None = None, each: bool = False) -> dict[str, Any]:
     """Replay every session of each held-out human through the engine rules with that fold's models.
 
     `cut`: the engine's burst cutting at run time (default: the one the arm was trained on); `points` must then
-    come from operating_points(run, arm, cut).
+    come from operating_points(run, arm, cut). `each`: use the fold's stricter setting (each training person
+    within the budget) instead of the pooled one.
     """
     from .engine_replay import load_trace, replay, summarise, trial_table
 
@@ -236,7 +256,8 @@ def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = 
         outer = run.outer(arm, h, cut)
         if not outer or h not in points["folds"]:
             continue
-        t, b = (points["folds"][h]["t"], points["folds"][h]["b"]) if use_point else (1.0, 0.0)
+        f_ = points["folds"][h]
+        t, b = ((f_["t_each"], f_["b_each"]) if each else (f_["t"], f_["b"])) if use_point else (1.0, 0.0)
         train_h = gest & (r["human"] != h)                                # the weak gate comes from the training humans' gestures
         gate = min_peak if min_peak is not None else max(CFG.seg_min_peak_db, float(np.percentile(r["peak_db"][train_h], 10)) - 6.0)
         tabs = []
@@ -314,13 +335,16 @@ def pick_winner(run: Run, result: dict[str, Any]) -> list[str]:
             continue
         own = run.variant(arm)
         wide = (run.man.get("arm_specs", {}).get(arm, {}) or {}).get("features") == "wide"
-        rows = [(own, pts, result[arm].get("events", {}).get(EVENTS_KEY, {}))]
-        rows += [(cut, c["points"], c.get("events", {})) for cut, c in result[arm].get("cross", {}).items()]
-        for cut, p_, ev in rows:
-            n = p_["nested"]
+        rows = [(own, pts, result[arm].get("events", {}).get(EVENTS_KEY, {}), result[arm].get("events_each", {}))]
+        rows += [(cut, c["points"], c.get("events", {}), c.get("events_each", {})) for cut, c in result[arm].get("cross", {}).items()]
+        for cut, p_, ev, ev_e in rows:
+            n, e_ = p_["nested"], p_.get("each")
             cands.append({"arm": arm, "order": k, "trained_on": own, "cut": cut, "wide": wide, "hits": n["hits"], "n": n["n_gesture"],
                           "recall": n["recall"], "ci": n["recall_ci"], "false": n["false"], "false_n": n["false_n"], "n_none": n["n_none"],
                           "folds": p_["folds"], "events": ev.get("pooled"), "no_lance": n.get("no_lance"),
+                          "each": e_, "events_each": ev_e.get("pooled"),
+                          "worst": max(f["false"] for f in p_["folds"].values()),
+                          "worst_each": max(f["false_each"] for f in p_["folds"].values()),
                           # rule 1: its own cutting, or a recipe trained on today's cutting run with the 12 dB cutting
                           "candidate": cut == own or (own == "std" and cut == "rel12")})
 
@@ -372,6 +396,30 @@ def pick_winner(run: Run, result: dict[str, Any]) -> list[str]:
     else:
         lines.append(f"- Its models trained on everyone are NOT in this run folder ({finals} of {len(run.seeds)}). On the 4090, about 5 minutes: "
                      f"`powershell -ExecutionPolicy Bypass -File scripts\\recall_suite.ps1 --stamp {run.dir.name} --finals {pick['arm']}`")
+    # the stricter setting (each training person within the budget), added after the first results: same pick?
+    e = pick["each"]
+    if e is not None:
+        strict = [dict(c, hits=c["each"]["hits"], false=c["each"]["false"], recall=c["each"]["recall"], ci=c["each"]["recall_ci"],
+                       false_n=c["each"]["false_n"], n_none=c["each"]["n_none"]) for c in elig if c["each"] is not None]
+        inside = [c for c in strict if c["worst_each"] <= BUDGET]          # every held-out person within the budget
+        s_on = best([c for c in inside if c["cut"] != "rel12nc"])
+        mb = pick["folds"].get("mahimn")
+        met_e = mb is not None and mb["recall_each"] >= 0.70 and mb["false_each"] <= BUDGET
+        result["_pick"]["each"] = {"hits": e["hits"], "n": e["n_gesture"], "recall": e["recall"], "false": e["false"], "false_n": e["false_n"],
+                                   "n_none": e["n_none"], "worst_person_false": pick["worst_each"], "target_met_on_mahimn": bool(met_e),
+                                   "pick_by_this_setting": (s_on or {}).get("arm"), "pick_cut_by_this_setting": (s_on or {}).get("cut")}
+        lines += ["", "**The same pick at the stricter confidence setting** (every training person within the budget, not their average; "
+                  "added after the first results, see section 2d):", "",
+                  f"- All three: {e['hits']}/{e['n_gesture']} = {e['recall']:.3f} [{e['recall_ci'][0]:.2f},{e['recall_ci'][1]:.2f}] at "
+                  f"{e['false_n']}/{e['n_none']} = {e['false']:.3f}. Per held-out person: " +
+                  "; ".join(f"{h} {round(f['recall_each'] * f['n_gesture'])}/{f['n_gesture']} = {f['recall_each']:.3f} at "
+                            f"{round(f['false_each'] * f['n_none'])}/{f['n_none']} = {f['false_each']:.3f}" for h, f in pick["folds"].items()) + ".",
+                  f"- Target on Mahimn at this setting: **{'MET' if met_e else 'NOT met'}**" + (f" ({mb['recall_each']:.3f} at {mb['false_each']:.3f})." if mb else "."),
+                  (f"- Engine level: right gesture first on {pick['events_each']['correct']}/{pick['events_each']['n_prompts']} prompts = {pick['events_each']['recall']:.3f}, "
+                   f"{pick['events_each']['outside_fired']} gestures fired where nobody gestured in {pick['events_each']['outside_minutes']:.0f} min." if pick["events_each"] else "- Engine level: not computed."),
+                  f"- Largest false-trigger share on any one held-out person: pooled setting {pick['worst']:.3f}, stricter setting {pick['worst_each']:.3f} (budget {BUDGET}).",
+                  f"- Candidates that keep EVERY held-out person within the budget at the stricter setting: {len(inside)} of {len(strict)}"
+                  + (f"; the best of them (rules 2-3): **{s_on['arm']}** with {s_on['cut']} cutting, {show(s_on)}." if s_on else "."), ""]
     wide = best([c for c in cands if c["wide"] and c["cut"] == c["trained_on"]])
     if wide is not None and wide["hits"] >= pick["hits"] + 10:
         lines.append(f"- NOTE: {wide['arm']} (wide pictures, the engine cannot make them yet) scores {show(wide)}: 10 or more gestures better. Worth building the engine profile.")
@@ -454,6 +502,7 @@ def main() -> None:
               "walking-in gate 3 s (the MacBook start script). The first row of each recipe is its own cutting, for comparison.", "",
               "| arm | trained on | engine cuts | pooled recall [95% CI] / false | " + " | ".join(f"{h} recall / false" for h in run.humans) +
               " | engine level: right gesture first | false events per min |", "|---|---|---|---|" + "---|" * len(run.humans) + "---|---|"]
+    each_rows: list[tuple] = []
     for arm in arms:
         if "nested" not in result[arm]["points"]:
             continue
@@ -464,14 +513,32 @@ def main() -> None:
             if "nested" not in pts or len(pts["folds"]) != len(run.humans):
                 continue                                           # this run holds no answers of this arm for that cutting
             ev = {} if args.no_events else event_scores(run, arm, pts, gate_range=False, entering_cap_s=3.0, cut=cut)
+            ev_each = {} if args.no_events else event_scores(run, arm, pts, gate_range=False, entering_cap_s=3.0, cut=cut, each=True)
             if cut != own:
-                result[arm]["cross"][cut] = {"points": pts, "events": ev}
+                result[arm]["cross"][cut] = {"points": pts, "events": ev, "events_each": ev_each}
+            else:
+                result[arm]["events_each"] = ev_each
+            each_rows.append((arm, own, cut, pts, ev_each.get("pooled")))
             n = pts["nested"]
             cells = [f"{f['recall']:.3f} / {f['false']:.3f}" for f in (pts["folds"][h] for h in run.humans)]
             e = ev.get("pooled")
             lines.append(f"| {arm} | {own} | {'**' + cut + '**' if cut != own else cut} | {n['recall']:.3f} [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] "
                          f"({n['hits']}/{n['n_gesture']}) / {n['false']:.3f} ({n['false_n']}/{n['n_none']}) | " + " | ".join(cells) + " | " +
                          (f"{e['recall']:.3f} ({e['correct']}/{e['n_prompts']}) | {e['false_per_min']:.2f} ({e['outside_fired']} in {e['outside_minutes']:.0f} min) |" if e else "- | - |"))
+    lines += ["", "## 2d. The stricter confidence setting: EVERY training person within the budget, not their average", "",
+              "Added 2026-11-14 10:23, after the first results showed the pooled setting running over the budget on Mahimn "
+              "(Lance's non-gestures almost never trigger, so an average over Lance + Aarsh hides a loose setting). "
+              "Reported next to the pooled setting above, never instead of it. \"worst\" = the held-out person with the largest "
+              f"false-trigger share; * = over the budget of {BUDGET}.", "",
+              "| arm | trained on | engine cuts | pooled recall [95% CI] / false | " + " | ".join(f"{h} recall / false" for h in run.humans) +
+              " | worst person's false | engine level: right gesture first | false events per min |", "|---|---|---|---|" + "---|" * len(run.humans) + "---|---|---|"]
+    for arm, own, cut, pts, e in each_rows:
+        n = pts["each"]
+        cells = [f"{f['recall_each']:.3f} / {f['false_each']:.3f}" for f in (pts["folds"][h] for h in run.humans)]
+        worst = max(f["false_each"] for f in pts["folds"].values())
+        lines.append(f"| {arm} | {own} | {'**' + cut + '**' if cut != own else cut} | {n['recall']:.3f} [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] "
+                     f"({n['hits']}/{n['n_gesture']}) / {n['false']:.3f} ({n['false_n']}/{n['n_none']}) | " + " | ".join(cells) + f" | {worst:.3f}{'*' if worst > BUDGET else ''} | " +
+                     (f"{e['recall']:.3f} ({e['correct']}/{e['n_prompts']}) | {e['false_per_min']:.2f} ({e['outside_fired']} in {e['outside_minutes']:.0f} min) |" if e else "- | - |"))
     at = lines.index("## 1. Picture-level score (the released definition)")
     lines[at:at] = pick_winner(run, result)
     lines += ["", "## 3. Where the held-out gestures are lost (nested point, pooled over the three humans)", ""]

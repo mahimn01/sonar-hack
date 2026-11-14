@@ -16,9 +16,12 @@ What it does, in order (every step is cached, so a second run only does what is 
      (gesture.onnx + gesture.json + gesture.pt). Nothing is copied into models/ or models-release*/.
 
 How to run (from the repo root):
-    python -m recall.suite run --device cuda                       # the 4090: about 30 minutes
+    python -m recall.suite run --device cuda                       # the 4090: about 3 hours (measured 2026-11-14)
     python -m recall.suite run --device cpu --smoke                # 2-minute self-test with junk-size data
     python -m recall.suite report --run train_out/recall/suite/<stamp>      # rebuild the report from saved answers
+    python -m recall.suite finals --run <run folder> --arms real_pre --device cpu
+                                                                   # only the models that ship: the named recipes trained
+                                                                   # on everyone, in an existing run folder (minutes)
 
 What it changes: writes only under train_out/recall/ (caches) and train_out/recall/suite/<stamp>/ (this run).
 It reads the recordings and never opens an audio device.
@@ -794,6 +797,69 @@ def export_final(run_dir: Path, arm: str, results: dict[str, Any], fh: Any) -> N
         f"temperature {meta['temperature']:.2f}" + ("  (needs the wide window / peak-relative cutting in the engine)" if "needs" in meta else ""), fh)
 
 
+def make_job(run_dir: Path, humans: list[str], size: dict[str, Any], arm: str, spec: dict[str, Any], test: str | None,
+             inner: str | None, seed: int, final: bool = False) -> dict[str, Any]:
+    """One training run of a recipe: `test` held out (and `inner` too, for choosing the confidence setting), or,
+    with final=True, trained on everyone (the model that ships; its weights are saved)."""
+    train_humans = [h for h in humans if h not in (test, inner)]
+    jid = f"{arm}__final__s{seed}" if final else f"{arm}__{test}__s{seed}" if inner is None else f"{arm}__{test}__in_{inner}__s{seed}"
+    w = int(spec.get("width", 24))
+    fold_name = "all" if final else f"no_{test}"
+    init = spec.get("init")
+    init_file = (f"pretrain_old_w{w}.pt" if init == "old" else f"pretrain_{init[4:]}_{fold_name}_w{w}.pt" if init else None)
+    return {"id": jid, "arm": arm, "real": spec["real"], "synth": spec["synth"], "mix": spec["mix"], "train_humans": train_humans,
+            "synth_fold": fold_name, "seed": seed, "epochs": min(int(spec.get("epochs", size["epochs"])), size["epochs"]),
+            "steps": size.get("steps", 0), "width": w,
+            "lr_scale": spec.get("lr_scale", 1.0), "aug": spec.get("aug"), "none_share": spec.get("none_share"),
+            "features": spec.get("features"), "table": spec.get("table"),
+            "init": str(run_dir / "jobs" / init_file) if init_file else None, "save_model": final}
+
+
+def main_finals(args: argparse.Namespace) -> int:
+    """Train and export ONLY the models that ship (each named recipe trained on everyone, every seed) in an
+    existing run folder. Nothing else in the folder is redone or changed: the held-out runs, the tables and the
+    report stay as they are. For a recipe that trains on the recordings alone this is three small runs."""
+    run_dir = Path(args.run).resolve()
+    man = json.loads((run_dir / "manifest.json").read_text())
+    fh = open(run_dir / "log.txt", "a", encoding="utf-8")
+    try:
+        arms = [a for a in args.arms.split(",") if a]
+        log(f"\n=== finals only: {arms} trained on everyone ({man['humans']}), seeds {man['seeds']}, device {args.device}", fh)
+        jobs = []
+        for a in arms:
+            spec = man.get("arm_specs", {}).get(a)
+            if spec is None:
+                log(f"ERROR: {a} is not a recipe of this run (see manifest.json)", fh)
+                return 1
+            for j in [make_job(run_dir, man["humans"], man["size"], a, spec, None, None, s, final=True) for s in man["seeds"]]:
+                sets = [n.replace("{fold}", "all") for n in str(j.get("synth") or "").split("+") if n]
+                sets = [x for n in sets for x in ([f"bg_{h}" for h in man["humans"]] if n == "old_bg" else [n])]
+                gone = [n for n in sets if n not in man["synth"] or not Path(man["synth"][n]).exists()]
+                if gone or (j["init"] and not Path(j["init"]).exists()):
+                    log(f"ERROR: {a} needs files that are not on this machine: {gone or j['init']}. Run this on the machine that made the run folder.", fh)
+                    return 1
+                jobs.append(j)
+        run_jobs(run_dir, jobs, args.device, args.workers or (4 if args.device == "cuda" else 1), fh, "final")
+        results = json.loads((run_dir / "results.json").read_text()) if (run_dir / "results.json").exists() else {}
+        import platform
+
+        import torch
+
+        for a in arms:
+            export_final(run_dir, a, results, fh)
+            # where these final networks were trained (the held-out runs of the same folder may come from another machine)
+            (run_dir / "final" / a / "built.json").write_text(json.dumps({
+                "device": args.device, "machine": f"{platform.system()} {platform.machine()}", "torch": torch.__version__,
+                "built": time.strftime("%Y-%m-%d %H:%M:%S"), "run_made_on": man.get("machine", {}).get("gpu") or "see machine.txt"}, indent=1))
+        log(f"finals done: {[rel(run_dir / 'final' / a) for a in arms]}", fh)
+        return 0
+    except Exception:
+        log(f"\nSTOPPED by an error:\n{traceback.format_exc()}", fh)
+        return 1
+    finally:
+        fh.close()
+
+
 # ---------------------------------------------------------------------------
 # The whole run
 # ---------------------------------------------------------------------------
@@ -920,18 +986,7 @@ def main_run(args: argparse.Namespace) -> int:
         run_jobs(run_dir, pre_jobs, args.device, workers, fh, "pretrain")
 
         def job(arm: str, spec: dict[str, Any], test: str | None, inner: str | None, seed: int, final: bool = False) -> dict[str, Any]:
-            train_humans = [h for h in humans if h not in (test, inner)]
-            jid = f"{arm}__final__s{seed}" if final else f"{arm}__{test}__s{seed}" if inner is None else f"{arm}__{test}__in_{inner}__s{seed}"
-            w = int(spec.get("width", 24))
-            fold_name = "all" if final else f"no_{test}"
-            init = spec.get("init")
-            init_file = (f"pretrain_old_w{w}.pt" if init == "old" else f"pretrain_{init[4:]}_{fold_name}_w{w}.pt" if init else None)
-            return {"id": jid, "arm": arm, "real": spec["real"], "synth": spec["synth"], "mix": spec["mix"], "train_humans": train_humans,
-                    "synth_fold": fold_name, "seed": seed, "epochs": min(int(spec.get("epochs", size["epochs"])), size["epochs"]),
-                    "steps": size.get("steps", 0), "width": w,
-                    "lr_scale": spec.get("lr_scale", 1.0), "aug": spec.get("aug"), "none_share": spec.get("none_share"),
-                    "features": spec.get("features"), "table": spec.get("table"),
-                    "init": str(run_dir / "jobs" / init_file) if init_file else None, "save_model": final}
+            return make_job(run_dir, humans, size, arm, spec, test, inner, seed, final)
 
         jobs = []
         for arm, spec in arms.items():
@@ -986,10 +1041,17 @@ def main(argv: list[str] | None = None) -> int:
     w.add_argument("--device", default="cuda")
     p = sub.add_parser("report")
     p.add_argument("--run", required=True)
+    f = sub.add_parser("finals", help="train and export only the models that ship, in an existing run folder")
+    f.add_argument("--run", required=True, help="the run folder (train_out/recall/suite/<time>)")
+    f.add_argument("--arms", required=True, help="recipes to train on everyone (comma-separated)")
+    f.add_argument("--device", default="cuda", choices=["cuda", "mps", "cpu"])
+    f.add_argument("--workers", type=int, default=0, help="training runs at a time (default 4 on CUDA, else 1)")
     args = ap.parse_args(argv)
     sys.path.insert(0, str(REPO))
     if args.cmd == "run":
         return main_run(args)
+    if args.cmd == "finals":
+        return main_finals(args)
     if args.cmd == "worker":
         return worker_main(Path(args.run), Path(args.jobs), args.device)
     make_report(Path(args.run))

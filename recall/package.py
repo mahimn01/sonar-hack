@@ -16,9 +16,11 @@ What it does:
 
 How to run:
     .venv/bin/python -m recall.package <run folder> <arm> --out models-release-mac-recall [--cutting std|rel12|rel12nc]
-                                       [--temperature T --handicap B --peak-p10 P --no-range-gate --entering-gate-s 3]
+                                       [--point each|pooled] [--temperature T --handicap B --peak-p10 P]
+                                       [--no-range-gate --entering-gate-s 3]
 Without --temperature / --handicap the point is the one recall.analyze chose on all three humans' held-out answers
-(analysis.json, "final_point"); run `python -m recall.analyze <run folder>` first.
+(run `python -m recall.analyze <run folder>` first): --point each (default) = every one of the three people within
+the false-trigger budget on their own held-out answers; --point pooled = only their average within it.
 What it changes: writes gesture.onnx / gesture.json / gesture.pt / metrics.json into --out. Nothing else.
 """
 
@@ -60,6 +62,9 @@ def main() -> int:
     ap.add_argument("--no-range-gate", action="store_true", help="replay with the range gate off (the MacBook setting)")
     ap.add_argument("--entering-gate-s", type=float, help="replay with the walking-in gate capped at this many seconds")
     ap.add_argument("--single", action="store_true", help="ship seed 0 alone instead of the average of all seeds")
+    ap.add_argument("--point", choices=("each", "pooled"), default="each",
+                    help="which confidence setting from the analysis ships: each = every person within the false-trigger budget "
+                         "on their own held-out answers (default), pooled = only their average within it")
     args = ap.parse_args()
     run = Path(args.run)
     src = run / "final" / args.arm
@@ -71,21 +76,37 @@ def main() -> int:
         return 1
     cutting = args.cutting or spec.get("table") or "std"
     t, b = args.temperature, args.handicap
+    chosen_on = "given on the command line"
+    held_out: dict = {}
     analysis = run / "analysis.json"
-    if (t is None or b is None) and analysis.exists():
+    if analysis.exists():
         found = json.loads(analysis.read_text()).get(args.arm, {})
         if cutting != (spec.get("table") or "std"):          # the point chosen for the cutting the engine will use
             found = found.get("cross", {}).get(cutting, {})
         pts = found.get("points", {})
         if not pts:
             print(f"NOTE: analysis.json has no operating point for {args.arm} with burst cutting {cutting}; using temperature 1, no handicap")
-        fp, folds = pts.get("final_point"), pts.get("folds", {})
-        if fp:                               # chosen on all three humans' held-out answers (recall.analyze)
+        key = "final_point_each" if args.point == "each" and "final_point_each" in pts else "final_point"
+        fp, folds = pts.get(key), pts.get("folds", {})
+        if (t is None or b is None) and fp:  # chosen on all three humans' held-out answers (recall.analyze)
             t = float(fp["t"]) if t is None else t
             b = float(fp["b"]) if b is None else b
-        elif folds:
+            chosen_on = ("all three people's held-out answers, each answered by networks that never saw them; " +
+                         ("every person within the false-trigger budget" if key == "final_point_each" else "their average within the false-trigger budget"))
+        elif (t is None or b is None) and folds:
             t = float(np.median([f["t"] for f in folds.values()])) if t is None else t
             b = float(np.median([f["b"] for f in folds.values()])) if b is None else b
+            chosen_on = "median of the folds' settings (each chosen on that fold's training people)"
+        # the honest score that goes with this model: the same recipe with each person held out in turn (never the
+        # shipped networks' own score on the people they were trained on)
+        e = "_each" if args.point == "each" else ""
+        held_out = {"what": "the same recipe with each person held out in turn, 3 networks averaged, setting chosen without that person",
+                    "burst_cutting": cutting,
+                    "per_person": {h: {"gestures_recognised": f"{round(f['recall' + e] * f['n_gesture'])}/{f['n_gesture']}",
+                                       "non_gestures_that_trigger": f"{round(f['false' + e] * f['n_none'])}/{f['n_none']}"} for h, f in folds.items()
+                                   if ("recall" + e) in f},
+                    "all": {k: pts[args.point if args.point == "each" else "nested"][k] for k in ("hits", "n_gesture", "false_n", "n_none")}
+                           if (args.point if args.point == "each" else "nested") in pts else None}
     t = 1.0 if t is None else t
     b = 0.0 if b is None else b
 
@@ -149,9 +170,11 @@ def main() -> int:
                         "trained_on_cutting": spec.get("table") or "std",
                         "env": {} if cutting == "std" else {"SONAR_SEG_REL_OFF_DB": cutting[3:].replace("nc", "")},
                         "flags": flags}
+    built = src / "built.json"                # written by `recall.suite finals`: where the final networks were trained
     meta["metrics"] = {**meta.get("metrics", {}), "networks_averaged": len(states),
-                       "operating_point": {"temperature": float(t), "none_handicap": float(b), "inside_the_graph": True,
-                                           "chosen_on": "training humans only (nested), see analysis.md"},
+                       "operating_point": {"temperature": float(t), "none_handicap": float(b), "inside_the_graph": True, "chosen_on": chosen_on},
+                       "held_out": held_out or None,
+                       "final_networks": json.loads(built.read_text()) if built.exists() else "trained by the suite run itself (see machine.txt)",
                        "onnx_max_logit_diff": diff, "onnx_ms_per_inference": round(ms, 3)}
     meta["trained"] = meta.get("trained", time.strftime("%Y-%m-%d %H:%M:%S"))
     (out / "gesture.json").write_text(json.dumps(meta, indent=1))

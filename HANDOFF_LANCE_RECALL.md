@@ -45,7 +45,7 @@ below, which exchanges that session's left/right labels itself).
 
 ---
 
-## Step B — the leave-one-person-out experiment suite (GPU, about 70 minutes)
+## Step B — the leave-one-person-out experiment suite (GPU, about 3 hours with the GPU to itself)
 
 What it does: trains 36 recipes ("arms"), each one three times over with a different person held out
 (lance+lance2 count as one person), 3 seeds each, and scores every one the same honest way. It checks every
@@ -79,12 +79,30 @@ dir mac\data, mac\excluded        # expect 12 session folders + 1 (20261114-0012
 # 2-minute self-test on the CPU first (its numbers mean nothing; it must end with "DONE")
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --device cpu --smoke
 
-# the real run (about 70 minutes: ~10 min making data, ~55 min training 560 small models 4 at a time, ~2 min export)
+# the real run (about 3 hours: ~17 min checks and data, ~2.5 h training 540 small models 4 at a time, a few min export)
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1
 ```
 
 If it stops with an error: run it again with the same folder, `--stamp <time>` (the folder name it printed); it
 continues where it stopped. If it stops again, push what exists anyway (below) so the log comes back.
+
+**If it is running but crawling** (seen on 2026-11-14: run `20261114-061651` did every big training run in about
+73 s until about 08:25, then 260 to 1,800 s each on all four workers; the partial push at 10:11 had 413 of 540
+runs). The cause is not known from the Mac. Check, in the folder the suite runs in (its log says
+`C:\Users\lance\sonar-wt-recall-suite`):
+
+```powershell
+nvidia-smi                                                                    # is another program using the GPU? is memory near 24 GB?
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
+Get-Content train_out\recall\suite\20261114-061651\worker_folds_0.txt -Tail 3   # the last finished runs and their seconds
+```
+
+- Another job is on the GPU: let one of the two finish first (the suite needs about 40 more minutes alone).
+- Only the suite's four python processes are there and GPU memory is full: stop the suite (Ctrl+C), then start
+  it again with two workers. It keeps everything already trained and does only what is missing:
+  `powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp 20261114-061651 --workers 2`
+- Either way, when it ends with "DONE", push the whole folder again with the commands below, with the branch
+  name changed to **`recall-results-1b`** in all three places (the partial push already took `recall-results-1`).
 
 Push back (branch **`recall-results-1`**), about 45 MB:
 
@@ -105,13 +123,13 @@ folder `final\` (three or four sub-folders, each with `gesture.onnx`, `gesture.j
 
 Also paste into the chat: the first table of `report.md` and the "label audit" block near the top of `log.txt`.
 
-Run time measured here: the self-test takes 2-3 minutes on a Mac CPU. The 70 minutes for the full run is an
-estimate from the earlier 4090 timings (12,000 clips in 5.7 min, one fine-tuning run in 19 s); it has not been
-run on a 4090.
+Run time: the self-test takes 2-3 minutes on a Mac CPU. The full run was first estimated at 70 minutes; measured on
+the 4090 on 2026-11-14 it needs about 3 hours with the GPU to itself (small runs 33-45 s each, big ones about 73 s,
+four at a time).
 
 ---
 
-## Step C — add what is new to the same run (GPU, about 15-25 minutes)
+## Step C — add what is new to the same run (GPU, about 1 to 1.5 hours with the GPU to itself)
 
 Do this when either is true:
 - `HANDOFF_LANCE_CALIBRATION.md` (the simulator session's handoff) has written
