@@ -1,0 +1,1 @@
+  done calm50__final__s2  127.0 s  n_train 21799  real share 0.50  gpu: peak 4.3 GB, kept 1.1 GB

@@ -1,0 +1,5 @@
+  done pretrain_macbook_v2_all_w24  144.0 s  n_train 20923  real share 0.00  gpu: peak 4.3 GB, kept 1.0 GB
+  done pretrain_macbook_v2_bg_no_mahimn_w24  141.4 s  n_train 21564  real share 0.00  gpu: peak 2.6 GB, kept 1.5 GB
+  done pretrain_macbook_v2_bg_rel12_no_mahimn_w24  184.4 s  n_train 28839  real share 0.00  gpu: peak 3.0 GB, kept 1.7 GB
+  done pretrain_macbook_v2_motion_no_mahimn_w24  140.1 s  n_train 21562  real share 0.00  gpu: peak 2.8 GB, kept 1.7 GB
+  done pretrain_macbook_v2_rel12_all_w24  166.1 s  n_train 27158  real share 0.00  gpu: peak 2.9 GB, kept 1.7 GB
