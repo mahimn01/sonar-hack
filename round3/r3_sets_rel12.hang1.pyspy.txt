@@ -1,0 +1,27 @@
+﻿Process 11864: C:\Users\lance\AppData\Local\Programs\Python\Python312\python.exe -m datagen.generate --out C:\Users\lance\sonar-hack\train_out\synth_cal\macbook_v2_bg_rel12\all --per-class 2000 --negatives 2.0 --workers 24 --seed 40 --mics 1 --calibration C:\Users\lance\sonar-hack\calibration\macbook_v2.json --motion C:\Users\lance\sonar-hack\datagen\motion_library\unica_v1.npz --motion-share 0.5 --background C:\Users\lance\sonar-hack\mac\data\20261113-232748_lance_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-233427_lance_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-235154_lance2_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261113-235900_lance2_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-000902_mahimn_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-001650_mahimn_breathing\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-020852_aarsh_scene\audio.wav,C:\Users\lance\sonar-hack\mac\data\20261114-021645_aarsh_breathing\audio.wav --background-share 0.7 --gen-device cuda --gen-kernel auto
+Python v3.12.10 (C:\Users\lance\AppData\Local\Programs\Python\Python312\python.exe)
+
+Thread 18696 (active+gil): MainThread
+    generate_gpu (datagen\gpu_pipeline.py:388)
+    main (datagen\generate.py:360)
+    <module> (datagen\generate.py:432)
+    _run_code (<frozen runpy>:88)
+    _run_module_as_main (<frozen runpy>:198)
+Thread 43528 (idle): Thread-1
+    _exhaustive_wait (multiprocessing\connection.py:1016)
+    wait (multiprocessing\connection.py:1084)
+    _ExecutorManagerThread.wait_result_broken_or_wakeup (concurrent\futures\process.py:425)
+    _ExecutorManagerThread.run (concurrent\futures\process.py:352)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 23368 (idle): QueueFeederThread
+    Condition.wait (threading.py:355)
+    Queue._feed (multiprocessing\queues.py:251)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 22432 (idle): ThreadPoolExecutor-0_0
+    _worker (concurrent\futures\thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
