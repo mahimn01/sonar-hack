@@ -86,23 +86,17 @@ powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1
 If it stops with an error: run it again with the same folder, `--stamp <time>` (the folder name it printed); it
 continues where it stopped. If it stops again, push what exists anyway (below) so the log comes back.
 
-**If it is running but crawling** (seen on 2026-11-14: run `20261114-061651` did every big training run in about
-73 s until about 08:25, then 260 to 1,800 s each on all four workers; the partial push at 10:11 had 413 of 540
-runs). The cause is not known from the Mac. Check, in the folder the suite runs in (its log says
-`C:\Users\lance\sonar-wt-recall-suite`):
+**What happened on 2026-11-14 (run `20261114-061651`), and what the suite now does about it.** Every big training
+run took about 73 s until about 08:25, then 260 to 4,900 s; one of the four worker processes never came back and its
+31 remaining runs were lost (509 of 540 arrived). From about 10:45 the other three ran at 38 s per run. The cause is
+not known from the Mac; the likely one is GPU memory filling up, which on Windows does not fail but spills into
+normal memory and slows every run on the card. Since then (branch `recall`, after fcaeb40):
 
-```powershell
-nvidia-smi                                                                    # is another program using the GPU? is memory near 24 GB?
-nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
-Get-Content train_out\recall\suite\20261114-061651\worker_folds_0.txt -Tail 3   # the last finished runs and their seconds
-```
+- every worker hands unused GPU memory back after each run and prints what it still holds (`gpu: peak .. GB, kept .. GB`);
+- a worker that finishes no run for 15 minutes is stopped and its remaining runs restart in a fresh process
+  (`--stall-minutes N` changes that; the log says "worker k finished no run for ...").
 
-- Another job is on the GPU: let one of the two finish first (the suite needs about 40 more minutes alone).
-- Only the suite's four python processes are there and GPU memory is full: stop the suite (Ctrl+C), then start
-  it again with two workers. It keeps everything already trained and does only what is missing:
-  `powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp 20261114-061651 --workers 2`
-- Either way, when it ends with "DONE", push the whole folder again with the commands below, with the branch
-  name changed to **`recall-results-1b`** in all three places (the partial push already took `recall-results-1`).
+If a run still crawls, check `nvidia-smi` for another program on the GPU, and send back the `worker_folds_*.txt` files.
 
 Push back (branch **`recall-results-1`**), about 45 MB:
 
@@ -129,31 +123,44 @@ four at a time).
 
 ---
 
-## Step C — add what is new to the same run (GPU, about 1 to 1.5 hours with the GPU to itself)
+## Step C — add what is new to the same run (GPU, about 1.5 hours with the GPU to itself)
 
-Do this when either is true:
-- `HANDOFF_LANCE_CALIBRATION.md` (the simulator session's handoff) has written
-  `train_out\synth_cal\macbook_v*\...\dataset.npz` after Step B ran (Step B's log then says "arm cal50: skipped");
-- branch `recall` got new recipes after Step B ran (`git pull` brings changes under `recall/`).
+**Is it worth the GPU time?** Step B's answer is that 36 recipes cannot be told apart on these three people, and
+none clearly beats the model already shipped (`.runs/recall_partial_ranking.md` on the Mac). Step C adds 13 recipes
+that train on the simulator fitted to this MacBook. Run it if the question "does the fitted simulator help?" is
+wanted for the write-up; do not expect it to change the shipped model. It also trains the 31 runs Step B lost.
 
-It runs the suite again INTO THE SAME FOLDER: everything already trained is kept and skipped, only the missing
-recipes are trained, and the report is rebuilt with all of them. (If the suite says the folder "was built from
-other sessions, labels or code", run the Step B command instead: it starts a fresh folder.)
+It needs the calibrated sets from `HANDOFF_LANCE_CALIBRATION.md`
+(`train_out\synth_cal\macbook_v*\...\dataset.npz`); without them it only does the 31 lost runs (about 15 minutes).
+
+**It must run in the folder Step B ran in**, because the run folder with the 509 finished runs is there. Step B's
+log names it: `C:\Users\lance\sonar-wt-recall-suite`. In another folder the same command starts from zero (3 hours).
 
 ```powershell
-cd C:\Users\lance\sonar-hack
-git switch recall
-git pull
-dir train_out\synth_cal           # if the calibrated sets exist: macbook_v1 or macbook_v2, plus _motion and _bg, each with all / no_lance / no_aarsh / no_mahimn
-$stamp = (Get-ChildItem train_out\recall\suite -Directory | Where-Object { $_.Name -notlike "smoke_*" } | Sort-Object Name | Select-Object -Last 1).Name
-powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp $stamp
+cd C:\Users\lance\sonar-wt-recall-suite
+git fetch origin
+git merge origin/recall                   # newest suite code (watchdog, memory release); the recordings in mac\ stay
+dir train_out\recall\suite              # must list 20261114-061651
+
+# The calibrated sets must be visible HERE as train_out\synth_cal. The calibration handoff may have made them in
+# another folder: find it (it holds INDEX.json) and link it in instead of copying about 8 GB.
+$cal = Get-ChildItem C:\Users\lance -Directory -Filter "sonar*" | ForEach-Object { Join-Path $_.FullName "train_out\synth_cal" } | Where-Object { Test-Path (Join-Path $_ "INDEX.json") } | Select-Object -First 1
+$cal                                      # must print a folder; nothing printed = the calibrated sets are not on this box yet
+if ($cal -and -not (Test-Path train_out\synth_cal)) { cmd /c mklink /J train_out\synth_cal "$cal" }
+dir train_out\synth_cal                  # expect macbook_v2, macbook_v2_motion, macbook_v2_bg, macbook_v2_rel12, macbook_v2_bg_rel12; each with all / no_lance / no_aarsh / no_mahimn
+
+powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp 20261114-061651 --finals real_pre
 ```
 
-Push back (branch **`recall-results-2`**): the same folder again, same commands as in Step B with the branch
-name changed:
+What to expect in the log: "calibrated simulator data: family macbook_v2 (.. sets found)", then
+"folds: ... training runs, 226 to do" (31 lost + 13 recipes x 15; fewer if a set is missing, and the log then names
+the recipe as "skipped"), and "DONE" at the end. If it says the folder "was built from other sessions, labels or code", stop and send that line back
+instead of starting a fresh run.
+
+Push back (branch **`recall-results-2`**): the same folder again.
 
 ```powershell
-$run = (Get-ChildItem train_out\recall\suite -Directory | Where-Object { $_.Name -notlike "smoke_*" } | Sort-Object Name | Select-Object -Last 1).FullName
+$run = "train_out\recall\suite\20261114-061651"
 Remove-Item recall_results -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force recall_results | Out-Null
 Copy-Item $run recall_results\ -Recurse -Force
@@ -161,5 +168,5 @@ git switch -c recall-results-2
 git add -f recall_results
 git commit -m "Recall suite results with the added recipes"
 git push -u origin recall-results-2
-git switch recall
+git switch -
 ```

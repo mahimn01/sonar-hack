@@ -44,6 +44,7 @@ class Run:
         self.dir = Path(folder)
         self.man = json.loads((self.dir / "manifest.json").read_text())
         self.humans, self.seeds, self.arms = self.man["humans"], self.man["seeds"], self.man["arms"]
+        self.min_seeds = len(self.seeds)      # held-out networks a fold needs to be scored (--min-seeds lowers it for a run with missing runs)
         self._tables: dict[str, tuple] = {}
         self._cache: dict[tuple[str, str], np.ndarray | None] = {}
 
@@ -159,12 +160,16 @@ def operating_points(run: Run, arm: str, cut: str | None = None) -> dict[str, An
     for h in run.humans:
         test = scored_ & (r_["human"] == h)
         outer = run.outer(arm, h, cut)
-        if not outer:
+        inner = run.inner(arm, h, cut)
+        if len(outer) < max(run.min_seeds, 1) or inner is None:
+            # never score a fold from fewer models than asked for, or with a confidence setting that could not be chosen
+            if outer or inner is not None or cut is None:
+                out.setdefault("skipped", {})[h] = (f"{len(outer)} of {len(run.seeds)} held-out networks" +
+                                                    ("" if inner is not None else ", a setting run is missing"))
             continue
         y = y_[test]
-        inner = run.inner(arm, h, cut)
-        t, b = choose_point(inner[0], inner[1]) if inner is not None else (1.0, 0.0)
-        te, be = choose_point(inner[0], inner[1], person=inner[2]) if inner is not None else (1.0, 0.0)   # each training person within budget
+        t, b = choose_point(inner[0], inner[1])
+        te, be = choose_point(inner[0], inner[1], person=inner[2])        # each training person within budget
         p1 = np.mean([softmax(l[test], 1.0) for l in outer], axis=0)
         pn = np.mean([apply(l[test], t, b) for l in outer], axis=0)
         pe = np.mean([apply(l[test], te, be) for l in outer], axis=0)
@@ -174,7 +179,7 @@ def operating_points(run: Run, arm: str, cut: str | None = None) -> dict[str, An
         re_, fe = rates(pe, y)
         ro, fo = rates(apply(np.log(p1 + 1e-12), to, bo), y)
         out["folds"][h] = {"t": t, "b": b, "recall_t1": r1, "false_t1": f1, "recall": rn, "false": fn, "recall_oracle": ro, "false_oracle": fo,
-                           "t_each": te, "b_each": be, "recall_each": re_, "false_each": fe,
+                           "t_each": te, "b_each": be, "recall_each": re_, "false_each": fe, "n_networks": len(outer),
                            "n_gesture": int((y != 0).sum()), "n_none": int((y == 0).sum())}
         pooled["t1"].append(p1)
         pooled["nested"].append(pn)
@@ -182,7 +187,7 @@ def operating_points(run: Run, arm: str, cut: str | None = None) -> dict[str, An
         pooled["y"].append(y)
         pooled["h"].append(r_["human"][test])
         pooled["members"].append([l[test].astype(np.float64) for l in outer])
-    if pooled["y"]:
+    if len(pooled["y"]) == len(run.humans):
         y, hh = np.concatenate(pooled["y"]), np.concatenate(pooled["h"])
         # The operating point for the model that SHIPS (trained on everyone): chosen on all three humans' held-out
         # answers at once (each human answered by models that never saw them), applied the way the shipped graph
@@ -217,7 +222,7 @@ def shift_average(run: Run, arm: str) -> dict[str, Any] | None:
     for h in run.humans:
         test = scored_ & (r_["human"] == h)
         views = run.outer_views(arm, h)
-        if not views:
+        if len(views) < max(run.min_seeds, 1):
             return None
         inner_l, inner_y = [], []
         for h2 in [x for x in run.humans if x != h]:
@@ -343,6 +348,7 @@ def pick_winner(run: Run, result: dict[str, Any]) -> list[str]:
                           "recall": n["recall"], "ci": n["recall_ci"], "false": n["false"], "false_n": n["false_n"], "n_none": n["n_none"],
                           "folds": p_["folds"], "events": ev.get("pooled"), "no_lance": n.get("no_lance"),
                           "each": e_, "events_each": ev_e.get("pooled"),
+                          "thin": {h: f["n_networks"] for h, f in p_["folds"].items() if f["n_networks"] < len(run.seeds)},
                           "worst": max(f["false"] for f in p_["folds"].values()),
                           "worst_each": max(f["false_each"] for f in p_["folds"].values()),
                           # rule 1: its own cutting, or a recipe trained on today's cutting run with the 12 dB cutting
@@ -369,7 +375,8 @@ def pick_winner(run: Run, result: dict[str, Any]) -> list[str]:
         return lines
 
     def show(c: dict[str, Any]) -> str:
-        return (f"{c['hits']}/{c['n']} = {c['recall']:.3f} [{c['ci'][0]:.2f},{c['ci'][1]:.2f}] at {c['false_n']}/{c['n_none']} = {c['false']:.3f}")
+        thin = (" (" + ", ".join(f"{h}: {n} networks" for h, n in c["thin"].items()) + ")") if c.get("thin") else ""
+        return (f"{c['hits']}/{c['n']} = {c['recall']:.3f} [{c['ci'][0]:.2f},{c['ci'][1]:.2f}] at {c['false_n']}/{c['n_none']} = {c['false']:.3f}{thin}")
 
     bench = pick["folds"].get("mahimn")
     met = bench is not None and bench["recall"] >= 0.70 and bench["false"] <= BUDGET
@@ -430,6 +437,12 @@ def pick_winner(run: Run, result: dict[str, Any]) -> list[str]:
     return lines + [""]
 
 
+def thin_tag(run: Run, pts: dict[str, Any]) -> str:
+    """" [mahimn: 2 networks]" when a fold of these points was scored from fewer held-out networks than the run has seeds."""
+    thin = [f"{h}: {f['n_networks']} networks" for h, f in pts["folds"].items() if f["n_networks"] < len(run.seeds)]
+    return f" [{', '.join(thin)}]" if thin else ""
+
+
 def rel_run(run: Run) -> str:
     try:
         return str(run.dir.resolve().relative_to(REPO))
@@ -442,11 +455,19 @@ def main() -> None:
     ap.add_argument("run")
     ap.add_argument("--arms", default="")
     ap.add_argument("--no-events", action="store_true")
+    ap.add_argument("--min-seeds", type=int, default=0,
+                    help="score a fold from this many held-out networks when some of its runs are missing (default: all of them; "
+                         "such folds are marked). A fold whose setting runs are missing is never scored.")
     args = ap.parse_args()
     run = Run(Path(args.run))
+    if args.min_seeds:
+        run.min_seeds = min(args.min_seeds, len(run.seeds))
     arms = [a for a in (args.arms.split(",") if args.arms else run.arms) if a in run.arms]
     lines = [f"# Analysis of run `{run.dir.name}`", "",
              "Gestures recognised / non-gestures that trigger at the engine's 0.6 threshold; 3-seed average; each human held out in turn.",
+             *([f"**A fold is scored from {run.min_seeds} or more of its {len(run.seeds)} held-out networks (--min-seeds); folds with fewer than "
+                f"{len(run.seeds)} are marked \"N networks\".** Recipes with a fold that cannot be scored are listed in section 4."]
+               if run.min_seeds < len(run.seeds) else []),
              f"\"nested\" = temperature and none-handicap chosen on the two TRAINING humans only (budget {BUDGET}).", "",
              "## 1. Picture-level score (the released definition)", "",
              "| arm | pooled nested recall [95% CI] / false | without lance | " + " | ".join(f"{h} (T, handicap)" for h in run.humans) +
@@ -458,7 +479,8 @@ def main() -> None:
         if "nested" not in pts:
             continue
         n, t1 = pts["nested"], pts["t1"]
-        cells = [f"{f['recall']:.3f} / {f['false']:.3f} ({f['t']:.2f}, {f['b']:+.2f})" for f in (pts["folds"][h] for h in run.humans if h in pts["folds"])]
+        cells = [f"{f['recall']:.3f} / {f['false']:.3f} ({f['t']:.2f}, {f['b']:+.2f})" + (f" [{f['n_networks']} networks]" if f["n_networks"] < len(run.seeds) else "")
+                 for f in (pts["folds"][h] for h in run.humans if h in pts["folds"])]
         orc = np.average([f["recall_oracle"] for f in pts["folds"].values()], weights=[f["n_gesture"] for f in pts["folds"].values()])
         nl = n["no_lance"]
         lines.append(f"| {arm} | **{n['recall']:.3f}** [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] ({n['hits']}/{n['n_gesture']}) / {n['false']:.3f} ({n['false_n']}/{n['n_none']}) | "
@@ -522,7 +544,7 @@ def main() -> None:
             n = pts["nested"]
             cells = [f"{f['recall']:.3f} / {f['false']:.3f}" for f in (pts["folds"][h] for h in run.humans)]
             e = ev.get("pooled")
-            lines.append(f"| {arm} | {own} | {'**' + cut + '**' if cut != own else cut} | {n['recall']:.3f} [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] "
+            lines.append(f"| {arm}{thin_tag(run, pts)} | {own} | {'**' + cut + '**' if cut != own else cut} | {n['recall']:.3f} [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] "
                          f"({n['hits']}/{n['n_gesture']}) / {n['false']:.3f} ({n['false_n']}/{n['n_none']}) | " + " | ".join(cells) + " | " +
                          (f"{e['recall']:.3f} ({e['correct']}/{e['n_prompts']}) | {e['false_per_min']:.2f} ({e['outside_fired']} in {e['outside_minutes']:.0f} min) |" if e else "- | - |"))
     lines += ["", "## 2d. The stricter confidence setting: EVERY training person within the budget, not their average", "",
@@ -536,7 +558,7 @@ def main() -> None:
         n = pts["each"]
         cells = [f"{f['recall_each']:.3f} / {f['false_each']:.3f}" for f in (pts["folds"][h] for h in run.humans)]
         worst = max(f["false_each"] for f in pts["folds"].values())
-        lines.append(f"| {arm} | {own} | {'**' + cut + '**' if cut != own else cut} | {n['recall']:.3f} [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] "
+        lines.append(f"| {arm}{thin_tag(run, pts)} | {own} | {'**' + cut + '**' if cut != own else cut} | {n['recall']:.3f} [{n['recall_ci'][0]:.2f},{n['recall_ci'][1]:.2f}] "
                      f"({n['hits']}/{n['n_gesture']}) / {n['false']:.3f} ({n['false_n']}/{n['n_none']}) | " + " | ".join(cells) + f" | {worst:.3f}{'*' if worst > BUDGET else ''} | " +
                      (f"{e['recall']:.3f} ({e['correct']}/{e['n_prompts']}) | {e['false_per_min']:.2f} ({e['outside_fired']} in {e['outside_minutes']:.0f} min) |" if e else "- | - |"))
     at = lines.index("## 1. Picture-level score (the released definition)")
@@ -545,6 +567,13 @@ def main() -> None:
     for arm in arms:
         if "nested" in result[arm]["points"]:
             lines += [f"**{arm}**", "```"] + miss_breakdown(run, arm, result[arm]["points"]) + ["```", ""]
+    skipped = {arm: result[arm]["points"].get("skipped") for arm in arms if result[arm]["points"].get("skipped")}
+    if skipped:
+        lines += ["## 4. Recipes NOT scored: a fold lacks training runs (a worker died or the run is still going)", "",
+                  "Nothing above uses these recipes. Finishing the run (same command with --stamp) fills them in.", "",
+                  "| arm | fold that cannot be scored | why |", "|---|---|---|"]
+        lines += [f"| {arm} | {h} | {why} |" for arm, d in skipped.items() for h, why in d.items()]
+        lines.append("")
     text = "\n".join(lines) + "\n"
     (run.dir / "analysis.md").write_text(text)
     (run.dir / "analysis.json").write_text(json.dumps(result, indent=1, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o)))

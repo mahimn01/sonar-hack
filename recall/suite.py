@@ -509,46 +509,103 @@ def run_job(bank: Bank, job: dict[str, Any], out_dir: Path) -> dict[str, Any]:
     return info
 
 
+def gpu_release(dev: Any) -> str:
+    """Hand the GPU memory this process no longer uses back to the driver, and say how much it still holds.
+
+    Four workers share one GPU for hours. PyTorch keeps freed blocks for reuse; every run needs blocks of another
+    size, so what a worker holds can only grow. On Windows a full GPU does not fail, it spills into normal memory
+    and every run on the card slows down many times over (the likely cause of the crawl on 2026-11-14)."""
+    import gc
+
+    import torch
+
+    gc.collect()
+    if getattr(dev, "type", str(dev)) != "cuda":
+        return ""
+    peak = torch.cuda.max_memory_allocated() / 2 ** 30
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    return f"  gpu: peak {peak:.1f} GB, kept {torch.cuda.memory_reserved() / 2 ** 30:.1f} GB"
+
+
 def worker_main(run_dir: Path, jobs_file: Path, device: str) -> int:
     jobs = json.loads(jobs_file.read_text())
     out_dir = run_dir / "jobs"
     out_dir.mkdir(exist_ok=True)
     bank = Bank(run_dir, device)
+    hang = os.environ.get("RECALL_SUITE_TEST_HANG", "")       # self-test of the watchdog only: "<run id>" hangs once, "<run id>!" always
     failed = 0
     for job in jobs:
         if (out_dir / f"{job['id']}.npz").exists() and (not job.get("save_model") or (out_dir / f"{job['id']}.pt").exists()):
             continue
+        if hang.rstrip("!") == job["id"] and (hang.endswith("!") or not (out_dir / f"{job['id']}.hang_test").exists()):
+            (out_dir / f"{job['id']}.hang_test").write_text("the watchdog self-test made this run hang")
+            time.sleep(10 ** 6)
         try:
             info = run_job(bank, job, out_dir)
             (out_dir / f"{job['id']}.json").write_text(json.dumps(info))
-            print(f"  done {job['id']}  {info['seconds']} s  n_train {info['n_train']}  real share {info['real_share']:.2f}", flush=True)
+            print(f"  done {job['id']}  {info['seconds']} s  n_train {info['n_train']}  real share {info['real_share']:.2f}{gpu_release(bank.dev)}", flush=True)
         except Exception:
             failed += 1
             (out_dir / f"{job['id']}.error.txt").write_text(traceback.format_exc())
             print(f"  FAILED {job['id']}:\n{traceback.format_exc()}", flush=True)
+            gpu_release(bank.dev)
     return 1 if failed else 0
 
 
+STALL_S = 900.0        # a worker that finishes no run for this long is stuck (a healthy run takes 20 s to 4 min); set by --stall-minutes
+
+
 def run_jobs(run_dir: Path, jobs: list[dict[str, Any]], device: str, workers: int, fh: Any, tag: str) -> None:
-    """Deal the jobs out to `workers` processes that share the GPU; wait; copy their output into the log."""
-    todo = [j for j in jobs if not (run_dir / "jobs" / f"{j['id']}.npz").exists()
-            or (j.get("save_model") and not (run_dir / "jobs" / f"{j['id']}.pt").exists())]
+    """Deal the jobs out to `workers` processes that share the GPU; wait; copy their output into the log.
+
+    Watchdog: a worker that finishes no run for STALL_S seconds is stopped and its remaining runs go to a fresh
+    process, the run it was stuck on last. After two restarts its remaining runs are given up (the warning at the
+    end names them; the same command with --stamp does them). On 2026-11-14 one stuck worker cost 2.5 hours."""
+    def pending(j: dict[str, Any]) -> bool:
+        return (not (run_dir / "jobs" / f"{j['id']}.npz").exists()
+                or bool(j.get("save_model") and not (run_dir / "jobs" / f"{j['id']}.pt").exists()))
+
+    todo = [j for j in jobs if pending(j)]
     log(f"\n=== {tag}: {len(jobs)} training runs, {len(todo)} to do, {min(workers, max(len(todo), 1))} at a time on {device}", fh)
     if not todo:
         return
     t0 = time.time()
     todo = sorted(todo, key=lambda j: (str(j.get("synth")), str(j.get("synth_fold")), j["id"]))
-    procs = []
-    for k in range(min(workers, len(todo))):
-        part = todo[k::workers]
+
+    def start(k: int, part: list[dict[str, Any]], first: bool) -> dict[str, Any]:
         jf = run_dir / f"jobs_{tag}_{k}.json"
         jf.write_text(json.dumps(part))
-        out = open(run_dir / f"worker_{tag}_{k}.txt", "w", encoding="utf-8")
-        procs.append((subprocess.Popen([sys.executable, "-m", "recall.suite", "worker", "--run", str(run_dir), "--jobs", str(jf),
-                                        "--device", device], cwd=REPO, stdout=out, stderr=subprocess.STDOUT, env=child_env()), out, k))
-    for proc, out, k in procs:
-        proc.wait()
-        out.close()
+        out = open(run_dir / f"worker_{tag}_{k}.txt", "w" if first else "a", encoding="utf-8")
+        proc = subprocess.Popen([sys.executable, "-m", "recall.suite", "worker", "--run", str(run_dir), "--jobs", str(jf),
+                                 "--device", device], cwd=REPO, stdout=out, stderr=subprocess.STDOUT, env=child_env())
+        return {"proc": proc, "out": out, "part": part, "seen": time.time(), "size": -1, "restarts": 0}
+
+    n = min(workers, len(todo))
+    live = {k: start(k, todo[k::workers], True) for k in range(n)}
+    while live:
+        time.sleep(1.0)
+        for k in list(live):
+            w = live[k]
+            size = (run_dir / f"worker_{tag}_{k}.txt").stat().st_size
+            if size != w["size"]:                               # it printed: a run finished (or failed) since the last look
+                w["size"], w["seen"] = size, time.time()
+            if w["proc"].poll() is not None:
+                w["out"].close()
+                del live[k]
+            elif STALL_S > 0 and time.time() - w["seen"] > STALL_S:
+                w["proc"].kill()
+                w["proc"].wait()
+                w["out"].close()
+                rest = [j for j in w["part"] if pending(j)]
+                again = bool(rest) and w["restarts"] < 2
+                log(f"{tag}: worker {k} finished no run for {STALL_S / 60:.1f} min (stuck on {rest[0]['id'] if rest else 'nothing'}): stopped; "
+                    + (f"its {len(rest)} remaining runs go to a fresh process, the stuck one last" if again else f"giving up on its {len(rest)} remaining runs"), fh)
+                if again:
+                    live[k] = dict(start(k, rest[1:] + rest[:1], False), restarts=w["restarts"] + 1)
+                else:
+                    del live[k]
+    for k in range(n):
         fh.write((run_dir / f"worker_{tag}_{k}.txt").read_text(encoding="utf-8", errors="replace"))
     errors = sorted((run_dir / "jobs").glob("*.error.txt"))
     log(f"{tag}: finished in {time.time() - t0:.0f} s; {len(errors)} failed run(s)" + (f": {[e.name for e in errors[:5]]}" if errors else ""), fh)
@@ -1016,6 +1073,7 @@ def main_run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global STALL_S
     ap = argparse.ArgumentParser(prog="python -m recall.suite", description="Leave-one-human-out experiment suite (see the file header)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
@@ -1031,6 +1089,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--arms", default="", help="only these arms (comma-separated; default: all)")
     r.add_argument("--finals", default="", help="also train and export these arms on everyone (comma-separated), whatever their rank")
     r.add_argument("--workers", type=int, default=0, help="training runs sharing the GPU (default 4 on CUDA, else 1)")
+    r.add_argument("--stall-minutes", type=float, default=STALL_S / 60,
+                   help="stop and restart a worker that finishes no training run for this long (default 15; 0 = never)")
     r.add_argument("--cpu-workers", type=int, default=0, help="CPU processes for the generator's random draws (default: all cores)")
     r.add_argument("--stamp", default="", help="reuse a run folder (finishes what is missing)")
     r.add_argument("--skip-parity", action="store_true")
@@ -1046,8 +1106,12 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("--arms", required=True, help="recipes to train on everyone (comma-separated)")
     f.add_argument("--device", default="cuda", choices=["cuda", "mps", "cpu"])
     f.add_argument("--workers", type=int, default=0, help="training runs at a time (default 4 on CUDA, else 1)")
+    f.add_argument("--stall-minutes", type=float, default=STALL_S / 60,
+                   help="stop and restart a worker that finishes no training run for this long (default 15; 0 = never)")
     args = ap.parse_args(argv)
     sys.path.insert(0, str(REPO))
+    if hasattr(args, "stall_minutes"):
+        STALL_S = float(args.stall_minutes) * 60.0
     if args.cmd == "run":
         return main_run(args)
     if args.cmd == "finals":
