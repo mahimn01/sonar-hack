@@ -24,7 +24,7 @@ simulator artefacts, and to hand the team a pre-trained starting point.
 How to run (from the repo root)
 -------------------------------
     cd ~/Documents/Dev/sonar-hack
-    datagen/.venv/bin/python -m datagen.train_check --data datagen/out/synth_v1 --core-sim 40
+    datagen/.venv/bin/python -m datagen.train_check --data datagen/out/synth_v5 --core-sim 40
 
 What it changes: writes pretrained.pt and train_check.json into the --data
 folder. Nothing else. No audio devices.
@@ -246,7 +246,7 @@ def main() -> None:
     ap.add_argument("--data", required=True, help="folder made by datagen.generate (several: comma-separated)")
     ap.add_argument("--epochs", type=int, default=14)
     ap.add_argument("--core-sim", type=int, default=0, help="test on N clips per gesture from sonar/sim.py")
-    ap.add_argument("--real", default="", help="folder with REAL examples in the same features.npz format, to test on")
+    ap.add_argument("--real", default="", help="folder holding a dataset.npz of REAL examples (as written by python -m sonar.dataset), to test on")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()

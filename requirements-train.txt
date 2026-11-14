@@ -1,0 +1,7 @@
+# Training machine (Mac Studio / RTX 4090 box): runtime packages plus PyTorch, tests and plots.
+# The demo laptop only needs requirements.txt (training there on CPU also works: add these).
+-r requirements.txt
+torch>=2.2           # 2.15.0 (CUDA, Apple MPS or CPU is picked automatically)
+onnx>=1.15           # 1.23.2 (model export)
+pytest>=8            # 9.2.0
+matplotlib>=3.8      # 3.11.2 (only for `python -m sonar.plot`)

@@ -21,7 +21,7 @@ adapt to the real laptop, instead of hours of hand recording.
 How to run (from the repo root)
 -------------------------------
     cd ~/Documents/Dev/sonar-hack
-    datagen/.venv/bin/python -m datagen.generate --out data/synth_v1 --per-class 500
+    datagen/.venv/bin/python -m datagen.generate --out datagen/out/synth_v5 --per-class 650
 
 Useful options: --workers 8, --save-audio 20 (keep the first 20 clips per class
 as FLAC so you can listen / replay them), --min-snr 6 (drop gestures too faint
@@ -29,8 +29,8 @@ to see), --seed 0, --profile default|low|mono|split (core signal profile).
 
 Best realism, once the demo laptop has recorded a few minutes of "nobody
 gesturing" with the probe signal playing (people may sit, type, walk past):
-    datagen/.venv/bin/python -m datagen.generate --out data/synth_real_bg \
-        --per-class 500 --background recordings/background1.wav,recordings/background2.wav
+    datagen/.venv/bin/python -m datagen.generate --out datagen/out/synth_real_bg \
+        --per-class 650 --background data/<scene session>/audio.wav
 Then the laptop, room and noise in every example are REAL and only the hand is
 synthetic (see background.py). --background-share 0.7 mixes both kinds.
 

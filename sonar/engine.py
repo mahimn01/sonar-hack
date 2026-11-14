@@ -30,6 +30,7 @@ import argparse
 import sys
 import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any, Callable
 
@@ -52,6 +53,7 @@ class GestureDecider:
 
     Rules, in order:
       * (in Engine) the burst closed while somebody was walking in  -> ignored
+      * (in Engine) the movement was beyond the hand zone (> 0.6 m)  -> ignored
       * "none" or confidence below `min_confidence`               -> ignored
       * within `seg_refractory_frames` of the last gesture        -> ignored
       * the opposite of the last gesture within 1.2 s             -> ignored (the hand coming back)
@@ -181,10 +183,27 @@ class Engine:
         self._running = False
         self._want_recalibrate = False
         self._entering_until = -1
-        self.gate_entering = True
+        self.gate_entering = True                      # ignore bursts while somebody is walking in
+        self.gate_range = True                         # ignore bursts whose movement is beyond the hand zone
+        self._zones: deque[tuple[int, float, float]] = deque(maxlen=200)
+        self._far_until = -1
+        self._bins_hz = [round(float(f), 2) for f in self.cfg.doppler_hz]
+        self._last_presence: Any = None
+        self._proc_ms = 0.0
+        self.min_peak_db = self.cfg.seg_min_peak_db    # bursts weaker than this are never gestures
         self.error: BaseException | None = None
 
     # -- public API ----------------------------------------------------------------------
+    def set_classifier(self, classifier: Any) -> None:
+        """Swap the gesture classifier (model or physics rules) and adopt what its training recorded."""
+        self.classifier = classifier
+        self.decider.classifier = classifier
+        meta = getattr(classifier, "meta", {})
+        # Real gestures in the training recordings had at least `gesture_peak_db_p10`; anything
+        # 6 dB weaker than that (a person walking past far away) is not worth classifying.
+        if "gesture_peak_db_p10" in meta:
+            self.min_peak_db = max(self.cfg.seg_min_peak_db, float(meta["gesture_peak_db_p10"]) - 6.0)
+
     def on_event(self, callback: Callable[[Event], None]) -> None:
         """Register a function that receives every event dict (called from the engine thread)."""
         self._callbacks.append(callback)
@@ -207,10 +226,11 @@ class Engine:
             "frame_rate": cfg.frame_rate,
             "tones_hz": list(cfg.tone_hz),
             "chirp_band_hz": [cfg.chirp_lo_hz, cfg.chirp_hi_hz],
-            "doppler_hz": [float(cfg.doppler_hz[0]), float(cfg.doppler_hz[-1])],
+            "doppler_range_hz": [float(cfg.doppler_hz[0]), float(cfg.doppler_hz[-1])],
             "doppler_bins": cfg.doppler_bins,
             "profile": self.profile,
             "backend": getattr(self.backend, "name", "custom"),
+            "source": getattr(self.backend, "name", "custom"),
             "classifier": self.classifier.source,
         }
 
@@ -256,6 +276,10 @@ class Engine:
             "activity_db": round(self.pipeline.segmenter.activity_db, 1),
             "classifier": self.classifier.source,
             "backend": getattr(self.backend, "name", "custom"),
+            "source": getattr(self.backend, "name", "custom"),
+            "device": getattr(self.backend, "info", {}).get("input", getattr(self.backend, "name", "")),
+            "latency_ms": round(self._proc_ms + 1000.0 * getattr(self.backend, "block", getattr(self.backend, "blocksize", 1920)) / cfg.fs, 1),
+            "min_peak_db": round(self.min_peak_db, 1),
             "profile": self.profile,
             "tones_hz": list(cfg.tone_hz),
             "chirp_band_hz": [cfg.chirp_lo_hz, cfg.chirp_hi_hz],
@@ -285,9 +309,27 @@ class Engine:
             # presence state is "entering" and for half a second after.
             if p is not None and p.state == "entering":
                 self._entering_until = fr.index + fps // 2
+            if p is not None:
+                self._zones.append((fr.index, p.near_db, p.far_db))
             if fr.segment is not None and fr.window is not None:
-                if self.gate_entering and fr.index < self._entering_until:
-                    self.decider.last_decision = {"label": "blocked:entering", "confidence": 0.0, "peak_db": fr.segment.peak_db}
+                blocked = ""
+                if fr.segment.peak_db < self.min_peak_db:
+                    blocked = "weak"                    # far weaker than a real gesture on this set-up
+                elif self.gate_entering and fr.index < self._entering_until:
+                    blocked = "entering"
+                elif self.gate_range and fr.index < self._far_until:
+                    blocked = "far"                     # somebody was just walking by: wait 2 s
+                elif self.gate_range:
+                    # Range gate (from the chirp): where was the gross movement during this burst?
+                    # A hand moves in the near zone; a body walking past or away moves further out.
+                    zone = [(n, f) for i, n, f in self._zones if fr.segment.start <= i <= fr.segment.end]
+                    if zone:
+                        near, far = max(z[0] for z in zone), max(z[1] for z in zone)
+                        if far > cfg.gate_far_db and far - near > cfg.gate_far_margin_db:
+                            blocked = "far"
+                            self._far_until = fr.index + 2 * fps
+                if blocked:
+                    self.decider.last_decision = {"label": f"blocked:{blocked}", "confidence": 0.0, "peak_db": fr.segment.peak_db}
                 else:
                     events += self.decider.on_segment(fr.index, fr.segment, fr.window)
             events += self.decider.tick(fr.index, self.pipeline.segmenter.active)
@@ -319,6 +361,9 @@ class Engine:
                         "range_m": None if b.range_m is None else round(b.range_m, 2),
                         "amplitude_mm": round(b.amplitude_mm, 2),
                         "window_s": round(b.window_s, 1),
+                        # somebody is there, did not walk away, and nothing at all has moved for 5 s
+                        "apnea": bool(p is not None and p.state == "present" and p.motionless_s >= 5.0),
+                        "motionless_s": 0.0 if p is None else round(p.motionless_s, 1),
                     }
                 )
 
@@ -331,7 +376,7 @@ class Engine:
                             "type": "spectrogram",
                             "rows": self._rows,
                             "n_bins": cfg.doppler_bins,
-                            "doppler_hz": [float(cfg.doppler_hz[0]), float(cfg.doppler_hz[-1])],
+                            "bins_hz": self._bins_hz,
                             "frame_s": cfg.frame_len / cfg.fs,
                         }
                     )
@@ -366,7 +411,10 @@ class Engine:
                 if self.backend.pop_discontinuity():
                     self._dropped += 1
                     self.pipeline.notify_discontinuity()
-                self._dispatch(self.step(rx))
+                t0 = time.perf_counter()
+                events = self.step(rx)
+                self._proc_ms += 0.1 * (1000.0 * (time.perf_counter() - t0) - self._proc_ms)
+                self._dispatch(events)
         except BaseException as exc:
             self.error = exc
             self._dispatch(self._stamp([{"type": "error", "message": str(exc)}]))
@@ -426,6 +474,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--swipe-hold", type=float, default=0.3, help="seconds a swipe is held to tell wind-up from stroke (0 = off)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--no-range-gate", action="store_true", help="do not veto bursts whose movement is beyond the hand zone")
+    ap.add_argument("--min-peak-db", type=float, help="ignore bursts weaker than this (default: from the model, else 3 dB)")
     ap.add_argument("--no-ws", action="store_true", help="do not start the WebSocket server (console only)")
     ap.add_argument("--no-spectrogram", action="store_true", help="do not send spectrogram events")
     ap.add_argument("--in-device", help="microphone: index or part of its name")
@@ -462,8 +512,10 @@ def main(argv: list[str] | None = None) -> int:
             cfg, backend, min_confidence=args.min_confidence, swipe_hold_s=args.swipe_hold,
             emit_spectrogram=not args.no_spectrogram, profile=args.profile,
         )
-        engine.classifier = load_classifier(args.model, engine.cfg, force_physics=args.physics)
-        engine.decider.classifier = engine.classifier
+        engine.gate_range = not args.no_range_gate
+        engine.set_classifier(load_classifier(args.model, engine.cfg, force_physics=args.physics))
+        if args.min_peak_db is not None:
+            engine.min_peak_db = args.min_peak_db
     except (AudioError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

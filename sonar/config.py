@@ -97,6 +97,8 @@ class SonarConfig:
     seg_hang_frames: int = 10       # quiet frames that end a segment (0.2 s) = decision latency
     seg_refractory_frames: int = 20 # dead time after any accepted gesture (0.4 s)
     seg_opposite_lockout_frames: int = 60   # ignore the "hand coming back" gesture for 1.2 s
+    gate_far_db: float = 12.0       # range gate: a burst is not a hand gesture if gross movement beyond
+    gate_far_margin_db: float = 6.0 #   0.6 m is this strong AND this much stronger than in the hand zone
     impulse_outer_hz: float = 200.0 # clicks/claps light up |f| above this as much as below
     impulse_ratio: float = 0.6      # outer-band excess / inner-band excess that marks a click
 

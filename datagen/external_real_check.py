@@ -38,7 +38,7 @@ Getting the data (354 MB, no licence stated: evaluation only, do not redistribut
 How to run (from the repo root; -I because the wav files are downloaded data)
     cd ~/Documents/Dev/sonar-hack
     datagen/.venv/bin/python -I -c "import sys; sys.path.insert(0, '.'); from datagen.external_real_check import main; main()" \\
-        --wavs /path/to/SingleGesture/wavs --model datagen/out/synth_v2/pretrained.pt
+        --wavs /path/to/SingleGesture/wavs --model datagen/out/synth_v5/pretrained.pt
 
 What it changes: nothing (prints a table). Read-only.
 """

@@ -35,7 +35,12 @@ FEATURE_FIELDS = (
 class PhysicsClassifier:
     source = "physics"
 
-    def __init__(self, cfg: SonarConfig) -> None:
+    def __init__(self, cfg: SonarConfig, meta: dict[str, Any] | None = None) -> None:
+        self.meta = meta or {}
+        # train.py measures on recorded swipes which way round this laptop's speakers / mics are.
+        h = self.meta.get("heuristic", {})
+        if "w_speakers" in h and "w_mics" in h and (h["w_speakers"] or h["w_mics"]):
+            cfg = cfg.with_(heur_w_speakers=float(h["w_speakers"]), heur_w_mics=float(h["w_mics"]))
         self.cfg = cfg
         self.labels = GESTURE_LABELS
 
@@ -82,7 +87,14 @@ def _norm(v: Any) -> Any:
 
 
 def load_classifier(model: str | Path | None, cfg: SonarConfig, force_physics: bool = False) -> PhysicsClassifier | OnnxClassifier:
-    """The trained model if `model` exists (and physics is not forced), else the physics rules."""
+    """The trained model if `model` exists (and physics is not forced), else the physics rules.
+
+    The physics rules still read `<model>.json` if it exists, to pick up the cue signs and
+    the typical gesture strength measured from the recordings.
+    """
     if not force_physics and model is not None and Path(model).exists():
         return OnnxClassifier(model, cfg)
-    return PhysicsClassifier(cfg)
+    meta: dict[str, Any] = {}
+    if model is not None and Path(model).with_suffix(".json").exists():
+        meta = json.loads(Path(model).with_suffix(".json").read_text())
+    return PhysicsClassifier(cfg, meta)

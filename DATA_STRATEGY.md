@@ -15,7 +15,7 @@ Do not hand-record hours. Do these four things, in this order.
 
 1. **Fix the gesture definitions and the hardware level first (15 min, Section 6 and 7).** This removes more errors than any dataset.
 2. **Record about 27 minutes of real audio from many different people, a few repetitions each (Section 5).** The judge is a stranger, so variety of people beats volume.
-3. **Pre-train on synthetic gestures laid over your own real background recordings, then fine-tune on the real clips.** The generator is in `datagen/` and runs unattended (3,900 clips in about 9 minutes on the Mac Studio, measured with other jobs running).
+3. **Pre-train on synthetic gestures laid over your own real background recordings, then fine-tune on the real clips.** The generator is in `datagen/` and runs unattended (3,900 clips in 7-9 minutes on the Mac Studio, two runs, with other jobs running).
 4. **Keep two safety nets:** the physics rules that need no training, and a 30-second "do each gesture 3 times" calibration at the demo table.
 
 Skip tonight: public-dataset pre-training, self-supervised pre-training, camera auto-labelling (reasons in Section 3).
@@ -26,10 +26,10 @@ Skip tonight: public-dataset pre-training, self-supervised pre-training, camera 
 |---|---|---|
 | Do simulated gestures look like real ones? | Yes. On 191 real public clips (other hardware), a push is one upward hump, a pull one downward hump, a slide an up-then-down S: the same shapes the simulator draws. Picture: `datagen/examples/real_vs_sim.png`. | The physics transfers. |
 | Does the simplest physics rule work on real audio? | Push vs pull by the sign of the pitch shift: **96 of 96 real clips correct.** | Direction of motion is safe to rely on. |
-| Is a model trained only on synthetic data ready? | **No.** A CNN trained on the first version of the simulator recognised 8 of 96 real pushes and pulls. After the simulator was recalibrated against the real pictures (slower strokes, thicker arm echo, louder echoes): **68 of 96 (71%)**, never confusing push with pull; the misses were called "none". On held-out synthetic clips the same model scores 85.5% and almost never mixes up two gestures. | Shapes transfer, the "is this a gesture or nothing" threshold does not. |
-| How much do a few real clips help? | On the real clips (none / slide / push / pull), fine-tuning the synthetic-trained model beat training from scratch at every size: **89 vs 70%** with 1 real clip per class, **92 vs 78%** with 3, **94.5 vs 82%** with 5, **96.5 vs 91%** with 10. Three real clips with pre-training beat ten without. | A handful of real clips per gesture is what closes the gap. |
-| Are rules alone enough? | In a harsh simulated hall (wind-ups, fidgeting, bystanders): the core's rules got swipes right 76-82% of the time, but called 52% of non-gesture movement a gesture and missed most one-way pushes and pulls. The trained model on the same clips: 85.5% overall, 8% of non-gesture movement called a gesture. | Fine as a fallback, not as the demo. |
-| Does left/right survive a change of simulator? | A model trained only on my simulator was tested on the core package's separately written simulator: when it called a swipe, the direction was right 11 of 12 times. Push and pull did not carry over, because the two simulators define them differently (tap-and-return vs approach-and-hold). | The two direction cues are robust; wiring (which channel is left) must be checked once on the laptop. |
+| Is a model trained only on synthetic data ready? | **Not on its own, but closer than expected.** The first attempt recognised 8 of 96 real pushes and pulls. After recalibrating the simulator against the real pictures (slower strokes, thicker arm echo, louder echoes) and fixing a flaw in my test network, the final one recognises **83 of 96 (86%)**, never confusing push with pull; the misses are called "none". On held-out synthetic clips it scores 85% and almost never mixes up two gestures. | Shapes transfer well once the simulator is checked against real pictures. Where "a gesture" ends and "just moving" begins still has to come from real data. |
+| How much do a few real clips help? | On the real clips (none / slide / push / pull), fine-tuning the synthetic-trained model beat training from scratch at every size: **94 vs 76%** with 1 real clip per class, **94 vs 83%** with 3, **95.5 vs 87%** with 5, **97 vs 92%** with 10. One real clip per class with pre-training beat ten without. | A handful of real clips per gesture is what closes the gap. |
+| Are rules alone enough? | In a harsh simulated hall (wind-ups, fidgeting, bystanders): the core's rules got swipes right 80% of the time, but called 49% of non-gesture movement a gesture and missed most one-way pushes and pulls. The trained model on the same clips: 85% overall, 11% of non-gesture movement called a gesture. | Fine as a fallback, not as the demo. |
+| Does left/right survive a change of simulator? | A model trained only on my simulator was tested on the core package's separately written simulator: when it called a swipe, the direction was right 14 of 14 times. Push and pull did not carry over, because the two simulators define them differently (tap-and-return vs approach-and-hold). | The two direction cues are robust; wiring (which channel is left) must be checked once on the laptop. |
 
 ---
 
@@ -48,6 +48,11 @@ Skip tonight: public-dataset pre-training, self-supervised pre-training, camera 
 | `tests/test_datagen.py` | 8 physics and format tests (pass). |
 
 Run everything from the repo root with `datagen/.venv/bin/python` (Section 8).
+
+Already on the Mac Studio (git-ignored, under `datagen/out/`):
+- `synth_v5/dataset.npz`: 3,900 synthetic clips = 6,378 training pictures in the core's dataset format (2,299 gesture strokes, 1,885 hand-raise / hand-return bursts, 1,537 other movement, 657 idle). The core segmenter did not pick up 301 of the 2,600 scripted strokes; those are not labelled as gestures.
+- `pretrain_core_3g/gesture.pt` and `gesture.onnx` (swipe_left, swipe_right, push) and `pretrain_core/` (the same plus pull): **the core's own model, trained by the core's own `train.py` on that set.** On held-out synthetic clips the 3-gesture model recognises 76-92% of each gesture and never confuses left with right; at the engine's 0.6 confidence threshold it recognises 71% of gestures and 9% of non-gesture pictures would trigger. Use it as the `--init` starting point for tonight's real fine-tuning. The engine can load the ONNX file now, but treat that as a smoke test, not as the demo model.
+- The whole chain was run once with the documented commands on stand-in sessions made by the core recorder's simulator mode: record, generate on that background, fine-tune from the pre-trained weights with a held-out person, export ONNX. It ran clean. That proves the plumbing, not the accuracy.
 
 ---
 
@@ -116,9 +121,9 @@ Run everything from the repo root with `datagen/.venv/bin/python` (Section 8).
 
 Expected accuracy, stated as estimates:
 - **Rules only:** fine for the presenter's own deliberate gestures in a quiet moment; unreliable with a fidgeting stranger. In the simulated hall test the rules called about half of all non-gesture movement a gesture.
-- **Synthetic only:** not demo-ready (Section 1).
+- **Synthetic only:** 86% of real pushes and pulls on other hardware, and left/right is untested on real audio. Not demo-ready on its own.
 - **Real only, about 165 clips:** likely 85-93% for people in the set, lower for strangers. Reference: 93.6% on 3 unseen users from 1,920 clips of 4 users ([Ibrahim et al.](https://arxiv.org/abs/2108.02148)).
-- **Synthetic pre-training + real fine-tune:** the best option. On real public clips, 5 real examples per class gave 94.5% with synthetic pre-training against 82% without. Expect roughly 90-95% for enrolled people and 80-90% for strangers on swipe-left / swipe-right / push. These are estimates until step 5 measures them.
+- **Synthetic pre-training + real fine-tune:** the best option. On real public clips, 5 real examples per class gave 95.5% with synthetic pre-training against 87% without. Expect roughly 90-95% for enrolled people and 80-90% for strangers on swipe-left / swipe-right / push. These are estimates until step 5 measures them.
 - **Plus calibration at the table:** protects that number when the venue changes.
 
 Robustness trade-off: every step that raises recall also raises false triggers. Pick the operating point on real negatives (session S1), not on the gesture clips.
@@ -143,11 +148,26 @@ Record continuous sessions with prompts, not isolated clips: the moments between
 Totals: about 27 minutes of audio, about 40 minutes of wall-clock time, about 165 gesture clips without pull (45 presenter + 120 crowd).
 Bare minimum if the night runs out: S0 + S1 + S3 (9 minutes of audio).
 
+The core recorder already does this (it prompts on screen, saves one continuous recording per session, and shows after each trial what the physics rules made of it):
+
+```bash
+# on the Windows demo laptop
+py -3.12 -m sonar.record --person presenter --script scene                       # S0-S2 and the walk-ins of S5, about 4 min
+py -3.12 -m sonar.record --person presenter --script gestures --reps 15 --gestures swipe_left,swipe_right,push   # S3
+py -3.12 -m sonar.record --person guest1 --script gestures --reps 5 --gestures swipe_left,swipe_right,push       # S4, once per guest
+py -3.12 -m sonar.record --person presenter --script breathing                   # S5 breathing, about 2.5 min
+```
+
+How this differs from DESIGN.md section 7: that plan assumes training on real data only and targets 4 people × 3 gesture sessions = 576 gestures, about 2 hours with changeovers. With synthetic pre-training, tonight's evidence says far fewer repetitions are needed, so this plan trades repetitions for people: 9 people, about 165 gestures, about 40 minutes. Everything else in DESIGN.md section 7 still applies (vary distance and speed, let the hand drop instead of swiping back, fixed Windows volume, one session at the demo table on demo morning). If the stranger test in step 5 comes out weak, grow towards the DESIGN.md target, adding people first.
+
+Give every guest their own `--person` name: the trainer holds out whole people with `--val-person`.
+The `scene` sessions (no prompted gestures) are the real backgrounds for `datagen.generate --background`.
+
 Rules that make the data worth having:
 - **Hold out two crowd people entirely** as the test set. Never report accuracy on people who are in the training set.
 - More people beats more repetitions. If the stranger test is weak, add people.
 - Right after each session, run the physics QA on it and re-record clips where the measured direction disagrees with the prompt.
-- Re-run `datagen.generate` whenever the core feature code changes: `features.npz` is only a cache of that code.
+- Re-run `datagen.generate` whenever the core signal or feature code changes: `dataset.npz` is only a cache of that code.
 
 ---
 
@@ -157,7 +177,7 @@ Rules that make the data worth having:
 2. **Define push as "move the hand at the screen and hold it there for half a second".** In the real public data a push is exactly that single approach. A push defined as tap-and-return is half a pull.
 3. **Swipe with the hand that starts on that side.** Swiping left with the right hand needs no wind-up. Swiping right with the right hand first carries the hand left, which is a real leftward motion. Tell judges: "sweep once, from where your hand is".
 4. **Map "next slide" to the direction that tests better on real data,** and treat an uncertain direction as "next". A wrong "next" is invisible; a wrong "back" is embarrassing.
-5. **Brisk and close.** In simulation, recognition fell from 81% for loud echoes (30 dB or more above the noise) to 25% for faint ones (12-20 dB), and from 86% for strokes faster than 1.6 m/s to 50% for strokes slower than 0.6 m/s. Say "about a hand-length from the screen, like wiping a window".
+5. **Brisk and close.** In simulation, recognition fell from 82% for loud echoes (30 dB or more above the noise) to 47% for faint ones (12-20 dB), and from 87% for strokes faster than 1.6 m/s to 55% for strokes slower than 0.6 m/s. Say "about a hand-length from the screen, like wiping a window".
 6. **Presenter demonstrates first.** People copy what they just saw, so the judge's gesture lands inside the training set.
 
 ---
@@ -185,19 +205,21 @@ datagen/.venv/bin/python -m datagen.render_examples --out datagen/examples --cle
 # tests (8, about 5 s)
 datagen/.venv/bin/python -m pytest datagen/tests -q
 
-# synthetic training set (3,900 clips -> about 5,800 labelled examples in about 9 min on 8 cores)
+# synthetic training set (3,900 clips -> about 6,400 training pictures in 7-9 min on 8 cores)
 datagen/.venv/bin/python -m datagen.generate --out datagen/out/synth_v5 --per-class 650 --negatives 2
 
 # the same, built on REAL background recordings from the demo laptop (sessions S0-S2)
 datagen/.venv/bin/python -m datagen.generate --out datagen/out/synth_real_bg --per-class 650 \
-    --background data/S0/audio.wav,data/S1/audio.wav,data/S2/audio.wav
+    --background "data/<date-time>_presenter_scene/audio.wav"     # several files: comma-separated
 
-# 1) pre-train the CORE model on synthetic data with the core's own training script
-.venv/bin/python -m sonar.train --dataset datagen/out/synth_v5/dataset.npz --out datagen/out/pretrain_core --epochs 30
+# 1) pre-train the CORE model on synthetic data with the core's own training script.
+#    --labels must be the same list you will fine-tune with (the weights only load if the classes match).
+.venv/bin/python -m sonar.train --dataset datagen/out/synth_v5/dataset.npz --labels swipe_left,swipe_right,push \
+    --out datagen/out/pretrain_core_3g --epochs 30
 
 # 2) tonight's real run: fine-tune from those weights on the recorded sessions, test on a held-out person
 .venv/bin/python -m sonar.train --data data/ --dataset datagen/out/synth_real_bg/dataset.npz \
-    --init datagen/out/pretrain_core/gesture.pt --labels swipe_left,swipe_right,push \
+    --init datagen/out/pretrain_core_3g/gesture.pt --labels swipe_left,swipe_right,push \
     --val-person <name of a held-out person> --out models/
 
 # checks used for the numbers in this document

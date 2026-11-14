@@ -1,0 +1,8 @@
+# Runtime: everything needed on the demo laptop to self-test, record and run the engine.
+# Works on Windows 11 (Python 3.12) and macOS. Versions tested on 2026-11-13 are in the comments.
+numpy>=1.26          # 2.5.4
+scipy>=1.11          # 1.18.1
+sounddevice>=0.5.3   # 0.5.6  (bundles PortAudio with WASAPI on Windows)
+soundfile>=0.12      # 0.14.0 (24-bit WAV recording)
+websockets>=13       # 17.4   (event stream for the UI)
+onnxruntime>=1.17    # 1.32.0 (runs the trained gesture model on the CPU)

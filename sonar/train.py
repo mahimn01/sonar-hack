@@ -379,6 +379,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nphysics-classifier weights from {heur['n_swipes']} recorded swipes: "
           f"speakers {heur['w_speakers']:+.2f}, microphones {heur['w_mics']:+.2f}  (0 = that cue is useless on this device)")
 
+    # How strong were the real gestures? The engine ignores bursts far weaker than that.
+    real_gestures = (data["y"] != 0) & (data["source"] != "synthetic")
+    gesture_p10 = round(float(np.percentile(data["peak_db"][real_gestures], 10)), 1) if real_gestures.any() else None
+    if gesture_p10 is not None:
+        print(f"gesture strength: 10 % of the recorded gestures were below {gesture_p10} dB (engine will ignore bursts 6 dB weaker)")
+
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     onnx_path = out / f"{args.name}.onnx"
@@ -397,6 +403,7 @@ def main(argv: list[str] | None = None) -> int:
         "input_shape": list(in_shape),
         "config": cfg.to_dict(),
         "heuristic": heur,
+        **({"gesture_peak_db_p10": gesture_p10} if gesture_p10 is not None else {}),
         "metrics": {k: v for k, v in metrics.items() if k != "history"},
         "trained": time.strftime("%Y-%m-%d %H:%M:%S"),
         "torch": torch.__version__,

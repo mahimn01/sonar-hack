@@ -235,55 +235,59 @@ class LiveAudio:
         self._push(indata)
 
     # -- open / close ------------------------------------------------------------------
-    def _open(self, mode: str) -> None:
+    def _open(self, mode: str, blocksize: int) -> None:
         import sounddevice as sd
 
         extra = sd.WasapiSettings(exclusive=True) if self.exclusive else None
         common: dict[str, Any] = dict(
-            samplerate=self.cfg.fs, blocksize=self.blocksize, dtype="float32", latency=self.latency, dither_off=True
+            samplerate=self.cfg.fs, blocksize=blocksize, dtype="float32", latency=self.latency, dither_off=True
         )
+        self._streams = []          # filled one by one, so a half-opened pair is always closed again
         if mode == "separate":
             # Two event-driven streams (the robust path for WASAPI exclusive). Input first, so no
             # transmitted sound is missed while the output is still opening.
-            s_in = sd.InputStream(
+            self._streams.append(sd.InputStream(
                 device=self._in_dev["index"], channels=self.n_mics, extra_settings=extra, callback=self._in_cb, **common
-            )
-            s_out = sd.OutputStream(
+            ))
+            self._streams.append(sd.OutputStream(
                 device=self._out_dev["index"], channels=self.cfg.n_out, extra_settings=extra, callback=self._out_cb, **common
-            )
-            self._streams = [s_in, s_out]
+            ))
         else:
-            s = sd.Stream(
+            self._streams.append(sd.Stream(
                 device=(self._in_dev["index"], self._out_dev["index"]),
                 channels=(self.n_mics, self.cfg.n_out),
                 extra_settings=(extra, extra) if extra is not None else None,
                 callback=self._duplex_cb,
                 **common,
-            )
-            self._streams = [s]
+            ))
         for s in self._streams:
             s.start()
+        self.blocksize = blocksize
         self.info = {
             "mode": mode,
             "exclusive": self.exclusive,
             "input": self._in_dev["name"],
             "output": self._out_dev["name"],
             "samplerate": self.cfg.fs,
-            "blocksize": self.blocksize,
+            "blocksize": blocksize,
             "latency": [getattr(s, "latency", None) for s in self._streams],
         }
 
     def start(self) -> None:
-        order = ["separate", "duplex"] if self.mode == "auto" else [self.mode]
+        """Open the devices. Tries separate streams then one duplex stream, each with the requested
+        block size and then smaller ones (exclusive mode only accepts sizes the driver likes)."""
+        modes = ["separate", "duplex"] if self.mode == "auto" else [self.mode]
+        sizes = list(dict.fromkeys([self.blocksize, 960, 480, 0]))        # 0 = let PortAudio choose
         errors = []
-        for mode in order:
-            try:
-                self._open(mode)
-                self._last_rx = time.monotonic()
-                return
-            except Exception as exc:                       # try the next way of opening the devices
-                errors.append(f"{mode}: {exc}")
-                self._close()
+        for mode in modes:
+            for size in sizes:
+                try:
+                    self._open(mode, size)
+                    self._last_rx = time.monotonic()
+                    return
+                except Exception as exc:                   # try the next way of opening the devices
+                    errors.append(f"{mode}, block {size}: {exc}")
+                    self._close()
         hint = ""
         if self.exclusive:
             hint = (

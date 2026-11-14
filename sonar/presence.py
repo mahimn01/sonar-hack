@@ -48,6 +48,7 @@ class PresenceState:
     near_db: float          # gross-movement level in the hand zone (< 0.6 m)
     changed: bool           # True on the frame where `state` changed
     motionless_s: float = 0.0   # while present: seconds without ANY movement, breathing included
+    far_db: float = 0.0         # gross-movement level beyond the hand zone (> 0.6 m)
 
 
 def _alpha(tau_s: float, rate: float) -> float:
@@ -70,6 +71,7 @@ class PresenceDetector:
         valid = taps > cfg.direct_tap + 1                      # skip the direct path itself
         self._room = valid & (r <= cfg.presence_max_range_m)
         self._near = valid & (r <= cfg.presence_near_m)
+        self._far = valid & (r > cfg.presence_near_m)
         self._range = r
         self._calib_frames = int(calib_s * rate)
         self.reset()
@@ -165,6 +167,7 @@ class PresenceDetector:
         fast_db = self._top_mean_db(rf[self._room])
         slow_db = self._top_mean_db(rs[self._room])
         near_db = self._top_mean_db(rf[self._near])
+        far_db = self._top_mean_db(rf[self._far])
         fast_on = fast_db > cfg.presence_fast_thresh_db or doppler_db > cfg.presence_doppler_thresh_db
         slow_on = slow_db > cfg.presence_slow_thresh_db or vital
 
@@ -244,4 +247,5 @@ class PresenceDetector:
             near_db=near_db,
             changed=changed,
             motionless_s=float(motionless),
+            far_db=far_db,
         )
