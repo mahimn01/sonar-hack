@@ -1,0 +1,3 @@
+  done real_pre_lr03__final__s0  43.2 s  n_train 671  real share 1.00
+  done share50_pure__final__s1  133.7 s  n_train 20545  real share 0.50
+  done released__final__s2  103.9 s  n_train 16811  real share 0.05

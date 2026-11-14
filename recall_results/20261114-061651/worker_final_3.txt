@@ -1,0 +1,3 @@
+  done share50_pure__final__s0  136.9 s  n_train 20545  real share 0.50
+  done released__final__s1  108.1 s  n_train 16811  real share 0.05
+  done share50_speed__final__s2  52.6 s  n_train 16811  real share 0.50
