@@ -224,6 +224,26 @@ def test_stored_reference_matches_the_fixture():
         assert needle in names
 
 
+def test_two_clip_types_do_not_stall_the_generator(tmp_path):
+    """A run that mixes clips laid over a real recording with pure simulation must finish.
+
+    The two types cannot share a GPU batch. Here 3 + 3 of them get planned, a batch holds 4 and 6 plans are
+    made ahead: neither type fills a batch and no more plans are made. The scheduler used to spin at that
+    point for ever (round 3 on the 4090: the "bg" sets, which lay 70 % of their clips over real recordings).
+    """
+    from datagen.gpu_pipeline import generate_gpu
+
+    background = parity.build_background(tmp_path)
+    kinds = ("none", "present", "swipe_left", "none", "wave", "none", "present", "none", "none", "present")
+    jobs = [_job(9400000 + i, kind, backgrounds=(background,), bg_share=1.0 if i % 2 == 0 else 0.0)
+            for i, kind in enumerate(kinds)]
+    stats: dict = {}
+    results = list(generate_gpu(jobs, None, "cpu", workers=1, batch=4, stats=stats))
+    assert [r["meta"]["seed"] for r in results] == [job[0] for job in jobs]                 # every clip, in job order
+    assert [r["meta"]["real_background"] for r in results] == [i % 2 == 0 for i in range(len(jobs))]
+    assert stats["part_batches"] >= 1          # the hold-up was met, and a part-filled batch got things moving again
+
+
 @pytest.mark.slow
 def test_gpu_pipeline_matches_cpu_reference(tmp_path):
     """The whole check on a small sample of the fixture: CPU reference against the GPU code run on the CPU."""

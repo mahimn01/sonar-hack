@@ -394,6 +394,8 @@ def main() -> None:
               f"feature filter: {gpu_stats.get('feature_filter')}")
         print(f"  GPU path on {gpu_stats['device']}: batch {gpu_stats['batch']}, precision {gpu_stats['precision']}, {gpu_stats['batches']} batches, "
               f"render {gpu_stats['render_s']:.1f} s, features {gpu_stats['features_s']:.1f} s, {gpu_stats['redraws']} redraws"
+              + (f"; {gpu_stats['part_batches']} of the batches went out part-filled (clips over real recordings and pure "
+                 "simulation cannot share a batch)" if gpu_stats.get("part_batches") else "")
               + (f"; {gpu_stats['oom_splits']} batch(es) did not fit in GPU memory and were split: use --gen-batch "
                  f"{max(8, gpu_stats['batch'] // 2)}" if gpu_stats.get("oom_splits") else ""))
     y = np.array(ys, dtype=np.int64)

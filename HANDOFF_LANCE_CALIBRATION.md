@@ -4,6 +4,52 @@ Everything here runs on the 4090 box, from the repo folder, in **Windows PowerSh
 after `git pull`. The new code was smoke-tested on a Mac with the GPU code running on the CPU; it has not run
 on a CUDA card yet, so the short steps come first. If one fails, the last section says what to do.
 
+## Update, 14 Nov, 1 pm: the hang in part E is fixed. What to run now
+
+**What happened.** Part E stopped twice on its first set, with the log frozen after `12000 clips on cuda`, the
+GPU idle and one Python thread spinning. Your dumps pointed at the right place, thank you. The cause was my
+bug in the loop that feeds the GPU, and it has nothing to do with the new burst cutting:
+
+- The `_bg` sets lay 70 % of their clips over the real recordings and make the other 30 % by pure simulation.
+  Those two kinds of clip cannot go into the same GPU batch.
+- The loop prepares 325 clips ahead and sends a batch when one kind has 217 ready. After the first batch the
+  325 were split about 165 / 160: neither kind had a full batch, the queue was full so nothing more was
+  prepared, and the loop waited for ever. (Your manifest held 27 lines: exactly the first 8 clips of that set,
+  up to the first pure-simulation clip. The same set made here on the CPU gives the same 27.)
+- **So every `_bg` set is affected, also the four of part C** (`macbook_v2_bg\...`), with the usual cutting
+  too: there the manifest should stop at 19 lines. The `_motion` and plain sets hold one kind of clip and are fine,
+  and so is everything `train_4090.ps1` makes (parts B and F).
+
+**The fix** (in `gpu-train` after `git pull`): when the queue is full and no kind has a full batch, a
+part-filled batch goes out, the one holding the earliest clip. If the loop ever again has nothing to wait
+for, it now stops with a message instead of spinning. Sets with one kind of clip come out byte for byte as
+before, so nothing you already made needs to be made again.
+
+**What to run now, in this order** (each can be stopped and started again; finished sets are skipped):
+
+```powershell
+# 1. if a set maker is still running and stuck on a _bg set (log frozen, GPU idle): stop it with Ctrl+C
+git pull
+Select-String -Path datagen\gpu_pipeline.py -Pattern "held_up" -Quiet      # must print True: the fix is here
+# 2. part C again, same command: it skips the sets that are done and makes the missing ones (the four _bg sets)
+.venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,motion,plain 2>&1 | Tee-Object round3\r3_sets.log
+# 3. part E: the bg and plain sets cut the new way
+.venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,plain --rel-off-db 12 2>&1 | Tee-Object round3\r3_sets_rel12.log
+```
+How to tell it works: within a minute of `12000 clips on cuda` the first progress line appears
+(`  200/12000 clips, ...`), and each `_bg` set ends with a line like
+`GPU path on cuda:0: batch 217, ... 0 redraws; 27 of the batches went out part-filled (clips over real recordings and pure simulation cannot share a batch)`.
+A `_bg` set should take about as long as the others, about 3 minutes (worked out, not yet measured on your card).
+
+**Two more things, whenever convenient:**
+
+- `models-release-cal\` is not on `model-sat-am` yet (only the logs of part B are). Please add it:
+  `gesture.onnx`, `gesture.json`, `gesture.pt`, `metrics.json`, `confusion.txt`, `TRAINING_RUN.json`. It is the
+  model from this round that we would try on the laptop. `models-release-base\` too if it is no trouble (the
+  old-way model from the same round, to try the two side by side).
+- Part F (optional, further down) no longer waits for anything: it needs only parts A and B and can run
+  whenever the GPU is free.
+
 ## What round 2 told us (thank you), and what changed because of it
 
 | round 2 on your machine | what it means / what changed |
@@ -41,9 +87,11 @@ sits on the deck next to the left speaker, the tones arrive much louder, hands p
 | B | two training runs: with the fitted laptop, and the old way | about 12 + 7 min | the headline: what is the honest score without the flipped session, and what does the fitted laptop add? |
 | C | 12 synthetic sets, one per scoring fold | 45-70 min, unattended | the recall session's scoring suite reads these |
 | D | optional: check and time the next speed step | about 8 min | decides whether it becomes the default |
-| E | after C: the bg and plain sets again, cut the new way | about 30 min, unattended | the recall session's newest recipes train on pictures cut that way |
+| E | the bg and plain sets again, cut the new way (needs the fix, see the update above) | about 30 min, unattended | the recall session's newest recipes train on pictures cut that way |
+| F | optional, needs only A and B: part B again for each person in turn, three seeds | about 20 min (35 after the `git pull` of the fix) | part B looked good for the fitted laptop but was one person and one run each; this says whether it holds |
 
-If time is short: A and B matter most. C can run afterwards and can be stopped and started again.
+If time is short: A and B matter most. C and E can run afterwards, in either order, and can be stopped and
+started again. F does not depend on C, D or E. Only one of them at a time on the GPU.
 
 `mac` is the folder with the recorded MacBook sessions, as before. Close the other GPU programs if you can.
 
@@ -116,7 +164,7 @@ and at the end of each run `Honest score on mahimn: ...` and `Verdict: ...`.
 ```powershell
 .venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,motion,plain 2>&1 | Tee-Object round3\r3_sets.log
 ```
-What it makes (each folder holds `dataset.npz`, `manifest.jsonl`, `done.json`; about 16,000 clips each; `v2`
+What it makes (each folder holds `dataset.npz`, `manifest.jsonl`, `done.json`; 12,000 clips each; `v2`
 becomes `v1` if part A's first line failed):
 ```
 train_out\synth_cal\macbook_v2_bg\{all,no_aarsh,no_lance,no_mahimn}\       70 % of the clips laid over the real "nobody gesturing" recordings
@@ -130,7 +178,10 @@ for git); the recall session's scoring suite reads them from these folders.
 
 Expected at the end: a table of the 12 sets with picture counts and seconds, then
 `DONE: 12 set(s) under ...train_out\synth_cal (.. min of generation in this run)`.
-- It can be stopped (Ctrl+C) and started again with the same command: finished sets are skipped.
+- It can be stopped (Ctrl+C) and started again with the same command: finished sets are skipped, and a set
+  that was interrupted is made again from its start.
+- The four `_bg` sets need the fix described in the update at the top (`git pull` first). Before it they
+  stop after a few clips with the GPU idle.
 - Short on time: add `--per-class 1000` (half the size, half the time) or use `--arms bg,motion` (8 sets).
 - `... batch(es) did not fit in GPU memory and were split`: harmless (it halved the batch itself).
 
@@ -150,7 +201,7 @@ pipeline three ways; the one to look at is the block headed `... NEW OPTIONS: --
 its `random draws`, `Doppler columns`, `END TO END` and `GPU load` lines against the first block's. If both
 are fine they become the default next round.
 
-## Part E, after part C: the same sets with the new burst cutting (about 30 minutes, unattended)
+## Part E: the same sets with the new burst cutting (about 30 minutes, unattended)
 
 ```powershell
 git pull
@@ -166,11 +217,62 @@ What it makes: the same clips as part C (same random seeds; only where the burst
 train_out\synth_cal\macbook_v2_bg_rel12\{all,no_aarsh,no_lance,no_mahimn}\
 train_out\synth_cal\macbook_v2_rel12\{all,no_aarsh,no_lance,no_mahimn}\
 ```
-The `git pull` matters: this option is newer than the commit parts A-D were written for. Parts A-D do not need
-to be repeated. `git pull` changes two engine files (`sonar\config.py`, `sonar\gestures.py`; the new rule is
-off unless asked for), so a training run started after it checks the pictures once more (about 5 minutes).
-Expected at the end: `DONE: 20 set(s) under ...` (the 12 from part C and these 8). It can be stopped and
-started again like part C.
+The `git pull` matters: it brings the fix for the hang (see the update at the top); without it the first set
+stops after 8 clips. Parts A-D do not need to be repeated, and part E does not need part C: the two make
+different folders and can run in either order, one after the other.
+Expected at the end: a table of the sets made so far, then `DONE: 20 set(s) under ...` (the 12 of part C and
+these 8; fewer if part C has not run yet). It can be stopped and started again like part C.
+
+## Part F, optional, needs only parts A and B: the same comparison for every person (about 20 minutes)
+
+What part B showed (thank you): with the fitted laptop the model recognised 32 of mahimn's 36 gestures, against
+26 the old way, with 5 false triggers out of 101 non-gestures against 2. That is one person, 36 gestures and
+one training run each, so it can still be chance. This part repeats both runs with three seeds, holding out
+each person in turn (lance and lance2 are one person). It does not depend on parts C, D or E and does not need
+the fix for the hang (these runs only make sets with one kind of clip), so it can run before or after them,
+whenever the GPU is free. Nothing else should be using the GPU while it runs.
+
+```powershell
+Remove-Item Env:SONAR_SEG_REL_OFF_DB -ErrorAction SilentlyContinue
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person mahimn --seeds 0,1,2 --out train_out_cal --models train_out_cal\fold_mahimn\models --release train_out_cal\fold_mahimn\release 2>&1 | Tee-Object round3\r3f_cal_mahimn.log
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person aarsh --seeds 0,1,2 --out train_out_cal --models train_out_cal\fold_aarsh\models --release train_out_cal\fold_aarsh\release 2>&1 | Tee-Object round3\r3f_cal_aarsh.log
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person lance,lance2 --seeds 0,1,2 --out train_out_cal --models train_out_cal\fold_lance\models --release train_out_cal\fold_lance\release 2>&1 | Tee-Object round3\r3f_cal_lance.log
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person mahimn --seeds 0,1,2 --calibration none --motion none --out train_out_base --models train_out_base\fold_mahimn\models --release train_out_base\fold_mahimn\release 2>&1 | Tee-Object round3\r3f_base_mahimn.log
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person aarsh --seeds 0,1,2 --calibration none --motion none --out train_out_base --models train_out_base\fold_aarsh\models --release train_out_base\fold_aarsh\release 2>&1 | Tee-Object round3\r3f_base_aarsh.log
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person lance,lance2 --seeds 0,1,2 --calibration none --motion none --out train_out_base --models train_out_base\fold_lance\models --release train_out_base\fold_lance\release 2>&1 | Tee-Object round3\r3f_base_lance.log
+```
+Line 1 makes sure the bursts are cut the same way as in part B (it does nothing if that switch was never set
+in this window). The six runs reuse part B's folders. How long they take depends on the code they run on:
+- on the commit part B ran on (`ac32fb7`, before the `git pull` of the fix): most of the data is already
+  made. The two mahimn runs take about 2 minutes each, the other base runs about 3, the other fitted runs
+  about 6: about 20 minutes together.
+- after that `git pull`: the generator's code has changed, so the first run checks the pictures once more
+  (about 5 minutes) and the synthetic clips are made again (the same clips as before): about 35 minutes.
+They do not touch `models-release-cal\` or `models-release-base\`. Expected in each log:
+```
+GPU parity check: passed earlier for this code on this GPU ...          (after the git pull: once, PARITY OK, then this line)
+virtual laptop: fitted to real recordings (calibration\macbook_v2_no_aarsh.json; ...); how people move was fitted without aarsh ...   (the three fitted runs; _no_lance, _no_mahimn for the others)
+fine-tuning, scored on held-out person aarsh (never seen in training):   (a table with three rows: seeds 0, 1, 2)
+```
+If a `lance3` session has been put under `mac\` by then (it was in `mac_hold\` on 14 Nov, which these runs do
+not read), hold it out with the other two: `--val-person lance,lance2,lance3` in both lance lines.
+
+Then collect the models that were scored on a person they had not seen (small files, about 11 MB together;
+they let the Mac compare the two kinds of model clip by clip, which the tables cannot show, for instance how
+many of the false triggers are "pull" movements, for which the model has no class):
+```powershell
+New-Item -ItemType Directory -Force round3\heldout | Out-Null
+foreach ($arm in "cal", "base") {
+  Get-ChildItem "train_out_$arm\runs" -Directory | ForEach-Object {
+    if (Test-Path "$($_.FullName)\sweep") { Copy-Item "$($_.FullName)\sweep" "round3\heldout\${arm}_$($_.Name)" -Recurse -Force }
+  }
+}
+Get-ChildItem round3\heldout -Recurse -Include *.pt | Remove-Item
+```
+Git ignores `*.onnx` outside the `models-release*` folders, so when you commit, add this folder with
+`git add -f round3\heldout` (a plain `git add round3` would leave the models out without saying so).
+If there is no time for the six runs, the last block alone (one minute, no GPU) is still worth sending: it
+picks up the two models of part B.
 
 ## What to send back
 
@@ -185,10 +287,13 @@ Get-ChildItem train_out_cal\runs | Sort-Object Name | Select-Object -Last 1 | Fo
 Get-ChildItem train_out_base\runs | Sort-Object Name | Select-Object -Last 1 | ForEach-Object { Copy-Item "$($_.FullName)\log.txt" round3\base\log.txt }
 ```
 then commit `round3\` and `models-release-cal\` on `model-sat-am` and push, as you did for round 2.
+**Still missing on 14 Nov, 1 pm: `models-release-cal\`** (six files: `gesture.onnx`, `gesture.json`, `gesture.pt`,
+`metrics.json`, `confusion.txt`, `TRAINING_RUN.json`). `models-release-base\` is welcome too. Git does not ignore
+these two folders, so a plain `git add models-release-cal models-release-base` is enough.
 What matters most, in this order: `round3\r3_train_cal.log` and `r3_train_base.log` (the two honest scores),
 `round3\calibration\` (the fitted files; the Mac needs them back), `r3_fit.log`, `r3_folds.log`, `r3_sets.log`, `INDEX.json`,
 and from part D `r3_parity_new.log`, `r3_bench.log` and the `train_out\bench\bench_<time>.json` it names; from part E
-`r3_sets_rel12.log` and the `INDEX.json` again.
+`r3_sets_rel12.log` and the `INDEX.json` again; from part F the six `round3\r3f_*.log` and the folder `round3\heldout\`.
 
 ## If something goes wrong
 
@@ -201,6 +306,8 @@ and from part D `r3_parity_new.log`, `r3_bench.log` and the `train_out\bench\ben
 | an error mentioning `echo_kernel`, `nvrtc` or `cuLaunchKernel` | add `--gen-kernel off` to that command | the error text |
 | part C says `SKIPPED, macbook_v2_no_<name>.json does not exist` | part A line 2 did not write that file | `r3_folds.log`, `r3_sets.log` |
 | `CUDA out of memory` in part B | add `--sweep-jobs 2 --no-overlap` | the last 30 lines |
+| a `_bg` set: the log stops after `12000 clips on cuda`, GPU idle, one Python thread busy | you are on the code before the fix: stop it, `git pull`, check with the `Select-String` line in the update at the top, start again. If you cannot pull: add `--gen-batch 48` to the set maker (not tried on your card) | `git log -1 --oneline` |
+| `RuntimeError: clip generation stopped making progress at clip ...` | the new safety stop: the feeding loop had nothing left to wait for, which should not happen any more. To keep going, start the same command again with `--gen-batch 48` | the whole error line (it lists what was waiting) |
 
 ## Not in this round (noted from your message)
 

@@ -344,7 +344,7 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
     ahead = max(int(1.5 * batch) * len(fleet), 4 * workers)   # plans made ahead of the GPUs (they are a few MB each)
     stats = stats if stats is not None else {}
     stats.update({"batch": batch, "precision": fleet[0].precision, "device": ", ".join(str(f.device) for f in fleet),
-                  "render_s": 0.0, "features_s": 0.0, "redraws": 0, "batches": 0, "oom_splits": 0,
+                  "render_s": 0.0, "features_s": 0.0, "redraws": 0, "batches": 0, "oom_splits": 0, "part_batches": 0,
                   "echo_loop": fleet[0].echo_impl, "kernel_note": fleet[0].kernel_note,
                   "noise_shaping": "on the GPU" if fleet[0].shape_on_device else "in the CPU workers",
                   "feature_filter": fleet[0].fir})
@@ -383,18 +383,35 @@ def generate_gpu(jobs: list, profile: str | None, device: str, workers: int, pre
                 k = free.pop() if free else None
                 planning[pool.submit(plan_clip, (job, attempt, carry, noise64, slots[k].name if k is not None else None,
                                                  shape_on_device))] = (i, job, attempt, k)
-            # hand full batches (or, when nothing else is coming, the rest) to idle GPUs
+            # Hand full batches to idle GPUs. A part-filled batch goes out only when waiting cannot fill it:
+            #   - at the end: nothing left to plan, and nothing on a GPU that could still come back for a redraw;
+            #   - when every plan made ahead is waiting here and no clip type has a full batch. That happens in a
+            #     run with several clip types (clips laid over real recordings next to pure simulation, which
+            #     cannot share a batch). Without this rule nothing is sent, so nothing more is planned, for ever.
             while idle:
-                more_coming = bool(planning) or bool(todo)
-                kinds = [k for k, v in ready.items() if len(v) >= batch] or \
-                        ([k for k, v in ready.items() if v] if not more_coming and not rendering else [])
+                full = [k for k, v in ready.items() if len(v) >= batch]
+                at_end = not planning and not todo and not rendering
+                held_up = not planning and sum(len(v) for v in ready.values()) >= ahead
+                kinds = full or ([k for k, v in ready.items() if v] if at_end or held_up else [])
                 if not kinds:
                     break
-                kind = max(kinds, key=lambda k: len(ready[k]))
+                if full:
+                    kind = max(kinds, key=lambda k: len(ready[k]))
+                else:               # the type holding the earliest clip: results leave in job order, so that one unblocks them
+                    kind = min(kinds, key=lambda k: min(item[0] for item in ready[k]))
+                    if not at_end:
+                        stats["part_batches"] += 1
                 group, ready[kind] = ready[kind][:batch], ready[kind][batch:]
                 n = idle.pop()
                 rendering[threads.submit(_render_group, fleet[n], group, capture is not None)] = (n, group)
             futures = list(planning) + list(finishing) + list(rendering)
+            if not futures and next_out not in done:
+                # Nothing is being planned, rendered or finished, and the next clip is not done: no later pass
+                # of this loop could change that. Stop with the facts instead of spinning without end.
+                raise RuntimeError(
+                    f"clip generation stopped making progress at clip {next_out} of {len(jobs)}: {len(todo)} not planned yet, "
+                    f"{dict((str(k), len(v)) for k, v in ready.items() if v)} planned and waiting per clip type, "
+                    f"{len(done)} finished out of order, batch {batch}, plans made ahead {ahead}")
             if futures:
                 finished, _ = wait(futures, return_when=FIRST_COMPLETED)
                 for f in finished:
