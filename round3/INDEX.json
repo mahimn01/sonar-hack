@@ -363,6 +363,258 @@
     "profile": null,
     "seg_rel_off_db": 0.0
    }
+  },
+  "macbook_v2_bg_rel12/all": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_bg_rel12\\all\\dataset.npz",
+   "examples": 27827,
+   "per_label": {
+    "none": 21216,
+    "swipe_left": 1705,
+    "swipe_right": 1635,
+    "push": 1758,
+    "pull": 1513
+   },
+   "clips": 12000,
+   "seconds": 122.0,
+   "device": "cuda",
+   "made": "2026-11-14 13:43",
+   "settings": {
+    "calibration": "macbook_v2.json",
+    "calibration_sha256": "fef6ae01dd0e5faa",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 40,
+    "motion_share": 0.5,
+    "background_share": 0.7,
+    "backgrounds": [
+     "20261113-232748_lance_scene",
+     "20261113-233427_lance_breathing",
+     "20261113-235154_lance2_scene",
+     "20261113-235900_lance2_breathing",
+     "20261114-000902_mahimn_scene",
+     "20261114-001650_mahimn_breathing",
+     "20261114-020852_aarsh_scene",
+     "20261114-021645_aarsh_breathing"
+    ],
+    "held_out_human": null,
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
+  },
+  "macbook_v2_bg_rel12/no_aarsh": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_bg_rel12\\no_aarsh\\dataset.npz",
+   "examples": 27596,
+   "per_label": {
+    "none": 20905,
+    "swipe_left": 1715,
+    "swipe_right": 1655,
+    "push": 1792,
+    "pull": 1529
+   },
+   "clips": 12000,
+   "seconds": 120.8,
+   "device": "cuda",
+   "made": "2026-11-14 13:45",
+   "settings": {
+    "calibration": "macbook_v2_no_aarsh.json",
+    "calibration_sha256": "814a3bd7af3361ec",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 41,
+    "motion_share": 0.5,
+    "background_share": 0.7,
+    "backgrounds": [
+     "20261113-232748_lance_scene",
+     "20261113-233427_lance_breathing",
+     "20261113-235154_lance2_scene",
+     "20261113-235900_lance2_breathing",
+     "20261114-000902_mahimn_scene",
+     "20261114-001650_mahimn_breathing"
+    ],
+    "held_out_human": "aarsh",
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
+  },
+  "macbook_v2_bg_rel12/no_lance": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_bg_rel12\\no_lance\\dataset.npz",
+   "examples": 28143,
+   "per_label": {
+    "none": 21573,
+    "swipe_left": 1659,
+    "swipe_right": 1652,
+    "push": 1740,
+    "pull": 1519
+   },
+   "clips": 12000,
+   "seconds": 122.7,
+   "device": "cuda",
+   "made": "2026-11-14 13:47",
+   "settings": {
+    "calibration": "macbook_v2_no_lance.json",
+    "calibration_sha256": "e16d7df74a8fecad",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 42,
+    "motion_share": 0.5,
+    "background_share": 0.7,
+    "backgrounds": [
+     "20261114-000902_mahimn_scene",
+     "20261114-001650_mahimn_breathing",
+     "20261114-020852_aarsh_scene",
+     "20261114-021645_aarsh_breathing"
+    ],
+    "held_out_human": "lance",
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
+  },
+  "macbook_v2_bg_rel12/no_mahimn": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_bg_rel12\\no_mahimn\\dataset.npz",
+   "examples": 28839,
+   "per_label": {
+    "none": 22392,
+    "swipe_left": 1679,
+    "swipe_right": 1617,
+    "push": 1646,
+    "pull": 1505
+   },
+   "clips": 12000,
+   "seconds": 123.3,
+   "device": "cuda",
+   "made": "2026-11-14 13:49",
+   "settings": {
+    "calibration": "macbook_v2_no_mahimn.json",
+    "calibration_sha256": "b47643668ae64bfc",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 43,
+    "motion_share": 0.5,
+    "background_share": 0.7,
+    "backgrounds": [
+     "20261113-232748_lance_scene",
+     "20261113-233427_lance_breathing",
+     "20261113-235154_lance2_scene",
+     "20261113-235900_lance2_breathing",
+     "20261114-020852_aarsh_scene",
+     "20261114-021645_aarsh_breathing"
+    ],
+    "held_out_human": "mahimn",
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
+  },
+  "macbook_v2_rel12/all": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_rel12\\all\\dataset.npz",
+   "examples": 27158,
+   "per_label": {
+    "none": 20484,
+    "swipe_left": 1704,
+    "swipe_right": 1646,
+    "push": 1722,
+    "pull": 1602
+   },
+   "clips": 12000,
+   "seconds": 145.2,
+   "device": "cuda",
+   "made": "2026-11-14 13:52",
+   "settings": {
+    "calibration": "macbook_v2.json",
+    "calibration_sha256": "fef6ae01dd0e5faa",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 20,
+    "motion_share": 0.0,
+    "background_share": 0.0,
+    "backgrounds": [],
+    "held_out_human": null,
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
+  },
+  "macbook_v2_rel12/no_aarsh": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_rel12\\no_aarsh\\dataset.npz",
+   "examples": 26948,
+   "per_label": {
+    "none": 20303,
+    "swipe_left": 1682,
+    "swipe_right": 1603,
+    "push": 1734,
+    "pull": 1626
+   },
+   "clips": 12000,
+   "seconds": 145.7,
+   "device": "cuda",
+   "made": "2026-11-14 13:54",
+   "settings": {
+    "calibration": "macbook_v2_no_aarsh.json",
+    "calibration_sha256": "814a3bd7af3361ec",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 21,
+    "motion_share": 0.0,
+    "background_share": 0.0,
+    "backgrounds": [],
+    "held_out_human": "aarsh",
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
+  },
+  "macbook_v2_rel12/no_lance": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_rel12\\no_lance\\dataset.npz",
+   "examples": 27043,
+   "per_label": {
+    "none": 20457,
+    "swipe_left": 1645,
+    "swipe_right": 1659,
+    "push": 1684,
+    "pull": 1598
+   },
+   "clips": 12000,
+   "seconds": 146.9,
+   "device": "cuda",
+   "made": "2026-11-14 13:57",
+   "settings": {
+    "calibration": "macbook_v2_no_lance.json",
+    "calibration_sha256": "e16d7df74a8fecad",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 22,
+    "motion_share": 0.0,
+    "background_share": 0.0,
+    "backgrounds": [],
+    "held_out_human": "lance",
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
+  },
+  "macbook_v2_rel12/no_mahimn": {
+   "dataset": "train_out\\synth_cal\\macbook_v2_rel12\\no_mahimn\\dataset.npz",
+   "examples": 28155,
+   "per_label": {
+    "none": 21687,
+    "swipe_left": 1624,
+    "swipe_right": 1633,
+    "push": 1628,
+    "pull": 1583
+   },
+   "clips": 12000,
+   "seconds": 146.9,
+   "device": "cuda",
+   "made": "2026-11-14 13:59",
+   "settings": {
+    "calibration": "macbook_v2_no_mahimn.json",
+    "calibration_sha256": "b47643668ae64bfc",
+    "per_class": 2000,
+    "negatives": 2.0,
+    "seed": 23,
+    "motion_share": 0.0,
+    "background_share": 0.0,
+    "backgrounds": [],
+    "held_out_human": "mahimn",
+    "profile": null,
+    "seg_rel_off_db": 12.0
+   }
   }
  },
  "calibration": "calibration\\macbook_v2.json",
