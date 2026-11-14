@@ -1,0 +1,373 @@
+{
+ "stamp": "20261114-061651",
+ "humans": [
+  "lance",
+  "aarsh",
+  "mahimn"
+ ],
+ "seeds": [
+  0,
+  1,
+  2
+ ],
+ "arms": [
+  "released",
+  "real_only",
+  "real_pre",
+  "real_pre_lr03",
+  "share25",
+  "share50",
+  "share75",
+  "share50_scratch",
+  "share50_pure",
+  "share50_aux",
+  "share50_nolsw",
+  "share50_speed",
+  "share50_w48",
+  "share50_none50",
+  "share50_aux_speed",
+  "share25_aux",
+  "share75_aux",
+  "real_pre_aux",
+  "share75_aux_speed",
+  "real_pre_aux_speed",
+  "share50_aux_none50",
+  "share50_aux_e20",
+  "share50_aux_lr03",
+  "real_aux",
+  "real_only_wide",
+  "real_aux_wide",
+  "real_only_rel12",
+  "real_aux_rel12",
+  "real_pre_aux_rel12",
+  "share50_aux_rel12",
+  "share75_aux_rel12",
+  "real_aux_wide_rel12",
+  "real_aux_rel12nc",
+  "real_pre_aux_rel12nc",
+  "share50_aux_rel12nc",
+  "share75_aux_rel12nc"
+ ],
+ "arm_specs": {
+  "released": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": "class_balanced",
+   "init": "old"
+  },
+  "real_only": {
+   "real": "official",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null
+  },
+  "real_pre": {
+   "real": "official",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": "old"
+  },
+  "real_pre_lr03": {
+   "real": "official",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": "old",
+   "lr_scale": 0.3
+  },
+  "share25": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": 0.25,
+   "init": "old"
+  },
+  "share50": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old"
+  },
+  "share75": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": 0.75,
+   "init": "old"
+  },
+  "share50_scratch": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": null
+  },
+  "share50_pure": {
+   "real": "official",
+   "synth": "old",
+   "mix": 0.5,
+   "init": "old"
+  },
+  "share50_aux": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old"
+  },
+  "share50_nolsw": {
+   "real": "no_lance_swipes",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old"
+  },
+  "share50_speed": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "aug": {
+    "speed": [
+     0.5,
+     2.2
+    ],
+    "speed_p": 0.8
+   }
+  },
+  "share50_w48": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "width": 48
+  },
+  "share50_none50": {
+   "real": "official",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "none_share": 0.5
+  },
+  "share50_aux_speed": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "aug": {
+    "speed": [
+     0.5,
+     2.2
+    ],
+    "speed_p": 0.8
+   }
+  },
+  "share25_aux": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.25,
+   "init": "old"
+  },
+  "share75_aux": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.75,
+   "init": "old"
+  },
+  "real_pre_aux": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": "old"
+  },
+  "share75_aux_speed": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.75,
+   "init": "old",
+   "aug": {
+    "speed": [
+     0.5,
+     2.2
+    ],
+    "speed_p": 0.8
+   }
+  },
+  "real_pre_aux_speed": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": "old",
+   "aug": {
+    "speed": [
+     0.5,
+     2.2
+    ],
+    "speed_p": 0.8
+   }
+  },
+  "share50_aux_none50": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "none_share": 0.5
+  },
+  "share50_aux_e20": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "epochs": 20
+  },
+  "share50_aux_lr03": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "lr_scale": 0.3
+  },
+  "real_aux": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null
+  },
+  "real_only_wide": {
+   "real": "official",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null,
+   "features": "wide"
+  },
+  "real_aux_wide": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null,
+   "features": "wide"
+  },
+  "real_only_rel12": {
+   "real": "official",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null,
+   "table": "rel12"
+  },
+  "real_aux_rel12": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null,
+   "table": "rel12"
+  },
+  "real_pre_aux_rel12": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": "old",
+   "table": "rel12"
+  },
+  "share50_aux_rel12": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "table": "rel12"
+  },
+  "share75_aux_rel12": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.75,
+   "init": "old",
+   "table": "rel12"
+  },
+  "real_aux_wide_rel12": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null,
+   "features": "wide",
+   "table": "rel12"
+  },
+  "real_aux_rel12nc": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": null,
+   "table": "rel12nc"
+  },
+  "real_pre_aux_rel12nc": {
+   "real": "aux_none",
+   "synth": null,
+   "mix": "class_balanced",
+   "init": "old",
+   "table": "rel12nc"
+  },
+  "share50_aux_rel12nc": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.5,
+   "init": "old",
+   "table": "rel12nc"
+  },
+  "share75_aux_rel12nc": {
+   "real": "aux_none",
+   "synth": "old_bg",
+   "mix": 0.75,
+   "init": "old",
+   "table": "rel12nc"
+  }
+ },
+ "synth": {
+  "old": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\old_full\\dataset.npz",
+  "bg_lance": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\bg_lance_full\\dataset.npz",
+  "bg_aarsh": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\bg_aarsh_full\\dataset.npz",
+  "bg_mahimn": "C:\\Users\\lance\\sonar-wt-recall\\train_out\\recall\\synth\\bg_mahimn_full\\dataset.npz"
+ },
+ "labels": [
+  "none",
+  "swipe_left",
+  "swipe_right",
+  "push"
+ ],
+ "locked": [],
+ "flip": [
+  "20261114-001248_mahimn_gestures"
+ ],
+ "size": {
+  "per_class": 2000,
+  "bg_per_class": 500,
+  "epochs": 60,
+  "pre_epochs": 60,
+  "seeds": [
+   0,
+   1,
+   2
+  ],
+  "parity_clips": 1000
+ },
+ "machine": {
+  "python": "3.12.10",
+  "torch": "2.15.0+cu132",
+  "torch_cuda": "13.2",
+  "cuda": true,
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "gpu_gb": 24.0,
+  "bf16": true,
+  "capability": "8.9",
+  "gpu_count": 1,
+  "mps": false,
+  "onnx": "1.23.2",
+  "onnxruntime": "1.32.0",
+  "soundfile": "0.14.0",
+  "scipy": "1.18.1",
+  "numpy": "2.5.4",
+  "os": "Windows 11",
+  "cpus": 24
+ },
+ "git": {
+  "commit": "46708c8",
+  "branch": "recall",
+  "uncommitted_changes": false
+ },
+ "tables": [
+  "std",
+  "rel12",
+  "rel12nc"
+ ]
+}

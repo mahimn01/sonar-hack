@@ -1,0 +1,2 @@
+  done real_pre__final__s0  41.4 s  n_train 671  real share 1.00  gpu: peak 3.7 GB, kept 0.6 GB
+  done share50_none50__final__s1  72.0 s  n_train 16811  real share 0.50  gpu: peak 1.8 GB, kept 0.7 GB

@@ -1,0 +1,62 @@
+
+=== GPU parity check: 1000 fixed clips through the CPU code and the GPU code (--skip-parity to skip)
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe scripts/check_gpu_parity.py --device cuda --precision auto --clips 1000 --workers 24 --work C:\Users\lance\sonar-wt-recall-suite\train_out\parity --data mac --json C:\Users\lance\sonar-wt-recall-suite\train_out\parity\last_e72e94277906.json
+parity check: 1000 clips, CPU reference (numpy) against cuda (PyTorch 2.15.0+cu132, number format 'ref'), 24 worker processes
+  217/1000 clips (58 s)
+  434/1000 clips (108 s)
+  651/1000 clips (160 s)
+  868/1000 clips (214 s)
+  1000/1000 clips (238 s)
+  session 20261113-232748_lance_scene: 120.0 s, 41 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-233122_lance_gestures: 120.0 s, 59 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-233427_lance_breathing: 120.0 s, 7 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-235154_lance2_scene: 120.0 s, 43 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-235514_lance2_gestures: 120.0 s, 60 bursts, largest feature difference 0.0e+00, bursts identical
+  session 20261113-235900_lance2_breathing: 120.0 s, 6 bursts, largest feature difference 0.0e+00, bursts identical
+
+check                                                                   worst     median      limit  result
+same number of redraws                                                      0          0          0  ok
+echo loudness (dB)                                                   7.12e-06    9.3e-07      0.001  ok
+moving echoes, before rounding                                       7.11e-07   4.24e-07      2e-05  ok
+direct sound + room, before rounding                                 3.97e-10   4.02e-11      1e-08  ok
+audio right before the converter                                     2.47e-06   2.59e-08     0.0001  ok
+final audio: largest difference / what rounding allows                      1      0.996          1  ok
+final audio: samples one step apart / what rounding predicts            0.909      0.369          1  ok
+  (for information) 16 bit: share of samples one step apart            0.0278   2.22e-06          1  ok
+  (for information) 24 bit: share of samples one step apart             0.456   0.000618          1  ok
+final audio, pure clip without rounding                                 0.708      0.521          1  ok
+final audio, overlays (no rounding): largest difference              1.77e-08   6.98e-10      2e-06  ok
+final audio: correlation                                                    1          1          1  ok
+features from IDENTICAL audio: largest difference                    2.38e-07          0     0.0001  ok
+features from IDENTICAL audio: same bursts                                  0          0          0  ok
+feature stream: average difference                                   0.000848   8.55e-07      0.003  ok
+same bursts and labels                                                  0.003      0.003       0.02  ok
+pictures: average difference                                          0.00103    1.2e-06      0.004  ok
+pictures: largest single pixel (Doppler pictures)                      0.0284   7.23e-05       0.12  ok
+pictures: correlation (Doppler pictures)                                0.998          1       0.99  ok
+left/right picture: average difference                               0.000697   5.38e-07      0.004  ok
+  (for information) left/right picture: largest single pixel             1.51   0.000169          2  ok
+
+worst clips per check:
+  moving echoes, before rounding: none (seed 9000511) 7.11e-07; none, one microphone (seed 9000742) 7.03e-07; swipe_left (seed 9000025) 6.64e-07; none, fastest / most reflectors (seed 9100133) 6.59e-07; pull (seed 9000347) 6.35e-07
+  same bursts and labels: swipe_left (seed 9000012) 1; push (seed 9000260) 1; pull, swapped speakers (seed 9000739) 1
+  pictures: average difference: swipe_left (seed 9000018) 0.00103; swipe_right (seed 9000135) 0.000587; swipe_right (seed 9000158) 0.00048; push (seed 9000226) 0.000419; swipe_left, swapped speakers (seed 9000675) 0.000363
+  pictures: largest single pixel (Doppler pictures): swipe_left (seed 9000018) 0.0284; swipe_right (seed 9000135) 0.0248; wave (seed 9000545) 0.0203; none (seed 9000436) 0.0182; swipe_left, swapped speakers (seed 9000675) 0.0177
+  pictures: correlation (Doppler pictures): none (seed 9000436) 0.998; none, strong desk bounce (seed 9000819) 0.999; none, loudest speaker, 16 bit (seed 9000869) 1; none (seed 9000482) 1; push (seed 9000262) 1
+
+pictures compared pixel by pixel: 1624 of 1629 (the rest belong to clips whose bursts differ, counted above)
+time per clip: CPU reference 159 ms x cores, GPU path 34 ms (wall, on cuda)
+stored CPU results: close - not bit-identical to the stored CPU results but within rounding (another computer or library version)
+real recording 20261113-232748_lance_scene: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-233122_lance_gestures: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-233427_lance_breathing: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-235154_lance2_scene: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-235514_lance2_gestures: largest feature difference 0.0e+00, bursts identical
+real recording 20261113-235900_lance2_breathing: largest feature difference 0.0e+00, bursts identical
+
+PARITY OK: the GPU path makes the same training pictures as the CPU path (1000 clips, 251 s)
+
+GPU parity check: passed earlier for this code on this GPU (1000 clips, C:\Users\lance\sonar-wt-recall\train_out\parity\passed_e72e94277906.json); --recheck-parity runs it again
+
+GPU parity check: passed earlier for this code on this GPU (1000 clips, C:\Users\lance\sonar-wt-recall\train_out\parity\passed_e72e94277906.json); --recheck-parity runs it again

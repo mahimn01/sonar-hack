@@ -1,0 +1,47 @@
+{
+ "20261113-233122_lance_gestures": {
+  "t": 2.416110581374276,
+  "left_hz": 47.80781052927489,
+  "right_hz": -1.1699720098153612,
+  "left_sd": 52.228941069453455,
+  "right_sd": 46.93890805932568,
+  "n": 24,
+  "verdict": "unclear (no clean direction cue)"
+ },
+ "20261113-235514_lance2_gestures": {
+  "t": 1.5873023844908665,
+  "left_hz": 33.82500547427638,
+  "right_hz": 19.026011995558974,
+  "left_sd": 31.76332418267663,
+  "right_sd": 17.1746091694799,
+  "n": 30,
+  "verdict": "unclear (no clean direction cue)"
+ },
+ "20261114-001248_mahimn_gestures": {
+  "t": -7.080319665488001,
+  "left_hz": -63.23995203483377,
+  "right_hz": 90.72629258395514,
+  "left_sd": 67.58650198158527,
+  "right_sd": 50.25109520133966,
+  "n": 30,
+  "verdict": "OPPOSITE to the prompts  -> left/right labels exchanged for this run"
+ },
+ "20261114-021255_aarsh_gestures": {
+  "t": 26.788477524613484,
+  "left_hz": 77.37116062181228,
+  "right_hz": -95.38429913382046,
+  "left_sd": 23.050047554837175,
+  "right_sd": 9.618447787734354,
+  "n": 30,
+  "verdict": "as prompted"
+ },
+ "20261114-025724_mahimn_gestures": {
+  "t": 7.594489310956617,
+  "left_hz": 77.28399770690434,
+  "right_hz": -99.75741580900512,
+  "left_sd": 56.66636428180819,
+  "right_sd": 57.5344935346539,
+  "n": 24,
+  "verdict": "as prompted"
+ }
+}

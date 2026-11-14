@@ -1,0 +1,15 @@
+  done share75_aux_rel12__lance__s0  48.7 s  n_train 11440  real share 0.75
+  done share75_aux_speed__lance__in_aarsh__s0  18.8 s  n_train 5410  real share 0.75
+  done released__mahimn__s1  38.0 s  n_train 11474  real share 0.05
+  done share25_aux__mahimn__in_lance__s0  20.2 s  n_train 5936  real share 0.25
+  done share50__mahimn__s2  37.5 s  n_train 11474  real share 0.50
+  done share50_aux_e20__mahimn__s0  13.4 s  n_train 11631  real share 0.50
+  done share50_aux_none50__mahimn__in_aarsh__s0  19.8 s  n_train 5695  real share 0.50
+  done share50_aux_rel12__mahimn__s1  38.4 s  n_train 11750  real share 0.50
+  done share50_aux_speed__mahimn__in_lance__s0  20.6 s  n_train 5936  real share 0.50
+  done share50_nolsw__mahimn__s2  37.8 s  n_train 11420  real share 0.50
+  done share50_scratch__mahimn__s0  37.5 s  n_train 11474  real share 0.50
+  done share50_w48__mahimn__in_aarsh__s0  31.0 s  n_train 5585  real share 0.50
+  done share75__mahimn__s1  41.4 s  n_train 11474  real share 0.75
+  done share75_aux_rel12__mahimn__in_lance__s0  23.9 s  n_train 5972  real share 0.75
+  done share75_aux_rel12nc__mahimn__s2  38.6 s  n_train 11836  real share 0.75

@@ -1,0 +1,1373 @@
+=== recall suite 20261114-061651 (full), device cuda; log: C:\Users\lance\sonar-wt-recall-suite\train_out\recall\suite\20261114-061651\log.txt
+GPU-against-CPU picture check: passed (see parity.txt)
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (std): 940 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 83, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 49, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 72, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 61, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 60, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 36, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 89, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 47, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 24, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 37, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12): 1131 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 91, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 76, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 81, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 100, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 65, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 64, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 100, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 71, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 25, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 62, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12nc): 1246 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 78, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 79, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 96, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 111, 'burst': 1, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 14, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 61, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 66, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 12, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 106, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 78, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 74, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 69, 'burst': 0, 'idle': 8}
+
+label audit (labels as recorded): left-speaker tone minus right-speaker tone, Hz (positive = hand moving LEFT)
+  session                                    n     left prompts    right prompts       t  verdict
+  20261113-233122_lance_gestures            24    +47.8± 52.2     -1.2± 46.9   +2.42  unclear (no clean direction cue)
+  20261113-235514_lance2_gestures           30    +33.8± 31.8    +19.0± 17.2   +1.59  unclear (no clean direction cue)
+  20261114-001248_mahimn_gestures           30    -63.2± 67.6    +90.7± 50.3   -7.08  OPPOSITE to the prompts  -> left/right labels exchanged for this run
+  20261114-021255_aarsh_gestures            30    +77.4± 23.1    -95.4±  9.6  +26.79  as prompted
+  20261114-025724_mahimn_gestures           24    +77.3± 56.7    -99.8± 57.5   +7.59  as prompted
+
+=== synthetic data
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\old_full --per-class 2000 --negatives 2.0 --workers 24 --seed 0 --profile default --mics 1 --gen-device cuda --gen-precision auto
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+12000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/12000 clips, 383 examples, 34 s
+  400/12000 clips, 741 examples, 39 s
+  600/12000 clips, 1111 examples, 44 s
+  800/12000 clips, 1485 examples, 49 s
+  1000/12000 clips, 1851 examples, 54 s
+  1200/12000 clips, 2201 examples, 59 s
+  1400/12000 clips, 2568 examples, 64 s
+  1600/12000 clips, 2933 examples, 79 s
+  1800/12000 clips, 3269 examples, 79 s
+  2000/12000 clips, 3630 examples, 79 s
+  2200/12000 clips, 3979 examples, 84 s
+  2400/12000 clips, 4334 examples, 89 s
+  2600/12000 clips, 4690 examples, 94 s
+  2800/12000 clips, 5087 examples, 100 s
+  3000/12000 clips, 5445 examples, 104 s
+  3200/12000 clips, 5811 examples, 110 s
+  3400/12000 clips, 6167 examples, 115 s
+  3600/12000 clips, 6543 examples, 130 s
+  3800/12000 clips, 6906 examples, 130 s
+  4000/12000 clips, 7256 examples, 130 s
+  4200/12000 clips, 7636 examples, 130 s
+  4400/12000 clips, 8016 examples, 135 s
+  4600/12000 clips, 8392 examples, 141 s
+  4800/12000 clips, 8744 examples, 146 s
+  5000/12000 clips, 9117 examples, 151 s
+  5200/12000 clips, 9523 examples, 156 s
+  5400/12000 clips, 9889 examples, 161 s
+  5600/12000 clips, 10253 examples, 166 s
+  5800/12000 clips, 10629 examples, 166 s
+  6000/12000 clips, 10987 examples, 176 s
+  6200/12000 clips, 11349 examples, 176 s
+  6400/12000 clips, 11721 examples, 197 s
+  6600/12000 clips, 12094 examples, 197 s
+  6800/12000 clips, 12482 examples, 197 s
+  7000/12000 clips, 12841 examples, 197 s
+  7200/12000 clips, 13217 examples, 202 s
+  7400/12000 clips, 13601 examples, 202 s
+  7600/12000 clips, 13960 examples, 212 s
+  7800/12000 clips, 14349 examples, 212 s
+  8000/12000 clips, 14710 examples, 237 s
+  8200/12000 clips, 14951 examples, 237 s
+  8400/12000 clips, 15187 examples, 237 s
+  8600/12000 clips, 15446 examples, 237 s
+  8800/12000 clips, 15702 examples, 238 s
+  9000/12000 clips, 15980 examples, 238 s
+  9200/12000 clips, 16256 examples, 238 s
+  9400/12000 clips, 16517 examples, 243 s
+  9600/12000 clips, 16765 examples, 248 s
+  9800/12000 clips, 17018 examples, 253 s
+  10000/12000 clips, 17273 examples, 258 s
+  10200/12000 clips, 17533 examples, 258 s
+  10400/12000 clips, 17783 examples, 263 s
+  10600/12000 clips, 18051 examples, 268 s
+  10800/12000 clips, 18319 examples, 273 s
+  11000/12000 clips, 18568 examples, 278 s
+  11200/12000 clips, 18845 examples, 284 s
+  11400/12000 clips, 19101 examples, 289 s
+  11600/12000 clips, 19336 examples, 293 s
+  11800/12000 clips, 19607 examples, 297 s
+  12000/12000 clips, 19874 examples, 298 s
+  GPU path on cuda:0: batch 217, precision ref, 57 batches, render 268.5 s, features 15.6 s, 207 redraws
+done in 306 s: 12000 clips -> 19874 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\old_full
+  none         14022
+  swipe_left   1433
+  swipe_right  1430
+  push         1498
+  pull         1491
+  gesture strokes the core segmenter did not pick up: 2148 of 8000
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_lance_full --per-class 500 --negatives 2.0 --workers 24 --seed 1 --profile default --mics 1 --background C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-232748_lance_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-233427_lance_breathing\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-235154_lance2_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261113-235900_lance2_breathing\audio.wav --gen-device cuda --gen-precision auto
+4 background recording(s), memory-mapped from C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_lance_full\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+3000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/3000 clips, 394 examples, 15 s
+  400/3000 clips, 750 examples, 18 s
+  600/3000 clips, 1118 examples, 33 s
+  800/3000 clips, 1493 examples, 36 s
+  1000/3000 clips, 1885 examples, 40 s
+  1200/3000 clips, 2298 examples, 44 s
+  1400/3000 clips, 2704 examples, 47 s
+  1600/3000 clips, 3091 examples, 47 s
+  1800/3000 clips, 3483 examples, 47 s
+  2000/3000 clips, 3872 examples, 47 s
+  2200/3000 clips, 4155 examples, 51 s
+  2400/3000 clips, 4425 examples, 54 s
+  2600/3000 clips, 4718 examples, 58 s
+  2800/3000 clips, 5021 examples, 58 s
+  3000/3000 clips, 5288 examples, 60 s
+  GPU path on cuda:0: batch 217, precision ref, 14 batches, render 46.4 s, features 3.9 s, 7 redraws
+done in 62 s: 3000 clips -> 5288 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_lance_full
+  none         3677
+  swipe_left   380
+  swipe_right  370
+  push         434
+  pull         427
+  gesture strokes the core segmenter did not pick up: 389 of 2000
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_aarsh_full --per-class 500 --negatives 2.0 --workers 24 --seed 2 --profile default --mics 1 --background C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-020852_aarsh_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-021645_aarsh_breathing\audio.wav --gen-device cuda --gen-precision auto
+2 background recording(s), memory-mapped from C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_aarsh_full\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+3000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/3000 clips, 423 examples, 15 s
+  400/3000 clips, 819 examples, 29 s
+  600/3000 clips, 1215 examples, 29 s
+  800/3000 clips, 1614 examples, 36 s
+  1000/3000 clips, 1999 examples, 40 s
+  1200/3000 clips, 2438 examples, 40 s
+  1400/3000 clips, 2858 examples, 40 s
+  1600/3000 clips, 3269 examples, 40 s
+  1800/3000 clips, 3676 examples, 54 s
+  2000/3000 clips, 4097 examples, 55 s
+  2200/3000 clips, 4400 examples, 55 s
+  2400/3000 clips, 4716 examples, 55 s
+  2600/3000 clips, 5058 examples, 58 s
+  2800/3000 clips, 5399 examples, 58 s
+  3000/3000 clips, 5705 examples, 61 s
+  GPU path on cuda:0: batch 217, precision ref, 14 batches, render 46.8 s, features 3.9 s, 8 redraws
+done in 62 s: 3000 clips -> 5705 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_aarsh_full
+  none         4228
+  swipe_left   348
+  swipe_right  362
+  push         387
+  pull         380
+  gesture strokes the core segmenter did not pick up: 523 of 2000
+
+$ C:\Users\lance\sonar-wt-recall-suite\.venv\Scripts\python.exe -m datagen.generate --out C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_mahimn_full --per-class 500 --negatives 2.0 --workers 24 --seed 3 --profile default --mics 1 --background C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-000902_mahimn_scene\audio.wav,C:\Users\lance\sonar-wt-recall-suite\mac\data\20261114-001650_mahimn_breathing\audio.wav --gen-device cuda --gen-precision auto
+2 background recording(s), memory-mapped from C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_mahimn_full\backgrounds
+probe signal from core sonar/ package: fs=48000, period=960 samples, tones=[18500.0, 19000.0] on speakers [0, 1], band=(18500.0, 21500.0)
+3000 clips on cuda (PyTorch), 24 worker processes for the random draws and the labels
+  200/3000 clips, 361 examples, 15 s
+  400/3000 clips, 741 examples, 29 s
+  600/3000 clips, 1110 examples, 29 s
+  800/3000 clips, 1473 examples, 29 s
+  1000/3000 clips, 1852 examples, 40 s
+  1200/3000 clips, 2250 examples, 44 s
+  1400/3000 clips, 2649 examples, 47 s
+  1600/3000 clips, 3044 examples, 47 s
+  1800/3000 clips, 3433 examples, 51 s
+  2000/3000 clips, 3817 examples, 51 s
+  2200/3000 clips, 4083 examples, 51 s
+  2400/3000 clips, 4360 examples, 54 s
+  2600/3000 clips, 4614 examples, 57 s
+  2800/3000 clips, 4890 examples, 57 s
+  3000/3000 clips, 5147 examples, 60 s
+  GPU path on cuda:0: batch 217, precision ref, 14 batches, render 46.4 s, features 3.9 s, 8 redraws
+done in 62 s: 3000 clips -> 5147 examples in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\synth\bg_mahimn_full
+  none         3463
+  swipe_left   398
+  swipe_right  392
+  push         446
+  pull         448
+  gesture strokes the core segmenter did not pick up: 316 of 2000
+arm cal50: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal25: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal_pre_real: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm calm50: skipped, its synthetic sets are not on this machine (macbook_v1_motion_all, macbook_v1_motion_no_aarsh ...)
+arm calm50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_motion_all, macbook_v1_motion_no_aarsh ...)
+arm calbg50: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg25_aux: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm calbg25_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm calbg75_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm cal50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_rel12_all, macbook_v1_rel12_no_aarsh ...)
+
+=== pretrain: 2 training runs, 2 to do, 2 at a time on cuda
+  done pretrain_old_w24  86.6 s  n_train 19874  real share 0.00
+  done pretrain_old_w48  98.4 s  n_train 19874  real share 0.00
+pretrain: finished in 103 s; 0 failed run(s)
+
+=== folds: 540 training runs, 540 to do, 4 at a time on cuda
+  done real_aux__aarsh__in_lance__s0  42.6 s  n_train 263  real share 1.00
+  done real_aux__aarsh__s2  33.7 s  n_train 670  real share 1.00
+  done real_aux_rel12__aarsh__s1  33.4 s  n_train 811  real share 1.00
+  done real_aux_rel12nc__aarsh__s0  36.3 s  n_train 847  real share 1.00
+  done real_aux_wide__aarsh__in_mahimn__s0  180.4 s  n_train 407  real share 1.00
+  done real_aux_wide_rel12__aarsh__in_lance__s0  142.5 s  n_train 321  real share 1.00
+  done real_aux_wide_rel12__aarsh__s2  113.7 s  n_train 811  real share 1.00
+  done real_only__aarsh__s1  41.2 s  n_train 487  real share 1.00
+  done real_only_rel12__aarsh__s0  48.9 s  n_train 509  real share 1.00
+  done real_only_wide__aarsh__in_mahimn__s0  128.3 s  n_train 297  real share 1.00
+  done real_pre__aarsh__in_lance__s0  44.5 s  n_train 190  real share 1.00
+  done real_pre__aarsh__s2  45.0 s  n_train 487  real share 1.00
+  done real_pre_aux__aarsh__s1  46.8 s  n_train 670  real share 1.00
+  done real_pre_aux_rel12__aarsh__s0  45.6 s  n_train 811  real share 1.00
+  done real_pre_aux_rel12nc__aarsh__in_mahimn__s0  45.9 s  n_train 514  real share 1.00
+  done real_pre_aux_speed__aarsh__in_lance__s0  46.0 s  n_train 263  real share 1.00
+  done real_pre_aux_speed__aarsh__s2  44.1 s  n_train 670  real share 1.00
+  done real_pre_lr03__aarsh__s1  40.1 s  n_train 487  real share 1.00
+  done real_aux__lance__s0  39.8 s  n_train 494  real share 1.00
+  done real_aux_rel12__lance__in_mahimn__s0  41.4 s  n_train 267  real share 1.00
+  done real_aux_rel12nc__lance__in_aarsh__s0  46.7 s  n_train 333  real share 1.00
+  done real_aux_rel12nc__lance__s2  45.4 s  n_train 662  real share 1.00
+  done real_aux_wide__lance__s1  121.7 s  n_train 494  real share 1.00
+  done real_aux_wide_rel12__lance__s0  123.7 s  n_train 588  real share 1.00
+  done real_only__lance__in_mahimn__s0  41.9 s  n_train 184  real share 1.00
+  done real_only_rel12__lance__in_aarsh__s0  40.3 s  n_train 195  real share 1.00
+  done real_only_rel12__lance__s2  43.3 s  n_train 391  real share 1.00
+  done real_only_wide__lance__s1  121.2 s  n_train 374  real share 1.00
+  done real_pre__lance__s0  45.8 s  n_train 374  real share 1.00
+  done real_pre_aux__lance__in_mahimn__s0  47.6 s  n_train 231  real share 1.00
+  done real_pre_aux_rel12__lance__in_aarsh__s0  45.2 s  n_train 321  real share 1.00
+  done real_pre_aux_rel12__lance__s2  46.5 s  n_train 588  real share 1.00
+  done real_pre_aux_rel12nc__lance__s1  45.3 s  n_train 662  real share 1.00
+  done real_pre_aux_speed__lance__s0  44.8 s  n_train 494  real share 1.00
+  done real_pre_lr03__lance__in_mahimn__s0  45.8 s  n_train 184  real share 1.00
+  done real_aux__mahimn__in_aarsh__s0  46.4 s  n_train 407  real share 1.00
+  done real_aux__mahimn__s2  46.3 s  n_train 638  real share 1.00
+  done real_aux_rel12__mahimn__s1  45.2 s  n_train 757  real share 1.00
+  done real_aux_rel12nc__mahimn__s0  40.9 s  n_train 843  real share 1.00
+  done real_aux_wide__mahimn__in_lance__s0  117.7 s  n_train 231  real share 1.00
+  done real_aux_wide_rel12__mahimn__in_aarsh__s0  129.6 s  n_train 490  real share 1.00
+  done real_aux_wide_rel12__mahimn__s2  127.7 s  n_train 757  real share 1.00
+  done real_only__mahimn__s1  44.7 s  n_train 481  real share 1.00
+  done real_only_rel12__mahimn__s0  43.5 s  n_train 510  real share 1.00
+  done real_only_wide__mahimn__in_lance__s0  120.0 s  n_train 184  real share 1.00
+  done real_pre__mahimn__in_aarsh__s0  39.9 s  n_train 297  real share 1.00
+  done real_pre__mahimn__s2  40.7 s  n_train 481  real share 1.00
+  done real_pre_aux__mahimn__s1  39.8 s  n_train 638  real share 1.00
+  done real_pre_aux_rel12__mahimn__s0  39.8 s  n_train 757  real share 1.00
+  done real_pre_aux_rel12nc__mahimn__in_lance__s0  39.5 s  n_train 329  real share 1.00
+  done real_pre_aux_speed__mahimn__in_aarsh__s0  39.8 s  n_train 407  real share 1.00
+  done real_pre_aux_speed__mahimn__s2  40.4 s  n_train 638  real share 1.00
+  done real_pre_lr03__mahimn__s1  39.6 s  n_train 481  real share 1.00
+  done share50_pure__aarsh__s0  162.2 s  n_train 20361  real share 0.50
+  done share50_pure__lance__in_mahimn__s0  178.1 s  n_train 20058  real share 0.50
+  done share50_pure__mahimn__in_aarsh__s0  178.1 s  n_train 20171  real share 0.50
+  done share50_pure__mahimn__s2  179.1 s  n_train 20355  real share 0.50
+  done released__aarsh__s1  98.5 s  n_train 10922  real share 0.06
+  done share25__aarsh__s0  92.2 s  n_train 10922  real share 0.25
+  done share25_aux__aarsh__in_mahimn__s0  45.8 s  n_train 5695  real share 0.25
+  done share50__aarsh__in_lance__s0  44.8 s  n_train 5337  real share 0.50
+  done share50__aarsh__s2  98.8 s  n_train 10922  real share 0.50
+  done share50_aux__aarsh__s1  99.5 s  n_train 11105  real share 0.50
+  done share50_aux_e20__aarsh__s0  32.8 s  n_train 11105  real share 0.50
+  done share50_aux_lr03__aarsh__in_mahimn__s0  53.2 s  n_train 5695  real share 0.50
+  done share50_aux_none50__aarsh__in_lance__s0  51.2 s  n_train 5410  real share 0.50
+  done share50_aux_none50__aarsh__s2  99.8 s  n_train 11105  real share 0.50
+  done share50_aux_rel12__aarsh__s1  88.7 s  n_train 11246  real share 0.50
+  done share50_aux_rel12nc__aarsh__s0  91.0 s  n_train 11282  real share 0.50
+  done share50_aux_speed__aarsh__in_mahimn__s0  47.0 s  n_train 5695  real share 0.50
+  done share50_nolsw__aarsh__in_lance__s0  42.8 s  n_train 5337  real share 0.50
+  done share50_nolsw__aarsh__s2  85.5 s  n_train 10868  real share 0.50
+  done share50_none50__aarsh__s1  84.4 s  n_train 10922  real share 0.50
+  done share50_scratch__aarsh__s0  82.5 s  n_train 10922  real share 0.50
+  done share50_speed__aarsh__in_mahimn__s0  63.0 s  n_train 5585  real share 0.50
+  done share50_w48__aarsh__in_lance__s0  66.0 s  n_train 5337  real share 0.50
+  done share50_w48__aarsh__s2  103.8 s  n_train 10922  real share 0.50
+  done share75__aarsh__s1  72.5 s  n_train 10922  real share 0.75
+  done share75_aux__aarsh__s0  73.9 s  n_train 11105  real share 0.75
+  done share75_aux_rel12__aarsh__in_mahimn__s0  38.7 s  n_train 5778  real share 0.75
+  done share75_aux_rel12nc__aarsh__in_lance__s0  37.1 s  n_train 5480  real share 0.75
+  done share75_aux_rel12nc__aarsh__s2  75.7 s  n_train 11282  real share 0.75
+  done share75_aux_speed__aarsh__s1  73.9 s  n_train 11105  real share 0.75
+  done released__lance__s0  74.1 s  n_train 11226  real share 0.05
+  done share25__lance__in_mahimn__s0  40.1 s  n_train 5889  real share 0.25
+  done share25_aux__lance__in_aarsh__s0  36.9 s  n_train 5410  real share 0.25
+  done share25_aux__lance__s2  75.8 s  n_train 11346  real share 0.25
+  done share50__lance__s1  73.3 s  n_train 11226  real share 0.50
+  done share50_aux__lance__s0  75.4 s  n_train 11346  real share 0.50
+  done share50_aux_e20__lance__in_mahimn__s0  13.8 s  n_train 5936  real share 0.50
+  done share50_aux_lr03__lance__in_aarsh__s0  36.8 s  n_train 5410  real share 0.50
+  done share50_aux_lr03__lance__s2  75.2 s  n_train 11346  real share 0.50
+  done share50_aux_none50__lance__s1  75.3 s  n_train 11346  real share 0.50
+  done share50_aux_rel12__lance__s0  75.3 s  n_train 11440  real share 0.50
+  done share50_aux_rel12nc__lance__in_mahimn__s0  40.1 s  n_train 6034  real share 0.50
+  done share50_aux_speed__lance__in_aarsh__s0  36.8 s  n_train 5410  real share 0.50
+  done share50_aux_speed__lance__s2  75.6 s  n_train 11346  real share 0.50
+  done share50_nolsw__lance__s1  73.9 s  n_train 11226  real share 0.50
+  done share50_none50__lance__s0  78.8 s  n_train 11226  real share 0.50
+  done share50_scratch__lance__in_mahimn__s0  47.9 s  n_train 5889  real share 0.50
+  done share50_speed__lance__in_aarsh__s0  55.4 s  n_train 5337  real share 0.50
+  done share50_speed__lance__s2  625.4 s  n_train 11226  real share 0.50
+  done share50_w48__lance__s1  261.6 s  n_train 11226  real share 0.50
+  done share75__lance__s0  298.5 s  n_train 11226  real share 0.75
+  done share75_aux__lance__in_mahimn__s0  163.8 s  n_train 5936  real share 0.75
+  done share75_aux_rel12__lance__in_aarsh__s0  154.4 s  n_train 5468  real share 0.75
+  done share75_aux_rel12__lance__s2  297.5 s  n_train 11440  real share 0.75
+  done share75_aux_rel12nc__lance__s1  300.1 s  n_train 11514  real share 0.75
+  done share75_aux_speed__lance__s0  318.4 s  n_train 11346  real share 0.75
+  done released__mahimn__in_lance__s0  159.3 s  n_train 5889  real share 0.04
+  done share25__mahimn__in_aarsh__s0  150.6 s  n_train 5585  real share 0.25
+  done share25__mahimn__s2  309.6 s  n_train 11474  real share 0.25
+  done share25_aux__mahimn__s1  312.5 s  n_train 11631  real share 0.25
+  done share50__mahimn__s0  310.0 s  n_train 11474  real share 0.50
+  done share50_aux__mahimn__in_lance__s0  170.4 s  n_train 5936  real share 0.50
+  done share50_aux_e20__mahimn__in_aarsh__s0  56.9 s  n_train 5695  real share 0.50
+  done share50_aux_e20__mahimn__s2  114.6 s  n_train 11631  real share 0.50
+  done share50_aux_lr03__mahimn__s1  306.1 s  n_train 11631  real share 0.50
+  done share50_aux_none50__mahimn__s0  311.2 s  n_train 11631  real share 0.50
+  done share50_aux_rel12__mahimn__in_lance__s0  168.4 s  n_train 5972  real share 0.50
+  done share50_aux_rel12nc__mahimn__in_aarsh__s0  160.7 s  n_train 5802  real share 0.50
+  done share50_aux_rel12nc__mahimn__s2  316.0 s  n_train 11836  real share 0.50
+  done share50_aux_speed__mahimn__s1  307.9 s  n_train 11631  real share 0.50
+  done share50_nolsw__mahimn__s0  319.1 s  n_train 11420  real share 0.50
+  done share50_none50__mahimn__in_lance__s0  164.6 s  n_train 5889  real share 0.50
+  done share50_scratch__mahimn__in_aarsh__s0  153.3 s  n_train 5585  real share 0.50
+  done share50_scratch__mahimn__s2  314.6 s  n_train 11474  real share 0.50
+  done share50_speed__mahimn__s1  298.2 s  n_train 11474  real share 0.50
+  done share50_w48__mahimn__s0  354.5 s  n_train 11474  real share 0.50
+  done share75__mahimn__in_lance__s0  178.4 s  n_train 5889  real share 0.75
+  done share75_aux__mahimn__in_aarsh__s0  162.0 s  n_train 5695  real share 0.75
+  done share75_aux__mahimn__s2  318.8 s  n_train 11631  real share 0.75
+  done share75_aux_rel12__mahimn__s1  326.3 s  n_train 11750  real share 0.75
+  done share75_aux_rel12nc__mahimn__s0  122.9 s  n_train 11836  real share 0.75
+  done share75_aux_speed__mahimn__in_lance__s0  29.9 s  n_train 5936  real share 0.75
+  done real_aux__aarsh__in_mahimn__s0  42.5 s  n_train 407  real share 1.00
+  done real_aux_rel12__aarsh__in_lance__s0  33.5 s  n_train 321  real share 1.00
+  done real_aux_rel12__aarsh__s2  33.3 s  n_train 811  real share 1.00
+  done real_aux_rel12nc__aarsh__s1  35.8 s  n_train 847  real share 1.00
+  done real_aux_wide__aarsh__s0  223.8 s  n_train 670  real share 1.00
+  done real_aux_wide_rel12__aarsh__in_mahimn__s0  112.5 s  n_train 490  real share 1.00
+  done real_only__aarsh__in_lance__s0  47.5 s  n_train 190  real share 1.00
+  done real_only__aarsh__s2  42.5 s  n_train 487  real share 1.00
+  done real_only_rel12__aarsh__s1  40.9 s  n_train 509  real share 1.00
+  done real_only_wide__aarsh__s0  127.2 s  n_train 487  real share 1.00
+  done real_pre__aarsh__in_mahimn__s0  48.2 s  n_train 297  real share 1.00
+  done real_pre_aux__aarsh__in_lance__s0  45.1 s  n_train 263  real share 1.00
+  done real_pre_aux__aarsh__s2  45.3 s  n_train 670  real share 1.00
+  done real_pre_aux_rel12__aarsh__s1  44.3 s  n_train 811  real share 1.00
+  done real_pre_aux_rel12nc__aarsh__s0  46.3 s  n_train 847  real share 1.00
+  done real_pre_aux_speed__aarsh__in_mahimn__s0  45.6 s  n_train 407  real share 1.00
+  done real_pre_lr03__aarsh__in_lance__s0  45.2 s  n_train 190  real share 1.00
+  done real_pre_lr03__aarsh__s2  45.7 s  n_train 487  real share 1.00
+  done real_aux__lance__s1  40.8 s  n_train 494  real share 1.00
+  done real_aux_rel12__lance__s0  39.7 s  n_train 588  real share 1.00
+  done real_aux_rel12nc__lance__in_mahimn__s0  39.6 s  n_train 329  real share 1.00
+  done real_aux_wide__lance__in_aarsh__s0  114.4 s  n_train 263  real share 1.00
+  done real_aux_wide__lance__s2  122.1 s  n_train 494  real share 1.00
+  done real_aux_wide_rel12__lance__s1  123.3 s  n_train 588  real share 1.00
+  done real_only__lance__s0  41.5 s  n_train 374  real share 1.00
+  done real_only_rel12__lance__in_mahimn__s0  40.2 s  n_train 196  real share 1.00
+  done real_only_wide__lance__in_aarsh__s0  118.5 s  n_train 190  real share 1.00
+  done real_only_wide__lance__s2  118.2 s  n_train 374  real share 1.00
+  done real_pre__lance__s1  44.9 s  n_train 374  real share 1.00
+  done real_pre_aux__lance__s0  44.5 s  n_train 494  real share 1.00
+  done real_pre_aux_rel12__lance__in_mahimn__s0  45.6 s  n_train 267  real share 1.00
+  done real_pre_aux_rel12nc__lance__in_aarsh__s0  44.6 s  n_train 333  real share 1.00
+  done real_pre_aux_rel12nc__lance__s2  45.4 s  n_train 662  real share 1.00
+  done real_pre_aux_speed__lance__s1  44.7 s  n_train 494  real share 1.00
+  done real_pre_lr03__lance__s0  45.8 s  n_train 374  real share 1.00
+  done real_aux__mahimn__in_lance__s0  44.6 s  n_train 231  real share 1.00
+  done real_aux_rel12__mahimn__in_aarsh__s0  43.0 s  n_train 490  real share 1.00
+  done real_aux_rel12__mahimn__s2  43.2 s  n_train 757  real share 1.00
+  done real_aux_rel12nc__mahimn__s1  45.9 s  n_train 843  real share 1.00
+  done real_aux_wide__mahimn__s0  124.4 s  n_train 638  real share 1.00
+  done real_aux_wide_rel12__mahimn__in_lance__s0  132.5 s  n_train 267  real share 1.00
+  done real_only__mahimn__in_aarsh__s0  47.9 s  n_train 297  real share 1.00
+  done real_only__mahimn__s2  44.5 s  n_train 481  real share 1.00
+  done real_only_rel12__mahimn__s1  43.1 s  n_train 510  real share 1.00
+  done real_only_wide__mahimn__s0  120.2 s  n_train 481  real share 1.00
+  done real_pre__mahimn__in_lance__s0  39.2 s  n_train 184  real share 1.00
+  done real_pre_aux__mahimn__in_aarsh__s0  39.6 s  n_train 407  real share 1.00
+  done real_pre_aux__mahimn__s2  39.2 s  n_train 638  real share 1.00
+  done real_pre_aux_rel12__mahimn__s1  39.4 s  n_train 757  real share 1.00
+  done real_pre_aux_rel12nc__mahimn__s0  39.4 s  n_train 843  real share 1.00
+  done real_pre_aux_speed__mahimn__in_lance__s0  38.7 s  n_train 231  real share 1.00
+  done real_pre_lr03__mahimn__in_aarsh__s0  38.9 s  n_train 297  real share 1.00
+  done real_pre_lr03__mahimn__s2  39.2 s  n_train 481  real share 1.00
+  done share50_pure__aarsh__s1  157.5 s  n_train 20361  real share 0.50
+  done share50_pure__lance__s0  180.8 s  n_train 20248  real share 0.50
+  done share50_pure__mahimn__in_lance__s0  176.6 s  n_train 20058  real share 0.50
+  done released__aarsh__in_lance__s0  47.7 s  n_train 5337  real share 0.05
+  done released__aarsh__s2  97.5 s  n_train 10922  real share 0.06
+  done share25__aarsh__s1  96.4 s  n_train 10922  real share 0.25
+  done share25_aux__aarsh__s0  98.4 s  n_train 11105  real share 0.25
+  done share50__aarsh__in_mahimn__s0  43.6 s  n_train 5585  real share 0.50
+  done share50_aux__aarsh__in_lance__s0  42.9 s  n_train 5410  real share 0.50
+  done share50_aux__aarsh__s2  94.9 s  n_train 11105  real share 0.50
+  done share50_aux_e20__aarsh__s1  33.4 s  n_train 11105  real share 0.50
+  done share50_aux_lr03__aarsh__s0  99.4 s  n_train 11105  real share 0.50
+  done share50_aux_none50__aarsh__in_mahimn__s0  51.0 s  n_train 5695  real share 0.50
+  done share50_aux_rel12__aarsh__in_lance__s0  51.1 s  n_train 5468  real share 0.50
+  done share50_aux_rel12__aarsh__s2  98.3 s  n_train 11246  real share 0.50
+  done share50_aux_rel12nc__aarsh__s1  96.6 s  n_train 11282  real share 0.50
+  done share50_aux_speed__aarsh__s0  87.2 s  n_train 11105  real share 0.50
+  done share50_nolsw__aarsh__in_mahimn__s0  43.6 s  n_train 5531  real share 0.50
+  done share50_none50__aarsh__in_lance__s0  41.0 s  n_train 5337  real share 0.50
+  done share50_none50__aarsh__s2  85.8 s  n_train 10922  real share 0.50
+  done share50_scratch__aarsh__s1  84.9 s  n_train 10922  real share 0.50
+  done share50_speed__aarsh__s0  84.3 s  n_train 10922  real share 0.50
+  done share50_w48__aarsh__in_mahimn__s0  129.8 s  n_train 5585  real share 0.50
+  done share75__aarsh__in_lance__s0  37.7 s  n_train 5337  real share 0.75
+  done share75__aarsh__s2  75.6 s  n_train 10922  real share 0.75
+  done share75_aux__aarsh__s1  75.2 s  n_train 11105  real share 0.75
+  done share75_aux_rel12__aarsh__s0  72.3 s  n_train 11246  real share 0.75
+  done share75_aux_rel12nc__aarsh__in_mahimn__s0  38.0 s  n_train 5802  real share 0.75
+  done share75_aux_speed__aarsh__in_lance__s0  36.5 s  n_train 5410  real share 0.75
+  done share75_aux_speed__aarsh__s2  72.2 s  n_train 11105  real share 0.75
+  done released__lance__s1  73.5 s  n_train 11226  real share 0.05
+  done share25__lance__s0  73.0 s  n_train 11226  real share 0.25
+  done share25_aux__lance__in_mahimn__s0  40.4 s  n_train 5936  real share 0.25
+  done share50__lance__in_aarsh__s0  35.2 s  n_train 5337  real share 0.50
+  done share50__lance__s2  73.1 s  n_train 11226  real share 0.50
+  done share50_aux__lance__s1  74.4 s  n_train 11346  real share 0.50
+  done share50_aux_e20__lance__s0  25.4 s  n_train 11346  real share 0.50
+  done share50_aux_lr03__lance__in_mahimn__s0  40.1 s  n_train 5936  real share 0.50
+  done share50_aux_none50__lance__in_aarsh__s0  36.8 s  n_train 5410  real share 0.50
+  done share50_aux_none50__lance__s2  74.8 s  n_train 11346  real share 0.50
+  done share50_aux_rel12__lance__s1  74.8 s  n_train 11440  real share 0.50
+  done share50_aux_rel12nc__lance__s0  74.7 s  n_train 11514  real share 0.50
+  done share50_aux_speed__lance__in_mahimn__s0  40.2 s  n_train 5936  real share 0.50
+  done share50_nolsw__lance__in_aarsh__s0  35.2 s  n_train 5337  real share 0.50
+  done share50_nolsw__lance__s2  73.2 s  n_train 11226  real share 0.50
+  done share50_none50__lance__s1  73.2 s  n_train 11226  real share 0.50
+  done share50_scratch__lance__s0  72.8 s  n_train 11226  real share 0.50
+  done share50_speed__lance__in_mahimn__s0  40.1 s  n_train 5889  real share 0.50
+  done share50_w48__lance__in_aarsh__s0  54.1 s  n_train 5337  real share 0.50
+  done share50_w48__lance__s2  699.5 s  n_train 11226  real share 0.50
+  done share75__lance__s1  1169.9 s  n_train 11226  real share 0.75
+  done share75_aux__lance__s0  4905.1 s  n_train 11346  real share 0.75
+  done share75_aux_rel12__lance__in_mahimn__s0  1585.4 s  n_train 5972  real share 0.75
+  done share75_aux_rel12nc__lance__in_aarsh__s0  27.6 s  n_train 5480  real share 0.75
+  done share75_aux_rel12nc__lance__s2  43.3 s  n_train 11514  real share 0.75
+  done share75_aux_speed__lance__s1  37.0 s  n_train 11346  real share 0.75
+  done released__mahimn__s0  37.9 s  n_train 11474  real share 0.05
+  done share25__mahimn__in_lance__s0  20.3 s  n_train 5889  real share 0.25
+  done share25_aux__mahimn__in_aarsh__s0  19.1 s  n_train 5695  real share 0.25
+  done share25_aux__mahimn__s2  38.2 s  n_train 11631  real share 0.25
+  done share50__mahimn__s1  36.7 s  n_train 11474  real share 0.50
+  done share50_aux__mahimn__s0  38.2 s  n_train 11631  real share 0.50
+  done share50_aux_e20__mahimn__in_lance__s0  7.2 s  n_train 5936  real share 0.50
+  done share50_aux_lr03__mahimn__in_aarsh__s0  19.6 s  n_train 5695  real share 0.50
+  done share50_aux_lr03__mahimn__s2  37.9 s  n_train 11631  real share 0.50
+  done share50_aux_none50__mahimn__s1  38.0 s  n_train 11631  real share 0.50
+  done share50_aux_rel12__mahimn__s0  38.1 s  n_train 11750  real share 0.50
+  done share50_aux_rel12nc__mahimn__in_lance__s0  19.9 s  n_train 6034  real share 0.50
+  done share50_aux_speed__mahimn__in_aarsh__s0  19.2 s  n_train 5695  real share 0.50
+  done share50_aux_speed__mahimn__s2  37.8 s  n_train 11631  real share 0.50
+  done share50_nolsw__mahimn__s1  37.3 s  n_train 11420  real share 0.50
+  done share50_none50__mahimn__s0  38.0 s  n_train 11474  real share 0.50
+  done share50_scratch__mahimn__in_lance__s0  23.4 s  n_train 5889  real share 0.50
+  done share50_speed__mahimn__in_aarsh__s0  21.3 s  n_train 5585  real share 0.50
+  done share50_speed__mahimn__s2  37.6 s  n_train 11474  real share 0.50
+  done share50_w48__mahimn__s1  56.3 s  n_train 11474  real share 0.50
+  done share75__mahimn__s0  37.3 s  n_train 11474  real share 0.75
+  done share75_aux__mahimn__in_lance__s0  20.3 s  n_train 5936  real share 0.75
+  done share75_aux_rel12__mahimn__in_aarsh__s0  19.3 s  n_train 5778  real share 0.75
+  done share75_aux_rel12__mahimn__s2  37.6 s  n_train 11750  real share 0.75
+  done share75_aux_rel12nc__mahimn__s1  38.7 s  n_train 11836  real share 0.75
+  done share75_aux_speed__mahimn__s0  38.1 s  n_train 11631  real share 0.75
+  done real_aux__aarsh__s0  42.5 s  n_train 670  real share 1.00
+  done real_aux_rel12__aarsh__in_mahimn__s0  33.3 s  n_train 490  real share 1.00
+  done real_aux_rel12nc__aarsh__in_lance__s0  33.2 s  n_train 333  real share 1.00
+  done real_aux_rel12nc__aarsh__s2  35.4 s  n_train 847  real share 1.00
+  done real_aux_wide__aarsh__s1  227.9 s  n_train 670  real share 1.00
+  done real_aux_wide_rel12__aarsh__s0  113.8 s  n_train 811  real share 1.00
+  done real_only__aarsh__in_mahimn__s0  47.4 s  n_train 297  real share 1.00
+  done real_only_rel12__aarsh__in_lance__s0  42.7 s  n_train 195  real share 1.00
+  done real_only_rel12__aarsh__s2  40.3 s  n_train 509  real share 1.00
+  done real_only_wide__aarsh__s1  129.9 s  n_train 487  real share 1.00
+  done real_pre__aarsh__s0  48.0 s  n_train 487  real share 1.00
+  done real_pre_aux__aarsh__in_mahimn__s0  45.5 s  n_train 407  real share 1.00
+  done real_pre_aux_rel12__aarsh__in_lance__s0  44.7 s  n_train 321  real share 1.00
+  done real_pre_aux_rel12__aarsh__s2  46.4 s  n_train 811  real share 1.00
+  done real_pre_aux_rel12nc__aarsh__s1  45.9 s  n_train 847  real share 1.00
+  done real_pre_aux_speed__aarsh__s0  46.5 s  n_train 670  real share 1.00
+  done real_pre_lr03__aarsh__in_mahimn__s0  46.3 s  n_train 297  real share 1.00
+  done real_aux__lance__in_aarsh__s0  44.7 s  n_train 263  real share 1.00
+  done real_aux__lance__s2  39.7 s  n_train 494  real share 1.00
+  done real_aux_rel12__lance__s1  39.4 s  n_train 588  real share 1.00
+  done real_aux_rel12nc__lance__s0  40.0 s  n_train 662  real share 1.00
+  done real_aux_wide__lance__in_mahimn__s0  118.1 s  n_train 231  real share 1.00
+  done real_aux_wide_rel12__lance__in_aarsh__s0  124.5 s  n_train 321  real share 1.00
+  done real_aux_wide_rel12__lance__s2  123.5 s  n_train 588  real share 1.00
+  done real_only__lance__s1  40.6 s  n_train 374  real share 1.00
+  done real_only_rel12__lance__s0  40.6 s  n_train 391  real share 1.00
+  done real_only_wide__lance__in_mahimn__s0  122.3 s  n_train 184  real share 1.00
+  done real_pre__lance__in_aarsh__s0  44.2 s  n_train 190  real share 1.00
+  done real_pre__lance__s2  48.9 s  n_train 374  real share 1.00
+  done real_pre_aux__lance__s1  46.2 s  n_train 494  real share 1.00
+  done real_pre_aux_rel12__lance__s0  44.7 s  n_train 588  real share 1.00
+  done real_pre_aux_rel12nc__lance__in_mahimn__s0  45.4 s  n_train 329  real share 1.00
+  done real_pre_aux_speed__lance__in_aarsh__s0  44.5 s  n_train 263  real share 1.00
+  done real_pre_aux_speed__lance__s2  45.7 s  n_train 494  real share 1.00
+  done real_pre_lr03__lance__s1  45.5 s  n_train 374  real share 1.00
+  done real_aux__mahimn__s0  45.9 s  n_train 638  real share 1.00
+  done real_aux_rel12__mahimn__in_lance__s0  45.2 s  n_train 267  real share 1.00
+  done real_aux_rel12nc__mahimn__in_aarsh__s0  43.8 s  n_train 514  real share 1.00
+  done real_aux_rel12nc__mahimn__s2  41.7 s  n_train 843  real share 1.00
+  done real_aux_wide__mahimn__s1  121.3 s  n_train 638  real share 1.00
+  done real_aux_wide_rel12__mahimn__s0  135.0 s  n_train 757  real share 1.00
+  done real_only__mahimn__in_lance__s0  50.4 s  n_train 184  real share 1.00
+  done real_only_rel12__mahimn__in_aarsh__s0  48.4 s  n_train 314  real share 1.00
+  done real_only_rel12__mahimn__s2  45.1 s  n_train 510  real share 1.00
+  done real_only_wide__mahimn__s1  119.9 s  n_train 481  real share 1.00
+  done real_pre__mahimn__s0  44.9 s  n_train 481  real share 1.00
+  done real_pre_aux__mahimn__in_lance__s0  39.2 s  n_train 231  real share 1.00
+  done real_pre_aux_rel12__mahimn__in_aarsh__s0  39.9 s  n_train 490  real share 1.00
+  done real_pre_aux_rel12__mahimn__s2  39.4 s  n_train 757  real share 1.00
+  done real_pre_aux_rel12nc__mahimn__s1  39.5 s  n_train 843  real share 1.00
+  done real_pre_aux_speed__mahimn__s0  39.2 s  n_train 638  real share 1.00
+  done real_pre_lr03__mahimn__in_lance__s0  39.1 s  n_train 184  real share 1.00
+  done share50_pure__aarsh__in_lance__s0  155.1 s  n_train 20064  real share 0.50
+  done share50_pure__aarsh__s2  168.3 s  n_train 20361  real share 0.50
+  done share50_pure__lance__s1  177.9 s  n_train 20248  real share 0.50
+  done share50_pure__mahimn__s0  180.6 s  n_train 20355  real share 0.50
+  done released__aarsh__in_mahimn__s0  50.1 s  n_train 5585  real share 0.06
+  done share25__aarsh__in_lance__s0  48.5 s  n_train 5337  real share 0.25
+  done share25__aarsh__s2  96.9 s  n_train 10922  real share 0.25
+  done share25_aux__aarsh__s1  93.3 s  n_train 11105  real share 0.25
+  done share50__aarsh__s0  85.7 s  n_train 10922  real share 0.50
+  done share50_aux__aarsh__in_mahimn__s0  52.5 s  n_train 5695  real share 0.50
+  done share50_aux_e20__aarsh__in_lance__s0  17.5 s  n_train 5410  real share 0.50
+  done share50_aux_e20__aarsh__s2  33.7 s  n_train 11105  real share 0.50
+  done share50_aux_lr03__aarsh__s1  99.7 s  n_train 11105  real share 0.50
+  done share50_aux_none50__aarsh__s0  98.6 s  n_train 11105  real share 0.50
+  done share50_aux_rel12__aarsh__in_mahimn__s0  52.9 s  n_train 5778  real share 0.50
+  done share50_aux_rel12nc__aarsh__in_lance__s0  51.2 s  n_train 5480  real share 0.50
+  done share50_aux_rel12nc__aarsh__s2  94.1 s  n_train 11282  real share 0.50
+  done share50_aux_speed__aarsh__s1  87.0 s  n_train 11105  real share 0.50
+  done share50_nolsw__aarsh__s0  84.5 s  n_train 10868  real share 0.50
+  done share50_none50__aarsh__in_mahimn__s0  44.4 s  n_train 5585  real share 0.50
+  done share50_scratch__aarsh__in_lance__s0  42.1 s  n_train 5337  real share 0.50
+  done share50_scratch__aarsh__s2  85.3 s  n_train 10922  real share 0.50
+  done share50_speed__aarsh__s1  83.0 s  n_train 10922  real share 0.50
+  done share50_w48__aarsh__s0  128.9 s  n_train 10922  real share 0.50
+  done share75__aarsh__in_mahimn__s0  39.9 s  n_train 5585  real share 0.75
+  done share75_aux__aarsh__in_lance__s0  39.5 s  n_train 5410  real share 0.75
+  done share75_aux__aarsh__s2  76.7 s  n_train 11105  real share 0.75
+  done share75_aux_rel12__aarsh__s1  73.0 s  n_train 11246  real share 0.75
+  done share75_aux_rel12nc__aarsh__s0  75.1 s  n_train 11282  real share 0.75
+  done share75_aux_speed__aarsh__in_mahimn__s0  38.3 s  n_train 5695  real share 0.75
+  done released__lance__in_aarsh__s0  35.1 s  n_train 5337  real share 0.05
+  done released__lance__s2  72.8 s  n_train 11226  real share 0.05
+  done share25__lance__s1  72.5 s  n_train 11226  real share 0.25
+  done share25_aux__lance__s0  74.4 s  n_train 11346  real share 0.25
+  done share50__lance__in_mahimn__s0  39.8 s  n_train 5889  real share 0.50
+  done share50_aux__lance__in_aarsh__s0  36.5 s  n_train 5410  real share 0.50
+  done share50_aux__lance__s2  74.7 s  n_train 11346  real share 0.50
+  done share50_aux_e20__lance__s1  25.2 s  n_train 11346  real share 0.50
+  done share50_aux_lr03__lance__s0  74.9 s  n_train 11346  real share 0.50
+  done share50_aux_none50__lance__in_mahimn__s0  39.6 s  n_train 5936  real share 0.50
+  done share50_aux_rel12__lance__in_aarsh__s0  36.7 s  n_train 5468  real share 0.50
+  done share50_aux_rel12__lance__s2  74.5 s  n_train 11440  real share 0.50
+  done share50_aux_rel12nc__lance__s1  74.5 s  n_train 11514  real share 0.50
+  done share50_aux_speed__lance__s0  74.5 s  n_train 11346  real share 0.50
+  done share50_nolsw__lance__in_mahimn__s0  39.8 s  n_train 5889  real share 0.50
+  done share50_none50__lance__in_aarsh__s0  35.3 s  n_train 5337  real share 0.50
+  done share50_none50__lance__s2  73.0 s  n_train 11226  real share 0.50
+  done share50_scratch__lance__s1  72.8 s  n_train 11226  real share 0.50
+  done share50_speed__lance__s0  74.1 s  n_train 11226  real share 0.50
+  done share50_w48__lance__in_mahimn__s0  67.5 s  n_train 5889  real share 0.50
+  done share75__lance__in_aarsh__s0  40.2 s  n_train 5337  real share 0.75
+  done share75__lance__s2  657.7 s  n_train 11226  real share 0.75
+  done real_aux__aarsh__s1  42.6 s  n_train 670  real share 1.00
+  done real_aux_rel12__aarsh__s0  33.0 s  n_train 811  real share 1.00
+  done real_aux_rel12nc__aarsh__in_mahimn__s0  32.8 s  n_train 514  real share 1.00
+  done real_aux_wide__aarsh__in_lance__s0  108.1 s  n_train 263  real share 1.00
+  done real_aux_wide__aarsh__s2  172.3 s  n_train 670  real share 1.00
+  done real_aux_wide_rel12__aarsh__s1  134.6 s  n_train 811  real share 1.00
+  done real_only__aarsh__s0  62.3 s  n_train 487  real share 1.00
+  done real_only_rel12__aarsh__in_mahimn__s0  63.1 s  n_train 314  real share 1.00
+  done real_only_wide__aarsh__in_lance__s0  235.7 s  n_train 190  real share 1.00
+  done real_only_wide__aarsh__s2  235.2 s  n_train 487  real share 1.00
+  done real_pre__aarsh__s1  58.1 s  n_train 487  real share 1.00
+  done real_pre_aux__aarsh__s0  54.9 s  n_train 670  real share 1.00
+  done real_pre_aux_rel12__aarsh__in_mahimn__s0  69.4 s  n_train 490  real share 1.00
+  done real_pre_aux_rel12nc__aarsh__in_lance__s0  67.5 s  n_train 333  real share 1.00
+  done real_pre_aux_rel12nc__aarsh__s2  70.6 s  n_train 847  real share 1.00
+  done real_pre_aux_speed__aarsh__s1  71.8 s  n_train 670  real share 1.00
+  done real_pre_lr03__aarsh__s0  72.9 s  n_train 487  real share 1.00
+  done real_aux__lance__in_mahimn__s0  59.7 s  n_train 231  real share 1.00
+  done real_aux_rel12__lance__in_aarsh__s0  58.9 s  n_train 321  real share 1.00
+  done real_aux_rel12__lance__s2  72.7 s  n_train 588  real share 1.00
+  done real_aux_rel12nc__lance__s1  66.8 s  n_train 662  real share 1.00
+  done real_aux_wide__lance__s0  225.6 s  n_train 494  real share 1.00
+  done real_aux_wide_rel12__lance__in_mahimn__s0  225.0 s  n_train 267  real share 1.00
+  done real_only__lance__in_aarsh__s0  62.9 s  n_train 190  real share 1.00
+  done real_only__lance__s2  69.6 s  n_train 374  real share 1.00
+  done real_only_rel12__lance__s1  69.3 s  n_train 391  real share 1.00
+  done real_only_wide__lance__s0  250.3 s  n_train 374  real share 1.00
+  done real_pre__lance__in_mahimn__s0  66.7 s  n_train 184  real share 1.00
+  done real_pre_aux__lance__in_aarsh__s0  70.4 s  n_train 263  real share 1.00
+  done real_pre_aux__lance__s2  57.3 s  n_train 494  real share 1.00
+  done real_pre_aux_rel12__lance__s1  57.7 s  n_train 588  real share 1.00
+  done real_pre_aux_rel12nc__lance__s0  52.8 s  n_train 662  real share 1.00
+  done real_pre_aux_speed__lance__in_mahimn__s0  56.2 s  n_train 231  real share 1.00
+  done real_pre_lr03__lance__in_aarsh__s0  52.0 s  n_train 190  real share 1.00
+  done real_pre_lr03__lance__s2  55.8 s  n_train 374  real share 1.00
+  done real_aux__mahimn__s1  55.3 s  n_train 638  real share 1.00
+  done real_aux_rel12__mahimn__s0  58.6 s  n_train 757  real share 1.00
+  done real_aux_rel12nc__mahimn__in_lance__s0  56.1 s  n_train 329  real share 1.00
+  done real_aux_wide__mahimn__in_aarsh__s0  230.3 s  n_train 407  real share 1.00
+  done real_aux_wide__mahimn__s2  226.5 s  n_train 638  real share 1.00
+  done real_aux_wide_rel12__mahimn__s1  235.1 s  n_train 757  real share 1.00
+  done real_only__mahimn__s0  55.2 s  n_train 481  real share 1.00
+  done real_only_rel12__mahimn__in_lance__s0  56.2 s  n_train 196  real share 1.00
+  done real_only_wide__mahimn__in_aarsh__s0  233.3 s  n_train 297  real share 1.00
+  done real_only_wide__mahimn__s2  235.1 s  n_train 481  real share 1.00
+  done real_pre__mahimn__s1  55.8 s  n_train 481  real share 1.00
+  done real_pre_aux__mahimn__s0  59.4 s  n_train 638  real share 1.00
+  done real_pre_aux_rel12__mahimn__in_lance__s0  56.9 s  n_train 267  real share 1.00
+  done real_pre_aux_rel12nc__mahimn__in_aarsh__s0  58.6 s  n_train 514  real share 1.00
+  done real_pre_aux_rel12nc__mahimn__s2  57.9 s  n_train 843  real share 1.00
+  done real_pre_aux_speed__mahimn__s1  57.6 s  n_train 638  real share 1.00
+  done real_pre_lr03__mahimn__s0  56.2 s  n_train 481  real share 1.00
+  done share50_pure__aarsh__in_mahimn__s0  182.2 s  n_train 20171  real share 0.50
+  done share50_pure__lance__in_aarsh__s0  138.5 s  n_train 20064  real share 0.50
+  done share50_pure__lance__s2  132.0 s  n_train 20248  real share 0.50
+  done share50_pure__mahimn__s1  130.8 s  n_train 20355  real share 0.50
+  done released__aarsh__s0  70.9 s  n_train 10922  real share 0.06
+  done share25__aarsh__in_mahimn__s0  36.7 s  n_train 5585  real share 0.25
+  done share25_aux__aarsh__in_lance__s0  36.4 s  n_train 5410  real share 0.25
+  done share25_aux__aarsh__s2  71.9 s  n_train 11105  real share 0.25
+  done share50__aarsh__s1  70.6 s  n_train 10922  real share 0.50
+  done share50_aux__aarsh__s0  72.3 s  n_train 11105  real share 0.50
+  done share50_aux_e20__aarsh__in_mahimn__s0  13.1 s  n_train 5695  real share 0.50
+  done share50_aux_lr03__aarsh__in_lance__s0  36.4 s  n_train 5410  real share 0.50
+  done share50_aux_lr03__aarsh__s2  72.1 s  n_train 11105  real share 0.50
+  done share50_aux_none50__aarsh__s1  72.2 s  n_train 11105  real share 0.50
+  done share50_aux_rel12__aarsh__s0  72.3 s  n_train 11246  real share 0.50
+  done share50_aux_rel12nc__aarsh__in_mahimn__s0  38.1 s  n_train 5802  real share 0.50
+  done share50_aux_speed__aarsh__in_lance__s0  36.7 s  n_train 5410  real share 0.50
+  done share50_aux_speed__aarsh__s2  72.2 s  n_train 11105  real share 0.50
+  done share50_nolsw__aarsh__s1  70.3 s  n_train 10868  real share 0.50
+  done share50_none50__aarsh__s0  70.6 s  n_train 10922  real share 0.50
+  done share50_scratch__aarsh__in_mahimn__s0  36.4 s  n_train 5585  real share 0.50
+  done share50_speed__aarsh__in_lance__s0  35.2 s  n_train 5337  real share 0.50
+  done share50_speed__aarsh__s2  71.3 s  n_train 10922  real share 0.50
+  done share50_w48__aarsh__s1  718.0 s  n_train 10922  real share 0.50
+  done share75__aarsh__s0  91.2 s  n_train 10922  real share 0.75
+  done share75_aux__aarsh__in_mahimn__s0  1804.2 s  n_train 5695  real share 0.75
+  done share75_aux_rel12__aarsh__in_lance__s0  1674.7 s  n_train 5468  real share 0.75
+  done share75_aux_rel12__aarsh__s2  3642.7 s  n_train 11246  real share 0.75
+  done share75_aux_rel12nc__aarsh__s1  493.6 s  n_train 11282  real share 0.75
+  done share75_aux_speed__aarsh__s0  43.7 s  n_train 11105  real share 0.75
+  done released__lance__in_mahimn__s0  20.0 s  n_train 5889  real share 0.04
+  done share25__lance__in_aarsh__s0  17.6 s  n_train 5337  real share 0.25
+  done share25__lance__s2  35.6 s  n_train 11226  real share 0.25
+  done share25_aux__lance__s1  36.8 s  n_train 11346  real share 0.25
+  done share50__lance__s0  36.1 s  n_train 11226  real share 0.50
+  done share50_aux__lance__in_mahimn__s0  19.8 s  n_train 5936  real share 0.50
+  done share50_aux_e20__lance__in_aarsh__s0  6.5 s  n_train 5410  real share 0.50
+  done share50_aux_e20__lance__s2  12.8 s  n_train 11346  real share 0.50
+  done share50_aux_lr03__lance__s1  36.9 s  n_train 11346  real share 0.50
+  done share50_aux_none50__lance__s0  36.3 s  n_train 11346  real share 0.50
+  done share50_aux_rel12__lance__in_mahimn__s0  20.1 s  n_train 5972  real share 0.50
+  done share50_aux_rel12nc__lance__in_aarsh__s0  18.2 s  n_train 5480  real share 0.50
+  done share50_aux_rel12nc__lance__s2  37.1 s  n_train 11514  real share 0.50
+  done share50_aux_speed__lance__s1  37.0 s  n_train 11346  real share 0.50
+  done share50_nolsw__lance__s0  36.2 s  n_train 11226  real share 0.50
+  done share50_none50__lance__in_mahimn__s0  19.8 s  n_train 5889  real share 0.50
+  done share50_scratch__lance__in_aarsh__s0  17.6 s  n_train 5337  real share 0.50
+  done share50_scratch__lance__s2  36.3 s  n_train 11226  real share 0.50
+  done share50_speed__lance__s1  36.2 s  n_train 11226  real share 0.50
+  done share50_w48__lance__s0  55.0 s  n_train 11226  real share 0.50
+  done share75__lance__in_mahimn__s0  20.1 s  n_train 5889  real share 0.75
+  done share75_aux__lance__in_aarsh__s0  19.0 s  n_train 5410  real share 0.75
+  done share75_aux__lance__s2  43.3 s  n_train 11346  real share 0.75
+  done share75_aux_rel12__lance__s1  38.0 s  n_train 11440  real share 0.75
+  done share75_aux_rel12nc__lance__s0  36.8 s  n_train 11514  real share 0.75
+  done share75_aux_speed__lance__in_mahimn__s0  19.8 s  n_train 5936  real share 0.75
+  done released__mahimn__in_aarsh__s0  18.8 s  n_train 5585  real share 0.06
+  done released__mahimn__s2  37.1 s  n_train 11474  real share 0.05
+  done share25__mahimn__s1  37.1 s  n_train 11474  real share 0.25
+  done share25_aux__mahimn__s0  24.2 s  n_train 11631  real share 0.25
+  done share50__mahimn__in_lance__s0  10.0 s  n_train 5889  real share 0.50
+  done share50_aux__mahimn__in_aarsh__s0  9.6 s  n_train 5695  real share 0.50
+  done share50_aux__mahimn__s2  19.0 s  n_train 11631  real share 0.50
+  done share50_aux_e20__mahimn__s1  6.5 s  n_train 11631  real share 0.50
+  done share50_aux_lr03__mahimn__s0  19.0 s  n_train 11631  real share 0.50
+  done share50_aux_none50__mahimn__in_lance__s0  10.0 s  n_train 5936  real share 0.50
+  done share50_aux_rel12__mahimn__in_aarsh__s0  9.6 s  n_train 5778  real share 0.50
+  done share50_aux_rel12__mahimn__s2  19.0 s  n_train 11750  real share 0.50
+  done share50_aux_rel12nc__mahimn__s1  19.3 s  n_train 11836  real share 0.50
+  done share50_aux_speed__mahimn__s0  19.0 s  n_train 11631  real share 0.50
+  done share50_nolsw__mahimn__in_lance__s0  10.0 s  n_train 5889  real share 0.50
+  done share50_none50__mahimn__in_aarsh__s0  9.2 s  n_train 5585  real share 0.50
+  done share50_none50__mahimn__s2  18.6 s  n_train 11474  real share 0.50
+  done share50_scratch__mahimn__s1  18.5 s  n_train 11474  real share 0.50
+  done share50_speed__mahimn__s0  18.5 s  n_train 11474  real share 0.50
+  done share50_w48__mahimn__in_lance__s0  17.5 s  n_train 5889  real share 0.50
+  done share75__mahimn__in_aarsh__s0  9.2 s  n_train 5585  real share 0.75
+  done share75__mahimn__s2  18.5 s  n_train 11474  real share 0.75
+  done share75_aux__mahimn__s1  18.9 s  n_train 11631  real share 0.75
+  done share75_aux_rel12__mahimn__s0  19.0 s  n_train 11750  real share 0.75
+  done share75_aux_rel12nc__mahimn__in_lance__s0  10.0 s  n_train 6034  real share 0.75
+  done share75_aux_speed__mahimn__in_aarsh__s0  9.6 s  n_train 5695  real share 0.75
+  done share75_aux_speed__mahimn__s2  19.0 s  n_train 11631  real share 0.75
+folds: finished in 16375 s; 0 failed run(s)
+WARNING: 31 of these runs produced no result (first: ['share75_aux__lance__s1', 'share75_aux_rel12__lance__s0', 'share75_aux_rel12nc__lance__in_mahimn__s0']). Run the same command again with --stamp 20261114-061651: it only does what is missing.
+
+# Leave-one-human-out scores (gestures recognised / non-gestures that trigger, at the engine's 0.6 threshold)
+
+Run `20261114-061651`. Each cell: 3-seed average of the model's probabilities. Temperature from the training humans only (nested). Budget for false triggers: 0.0551.
+
+| arm | pooled recall [95% CI] | pooled false | lance recall / false | aarsh recall / false | mahimn recall / false | without lance | wrong / silent | recall at temperature 1 | best possible at budget |
+|---|---|---|---|---|---|---|---|---|---|
+| released | **0.360** [0.28,0.45] (45/125) | 0.011 (4/356) | 0.237 (19/80) / 0.000 (0/217) | 0.578 (26/45) / 0.029 (4/139) | - | 0.578 / 0.029 | 13 / 67 | 0.368 / 0.011 | 0.472 |
+| real_only | **0.340** [0.28,0.41] (70/206) | 0.004 (2/465) | 0.200 (16/80) / 0.005 (1/217) | 0.444 (20/45) / 0.000 (0/139) | 0.420 (34/81) / 0.009 (1/109) | 0.429 / 0.004 | 12 / 124 | 0.379 / 0.004 | 0.519 |
+| real_pre | **0.330** [0.27,0.40] (68/206) | 0.009 (4/465) | 0.188 (15/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.383 (31/81) / 0.037 (4/109) | 0.421 / 0.016 | 9 / 129 | 0.369 / 0.009 | 0.553 |
+| real_pre_lr03 | **0.413** [0.35,0.48] (85/206) | 0.013 (6/465) | 0.250 (20/80) / 0.000 (0/217) | 0.533 (24/45) / 0.014 (2/139) | 0.506 (41/81) / 0.037 (4/109) | 0.516 / 0.024 | 15 / 106 | 0.437 / 0.015 | 0.563 |
+| share25 | **0.288** [0.22,0.37] (36/125) | 0.003 (1/356) | 0.175 (14/80) / 0.000 (0/217) | 0.489 (22/45) / 0.007 (1/139) | - | 0.489 / 0.007 | 8 / 81 | 0.296 / 0.003 | 0.424 |
+| share50 | **0.280** [0.21,0.36] (35/125) | 0.003 (1/356) | 0.188 (15/80) / 0.000 (0/217) | 0.444 (20/45) / 0.007 (1/139) | - | 0.444 / 0.007 | 7 / 83 | 0.288 / 0.003 | 0.432 |
+| share75 | **0.296** [0.22,0.38] (37/125) | 0.003 (1/356) | 0.225 (18/80) / 0.000 (0/217) | 0.422 (19/45) / 0.007 (1/139) | - | 0.422 / 0.007 | 4 / 84 | 0.296 / 0.003 | 0.440 |
+| share50_scratch | **0.272** [0.20,0.36] (34/125) | 0.003 (1/356) | 0.250 (20/80) / 0.005 (1/217) | 0.311 (14/45) / 0.000 (0/139) | - | 0.311 / 0.000 | 6 / 85 | 0.296 / 0.003 | 0.480 |
+| share50_pure | **0.403** [0.34,0.47] (83/206) | 0.004 (2/465) | 0.212 (17/80) / 0.000 (0/217) | 0.578 (26/45) / 0.000 (0/139) | 0.494 (40/81) / 0.018 (2/109) | 0.524 / 0.008 | 10 / 113 | 0.408 / 0.004 | 0.573 |
+| share50_aux | **0.192** [0.13,0.27] (24/125) | 0.000 (0/356) | 0.138 (11/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | - | 0.289 / 0.000 | 4 / 97 | 0.224 / 0.000 | 0.368 |
+| share50_nolsw | **0.280** [0.21,0.36] (35/125) | 0.003 (1/356) | 0.188 (15/80) / 0.000 (0/217) | 0.444 (20/45) / 0.007 (1/139) | - | 0.444 / 0.007 | 7 / 83 | 0.280 / 0.003 | 0.456 |
+| share50_speed | **0.485** [0.42,0.55] (100/206) | 0.013 (6/465) | 0.263 (21/80) / 0.000 (0/217) | 0.556 (25/45) / 0.022 (3/139) | 0.667 (54/81) / 0.028 (3/109) | 0.627 / 0.024 | 11 / 95 | 0.485 / 0.013 | 0.587 |
+| share50_w48 | **0.136** [0.09,0.21] (17/125) | 0.000 (0/356) | 0.138 (11/80) / 0.000 (0/217) | 0.133 (6/45) / 0.000 (0/139) | - | 0.133 / 0.000 | 4 / 104 | 0.152 / 0.000 | 0.368 |
+| share50_none50 | **0.312** [0.24,0.40] (39/125) | 0.000 (0/356) | 0.212 (17/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | - | 0.489 / 0.000 | 5 / 81 | 0.328 / 0.000 | 0.456 |
+| share50_aux_speed | **0.388** [0.32,0.46] (80/206) | 0.006 (3/465) | 0.188 (15/80) / 0.000 (0/217) | 0.400 (18/45) / 0.000 (0/139) | 0.580 (47/81) / 0.028 (3/109) | 0.516 / 0.012 | 12 / 114 | 0.413 / 0.009 | 0.563 |
+| share25_aux | **0.345** [0.28,0.41] (71/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.378 (17/45) / 0.007 (1/139) | 0.531 (43/81) / 0.000 (0/109) | 0.476 / 0.004 | 8 / 127 | 0.388 / 0.002 | 0.524 |
+| share75_aux | **0.289** [0.18,0.43] (13/45) | 0.000 (0/139) | - | 0.289 (13/45) / 0.000 (0/139) | - | - | 0 / 32 | 0.333 / 0.000 | 0.556 |
+| real_pre_aux | **0.233** [0.18,0.30] (48/206) | 0.002 (1/465) | 0.125 (10/80) / 0.000 (0/217) | 0.467 (21/45) / 0.000 (0/139) | 0.210 (17/81) / 0.009 (1/109) | 0.302 / 0.004 | 3 / 155 | 0.291 / 0.004 | 0.413 |
+| share75_aux_speed | **0.333** [0.21,0.48] (15/45) | 0.000 (0/139) | - | 0.333 (15/45) / 0.000 (0/139) | - | - | 1 / 29 | 0.400 / 0.007 | 0.533 |
+| real_pre_aux_speed | **0.262** [0.21,0.33] (54/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.259 (21/81) / 0.009 (1/109) | 0.341 / 0.004 | 10 / 142 | 0.340 / 0.013 | 0.447 |
+| share50_aux_none50 | **0.168** [0.11,0.24] (21/125) | 0.000 (0/356) | 0.100 (8/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | - | 0.289 / 0.000 | 2 / 102 | 0.232 / 0.000 | 0.368 |
+| share50_aux_e20 | **0.288** [0.22,0.37] (36/125) | 0.000 (0/356) | 0.188 (15/80) / 0.000 (0/217) | 0.467 (21/45) / 0.000 (0/139) | - | 0.467 / 0.000 | 6 / 83 | 0.320 / 0.000 | 0.424 |
+| share50_aux_lr03 | **0.383** [0.32,0.45] (79/206) | 0.004 (2/465) | 0.200 (16/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.506 (41/81) / 0.018 (2/109) | 0.500 / 0.008 | 14 / 113 | 0.403 / 0.004 | 0.519 |
+| real_aux | **0.252** [0.20,0.32] (52/206) | 0.006 (3/465) | 0.113 (9/80) / 0.009 (2/217) | 0.400 (18/45) / 0.000 (0/139) | 0.309 (25/81) / 0.009 (1/109) | 0.341 / 0.004 | 6 / 148 | 0.301 / 0.006 | 0.408 |
+| real_only_wide | **0.296** [0.24,0.36] (61/206) | 0.013 (6/465) | 0.150 (12/80) / 0.005 (1/217) | 0.378 (17/45) / 0.007 (1/139) | 0.395 (32/81) / 0.037 (4/109) | 0.389 / 0.020 | 12 / 133 | 0.359 / 0.015 | 0.568 |
+| real_aux_wide | **0.184** [0.14,0.24] (38/206) | 0.000 (0/465) | 0.075 (6/80) / 0.000 (0/217) | 0.222 (10/45) / 0.000 (0/139) | 0.272 (22/81) / 0.000 (0/109) | 0.254 / 0.000 | 9 / 159 | 0.291 / 0.002 | 0.442 |
+| real_only_rel12 | **0.413** [0.35,0.48] (85/206) | 0.010 (5/499) | 0.150 (12/80) / 0.004 (1/234) | 0.622 (28/45) / 0.000 (0/151) | 0.556 (45/81) / 0.035 (4/114) | 0.579 / 0.015 | 10 / 111 | 0.437 / 0.010 | 0.563 |
+| real_aux_rel12 | **0.286** [0.23,0.35] (59/206) | 0.004 (2/499) | 0.087 (7/80) / 0.004 (1/234) | 0.533 (24/45) / 0.000 (0/151) | 0.346 (28/81) / 0.009 (1/114) | 0.413 / 0.004 | 4 / 143 | 0.335 / 0.006 | 0.413 |
+| real_pre_aux_rel12 | **0.238** [0.18,0.30] (49/206) | 0.004 (2/499) | 0.138 (11/80) / 0.000 (0/234) | 0.489 (22/45) / 0.000 (0/151) | 0.198 (16/81) / 0.018 (2/114) | 0.302 / 0.008 | 3 / 154 | 0.325 / 0.004 | 0.481 |
+| share50_aux_rel12 | **0.232** [0.17,0.31] (29/125) | 0.000 (0/385) | 0.125 (10/80) / 0.000 (0/234) | 0.422 (19/45) / 0.000 (0/151) | - | 0.422 / 0.000 | 3 / 93 | 0.288 / 0.000 | 0.400 |
+| share75_aux_rel12 | **0.357** [0.28,0.44] (45/126) | 0.000 (0/265) | - | 0.422 (19/45) / 0.000 (0/151) | 0.321 (26/81) / 0.000 (0/114) | - | 4 / 77 | 0.484 / 0.004 | 0.635 |
+| real_aux_wide_rel12 | **0.350** [0.29,0.42] (72/206) | 0.002 (1/499) | 0.212 (17/80) / 0.000 (0/234) | 0.533 (24/45) / 0.000 (0/151) | 0.383 (31/81) / 0.009 (1/114) | 0.437 / 0.004 | 7 / 127 | 0.427 / 0.006 | 0.558 |
+| real_aux_rel12nc | **0.272** [0.22,0.34] (56/206) | 0.002 (1/567) | 0.050 (4/80) / 0.004 (1/244) | 0.578 (26/45) / 0.000 (0/206) | 0.321 (26/81) / 0.000 (0/117) | 0.413 / 0.000 | 7 / 143 | 0.320 / 0.002 | 0.437 |
+| real_pre_aux_rel12nc | **0.252** [0.20,0.32] (52/206) | 0.000 (0/567) | 0.125 (10/80) / 0.000 (0/244) | 0.400 (18/45) / 0.000 (0/206) | 0.296 (24/81) / 0.000 (0/117) | 0.333 / 0.000 | 5 / 149 | 0.345 / 0.000 | 0.490 |
+| share50_aux_rel12nc | **0.288** [0.22,0.37] (36/125) | 0.000 (0/450) | 0.175 (14/80) / 0.000 (0/244) | 0.489 (22/45) / 0.000 (0/206) | - | 0.489 / 0.000 | 3 / 86 | 0.296 / 0.000 | 0.368 |
+| share75_aux_rel12nc | **0.256** [0.19,0.34] (32/125) | 0.000 (0/450) | 0.163 (13/80) / 0.000 (0/244) | 0.422 (19/45) / 0.000 (0/206) | - | 0.422 / 0.000 | 2 / 91 | 0.280 / 0.000 | 0.336 |
+
+## Per class (pooled, nested temperature): recognised / total
+
+| arm | swipe_left | swipe_right | push |
+|---|---|---|---|
+| released | 17/42 | 16/42 | 12/41 |
+| real_only | 31/69 | 28/69 | 11/68 |
+| real_pre | 30/69 | 27/69 | 11/68 |
+| real_pre_lr03 | 37/69 | 32/69 | 16/68 |
+| share25 | 15/42 | 14/42 | 7/41 |
+| share50 | 13/42 | 14/42 | 8/41 |
+| share75 | 12/42 | 16/42 | 9/41 |
+| share50_scratch | 17/42 | 9/42 | 8/41 |
+| share50_pure | 36/69 | 36/69 | 11/68 |
+| share50_aux | 10/42 | 9/42 | 5/41 |
+| share50_nolsw | 12/42 | 15/42 | 8/41 |
+| share50_speed | 43/69 | 35/69 | 22/68 |
+| share50_w48 | 4/42 | 5/42 | 8/41 |
+| share50_none50 | 18/42 | 12/42 | 9/41 |
+| share50_aux_speed | 37/69 | 29/69 | 14/68 |
+| share25_aux | 25/69 | 28/69 | 18/68 |
+| share75_aux | 7/15 | 6/15 | 0/15 |
+| real_pre_aux | 26/69 | 14/69 | 8/68 |
+| share75_aux_speed | 6/15 | 9/15 | 0/15 |
+| real_pre_aux_speed | 31/69 | 16/69 | 7/68 |
+| share50_aux_none50 | 11/42 | 5/42 | 5/41 |
+| share50_aux_e20 | 12/42 | 15/42 | 9/41 |
+| share50_aux_lr03 | 29/69 | 34/69 | 16/68 |
+| real_aux | 27/69 | 20/69 | 5/68 |
+| real_only_wide | 26/69 | 19/69 | 16/68 |
+| real_aux_wide | 21/69 | 10/69 | 7/68 |
+| real_only_rel12 | 37/69 | 34/69 | 14/68 |
+| real_aux_rel12 | 29/69 | 22/69 | 8/68 |
+| real_pre_aux_rel12 | 23/69 | 20/69 | 6/68 |
+| share50_aux_rel12 | 13/42 | 13/42 | 3/41 |
+| share75_aux_rel12 | 21/42 | 19/42 | 5/42 |
+| real_aux_wide_rel12 | 28/69 | 21/69 | 23/68 |
+| real_aux_rel12nc | 30/69 | 22/69 | 4/68 |
+| real_pre_aux_rel12nc | 21/69 | 24/69 | 7/68 |
+| share50_aux_rel12nc | 17/42 | 13/42 | 6/41 |
+| share75_aux_rel12nc | 13/42 | 14/42 | 5/41 |
+
+## Spread over seeds (single models, nested temperature): recall per fold
+
+- released: lance 0.237 0.275 0.300; aarsh 0.511 0.533 0.578
+- real_only: lance 0.150 0.188 0.225; aarsh 0.356 0.356 0.467; mahimn 0.457 0.321 0.395
+- real_pre: lance 0.225 0.188 0.200; aarsh 0.511 0.467 0.511; mahimn 0.444 0.395 0.395
+- real_pre_lr03: lance 0.250 0.250 0.250; aarsh 0.489 0.533 0.578; mahimn 0.481 0.506 0.519
+- share25: lance 0.200 0.200 0.188; aarsh 0.533 0.467 0.533
+- share50: lance 0.188 0.188 0.188; aarsh 0.422 0.400 0.356
+- share75: lance 0.237 0.212 0.263; aarsh 0.422 0.422 0.422
+- share50_scratch: lance 0.287 0.250 0.225; aarsh 0.378 0.400 0.400
+- share50_pure: lance 0.212 0.225 0.200; aarsh 0.622 0.533 0.578; mahimn 0.432 0.531 0.506
+- share50_aux: lance 0.163 0.138 0.150; aarsh 0.422 0.289 0.244
+- share50_nolsw: lance 0.188 0.188 0.188; aarsh 0.422 0.422 0.489
+- share50_speed: lance 0.300 0.287 0.263; aarsh 0.444 0.467 0.600; mahimn 0.667 0.630 0.704
+- share50_w48: lance 0.150 0.125 0.138; aarsh 0.133 0.156 0.267
+- share50_none50: lance 0.200 0.237 0.250; aarsh 0.467 0.467 0.489
+- share50_aux_speed: lance 0.225 0.250 0.200; aarsh 0.400 0.400 0.444; mahimn 0.580 0.593 0.568
+- share25_aux: lance 0.150 0.150 0.163; aarsh 0.444 0.333 0.400; mahimn 0.444 0.568 0.593
+- share75_aux: aarsh 0.333 0.222 0.333
+- real_pre_aux: lance 0.125 0.100 0.113; aarsh 0.467 0.467 0.489; mahimn 0.296 0.222 0.222
+- share75_aux_speed: aarsh 0.356 0.267 0.356
+- real_pre_aux_speed: lance 0.138 0.150 0.113; aarsh 0.400 0.511 0.489; mahimn 0.259 0.272 0.309
+- share50_aux_none50: lance 0.163 0.050 0.138; aarsh 0.422 0.289 0.267
+- share50_aux_e20: lance 0.163 0.237 0.225; aarsh 0.489 0.489 0.511
+- share50_aux_lr03: lance 0.188 0.225 0.188; aarsh 0.578 0.400 0.422; mahimn 0.457 0.494 0.506
+- real_aux: lance 0.113 0.113 0.150; aarsh 0.222 0.444 0.378; mahimn 0.259 0.259 0.333
+- real_only_wide: lance 0.163 0.150 0.150; aarsh 0.378 0.400 0.378; mahimn 0.432 0.407 0.481
+- real_aux_wide: lance 0.113 0.087 0.087; aarsh 0.267 0.400 0.222; mahimn 0.309 0.321 0.296
+- real_only_rel12: lance 0.125 0.175 0.237; aarsh 0.600 0.622 0.622; mahimn 0.568 0.543 0.580
+- real_aux_rel12: lance 0.075 0.100 0.087; aarsh 0.422 0.378 0.600; mahimn 0.333 0.370 0.333
+- real_pre_aux_rel12: lance 0.113 0.150 0.125; aarsh 0.444 0.556 0.489; mahimn 0.198 0.198 0.247
+- share50_aux_rel12: lance 0.175 0.188 0.138; aarsh 0.489 0.422 0.311
+- share75_aux_rel12: aarsh 0.378 0.378 0.422; mahimn 0.420 0.346 0.321
+- real_aux_wide_rel12: lance 0.250 0.175 0.250; aarsh 0.533 0.533 0.511; mahimn 0.432 0.432 0.407
+- real_aux_rel12nc: lance 0.025 0.050 0.050; aarsh 0.578 0.533 0.644; mahimn 0.333 0.370 0.383
+- real_pre_aux_rel12nc: lance 0.113 0.138 0.113; aarsh 0.333 0.467 0.511; mahimn 0.346 0.296 0.284
+- share50_aux_rel12nc: lance 0.212 0.163 0.138; aarsh 0.511 0.467 0.444
+- share75_aux_rel12nc: lance 0.138 0.125 0.163; aarsh 0.444 0.333 0.444
+
+
+=== finalists (rule: highest pooled recall with pooled false <= 0.0551; 'released' always): ['share50_speed', 'real_pre_lr03', 'share50_pure', 'released']
+
+=== final: 12 training runs, 12 to do, 4 at a time on cuda
+  done real_pre_lr03__final__s0  43.2 s  n_train 671  real share 1.00
+  done share50_pure__final__s1  133.7 s  n_train 20545  real share 0.50
+  done released__final__s2  103.9 s  n_train 16811  real share 0.05
+  done real_pre_lr03__final__s1  42.9 s  n_train 671  real share 1.00
+  done share50_pure__final__s2  133.9 s  n_train 20545  real share 0.50
+  done share50_speed__final__s0  103.8 s  n_train 16811  real share 0.50
+  done real_pre_lr03__final__s2  43.3 s  n_train 671  real share 1.00
+  done released__final__s0  110.1 s  n_train 16811  real share 0.05
+  done share50_speed__final__s1  109.5 s  n_train 16811  real share 0.50
+  done share50_pure__final__s0  136.9 s  n_train 20545  real share 0.50
+  done released__final__s1  108.1 s  n_train 16811  real share 0.05
+  done share50_speed__final__s2  52.6 s  n_train 16811  real share 0.50
+final: finished in 303 s; 0 failed run(s)
+exported C:\Users\lance\sonar-wt-recall-suite\train_out\recall\suite\20261114-061651\final\share50_speed: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.18e-06, temperature 1.00
+exported C:\Users\lance\sonar-wt-recall-suite\train_out\recall\suite\20261114-061651\final\real_pre_lr03: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.98e-06, temperature 1.05
+exported C:\Users\lance\sonar-wt-recall-suite\train_out\recall\suite\20261114-061651\final\share50_pure: input [2, 64, 80], ONNX vs PyTorch max logit difference 1.43e-06, temperature 1.02
+exported C:\Users\lance\sonar-wt-recall-suite\train_out\recall\suite\20261114-061651\final\released: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.59e-06, temperature 1.01
+
+DONE in 292.9 min. Everything is in C:\Users\lance\sonar-wt-recall-suite\train_out\recall\suite\20261114-061651
+=== recall suite 20261114-061651 (full), device cuda; log: C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\log.txt
+GPU-against-CPU picture check: passed (see parity.txt)
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (std): 940 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 83, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 49, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 72, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 61, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 60, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 36, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 89, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 47, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 24, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 37, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12): 1131 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 91, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 76, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 81, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 100, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 65, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 64, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 100, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 71, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 25, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 62, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12nc): 1246 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 78, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 79, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 96, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 111, 'burst': 1, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 14, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 61, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 66, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 12, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 106, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 78, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 74, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 69, 'burst': 0, 'idle': 8}
+
+label audit (labels as recorded): left-speaker tone minus right-speaker tone, Hz (positive = hand moving LEFT)
+  session                                    n     left prompts    right prompts       t  verdict
+  20261113-233122_lance_gestures            24    +47.8± 52.2     -1.2± 46.9   +2.42  unclear (no clean direction cue)
+  20261113-235514_lance2_gestures           30    +33.8± 31.8    +19.0± 17.2   +1.59  unclear (no clean direction cue)
+  20261114-001248_mahimn_gestures           30    -63.2± 67.6    +90.7± 50.3   -7.08  OPPOSITE to the prompts  -> left/right labels exchanged for this run
+  20261114-021255_aarsh_gestures            30    +77.4± 23.1    -95.4±  9.6  +26.79  as prompted
+  20261114-025724_mahimn_gestures           24    +77.3± 56.7    -99.8± 57.5   +7.59  as prompted
+
+=== synthetic data
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\old_full\dataset.npz
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\bg_lance_full\dataset.npz
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\bg_aarsh_full\dataset.npz
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\bg_mahimn_full\dataset.npz
+arm cal50: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal25: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm cal_pre_real: skipped, its synthetic sets are not on this machine (macbook_v1_all, macbook_v1_no_aarsh ...)
+arm calm50: skipped, its synthetic sets are not on this machine (macbook_v1_motion_all, macbook_v1_motion_no_aarsh ...)
+arm calm50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_motion_all, macbook_v1_motion_no_aarsh ...)
+arm calbg50: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg50_aux: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg25_aux: skipped, its synthetic sets are not on this machine (macbook_v1_bg_all, macbook_v1_bg_no_aarsh ...)
+arm calbg50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm calbg25_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm calbg75_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_bg_rel12_all, macbook_v1_bg_rel12_no_aarsh ...)
+arm cal50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v1_rel12_all, macbook_v1_rel12_no_aarsh ...)
+
+=== pretrain: 2 training runs, 0 to do, 1 at a time on cuda
+
+=== folds: 540 training runs, 31 to do, 2 at a time on cuda
+  done share75_aux__lance__s1  48.7 s  n_train 11346  real share 0.75
+  done share75_aux_rel12nc__lance__in_mahimn__s0  19.4 s  n_train 6034  real share 0.75
+  done share75_aux_speed__lance__s2  37.2 s  n_train 11346  real share 0.75
+  done share25__mahimn__s0  37.5 s  n_train 11474  real share 0.25
+  done share50__mahimn__in_aarsh__s0  18.5 s  n_train 5585  real share 0.50
+  done share50_aux__mahimn__s1  37.1 s  n_train 11631  real share 0.50
+  done share50_aux_lr03__mahimn__in_lance__s0  20.1 s  n_train 5936  real share 0.50
+  done share50_aux_none50__mahimn__s2  37.5 s  n_train 11631  real share 0.50
+  done share50_aux_rel12nc__mahimn__s0  38.7 s  n_train 11836  real share 0.50
+  done share50_nolsw__mahimn__in_aarsh__s0  18.5 s  n_train 5531  real share 0.50
+  done share50_none50__mahimn__s1  39.4 s  n_train 11474  real share 0.50
+  done share50_speed__mahimn__in_lance__s0  19.5 s  n_train 5889  real share 0.50
+  done share50_w48__mahimn__s2  59.4 s  n_train 11474  real share 0.50
+  done share75_aux__mahimn__s0  36.1 s  n_train 11631  real share 0.75
+  done share75_aux_rel12nc__mahimn__in_aarsh__s0  9.7 s  n_train 5802  real share 0.75
+  done share75_aux_speed__mahimn__s1  19.1 s  n_train 11631  real share 0.75
+  done share75_aux_rel12__lance__s0  48.7 s  n_train 11440  real share 0.75
+  done share75_aux_speed__lance__in_aarsh__s0  18.8 s  n_train 5410  real share 0.75
+  done released__mahimn__s1  38.0 s  n_train 11474  real share 0.05
+  done share25_aux__mahimn__in_lance__s0  20.2 s  n_train 5936  real share 0.25
+  done share50__mahimn__s2  37.5 s  n_train 11474  real share 0.50
+  done share50_aux_e20__mahimn__s0  13.4 s  n_train 11631  real share 0.50
+  done share50_aux_none50__mahimn__in_aarsh__s0  19.8 s  n_train 5695  real share 0.50
+  done share50_aux_rel12__mahimn__s1  38.4 s  n_train 11750  real share 0.50
+  done share50_aux_speed__mahimn__in_lance__s0  20.6 s  n_train 5936  real share 0.50
+  done share50_nolsw__mahimn__s2  37.8 s  n_train 11420  real share 0.50
+  done share50_scratch__mahimn__s0  37.5 s  n_train 11474  real share 0.50
+  done share50_w48__mahimn__in_aarsh__s0  31.0 s  n_train 5585  real share 0.50
+  done share75__mahimn__s1  41.4 s  n_train 11474  real share 0.75
+  done share75_aux_rel12__mahimn__in_lance__s0  23.9 s  n_train 5972  real share 0.75
+  done share75_aux_rel12nc__mahimn__s2  38.6 s  n_train 11836  real share 0.75
+folds: finished in 501 s; 0 failed run(s)
+
+# Leave-one-human-out scores (gestures recognised / non-gestures that trigger, at the engine's 0.6 threshold)
+
+Run `20261114-061651`. Each cell: 3-seed average of the model's probabilities. Temperature from the training humans only (nested). Budget for false triggers: 0.0551.
+
+| arm | pooled recall [95% CI] | pooled false | lance recall / false | aarsh recall / false | mahimn recall / false | without lance | wrong / silent | recall at temperature 1 | best possible at budget |
+|---|---|---|---|---|---|---|---|---|---|
+| released | **0.485** [0.42,0.55] (100/206) | 0.024 (11/465) | 0.237 (19/80) / 0.000 (0/217) | 0.578 (26/45) / 0.029 (4/139) | 0.679 (55/81) / 0.064 (7/109) | 0.643 / 0.044 | 22 / 84 | 0.490 / 0.024 | 0.607 |
+| real_only | **0.340** [0.28,0.41] (70/206) | 0.004 (2/465) | 0.200 (16/80) / 0.005 (1/217) | 0.444 (20/45) / 0.000 (0/139) | 0.420 (34/81) / 0.009 (1/109) | 0.429 / 0.004 | 12 / 124 | 0.379 / 0.004 | 0.519 |
+| real_pre | **0.330** [0.27,0.40] (68/206) | 0.009 (4/465) | 0.188 (15/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.383 (31/81) / 0.037 (4/109) | 0.421 / 0.016 | 9 / 129 | 0.369 / 0.009 | 0.553 |
+| real_pre_lr03 | **0.413** [0.35,0.48] (85/206) | 0.013 (6/465) | 0.250 (20/80) / 0.000 (0/217) | 0.533 (24/45) / 0.014 (2/139) | 0.506 (41/81) / 0.037 (4/109) | 0.516 / 0.024 | 15 / 106 | 0.437 / 0.015 | 0.563 |
+| share25 | **0.408** [0.34,0.48] (84/206) | 0.004 (2/465) | 0.175 (14/80) / 0.000 (0/217) | 0.489 (22/45) / 0.007 (1/139) | 0.593 (48/81) / 0.009 (1/109) | 0.556 / 0.008 | 16 / 106 | 0.422 / 0.006 | 0.563 |
+| share50 | **0.374** [0.31,0.44] (77/206) | 0.004 (2/465) | 0.188 (15/80) / 0.000 (0/217) | 0.444 (20/45) / 0.007 (1/139) | 0.519 (42/81) / 0.009 (1/109) | 0.492 / 0.008 | 16 / 113 | 0.398 / 0.004 | 0.558 |
+| share75 | **0.398** [0.33,0.47] (82/206) | 0.004 (2/465) | 0.225 (18/80) / 0.000 (0/217) | 0.422 (19/45) / 0.007 (1/139) | 0.556 (45/81) / 0.009 (1/109) | 0.508 / 0.008 | 12 / 112 | 0.408 / 0.006 | 0.568 |
+| share50_scratch | **0.374** [0.31,0.44] (77/206) | 0.004 (2/465) | 0.250 (20/80) / 0.005 (1/217) | 0.311 (14/45) / 0.000 (0/139) | 0.531 (43/81) / 0.009 (1/109) | 0.452 / 0.004 | 14 / 115 | 0.413 / 0.009 | 0.602 |
+| share50_pure | **0.403** [0.34,0.47] (83/206) | 0.004 (2/465) | 0.212 (17/80) / 0.000 (0/217) | 0.578 (26/45) / 0.000 (0/139) | 0.494 (40/81) / 0.018 (2/109) | 0.524 / 0.008 | 10 / 113 | 0.408 / 0.004 | 0.573 |
+| share50_aux | **0.282** [0.22,0.35] (58/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | 0.420 (34/81) / 0.009 (1/109) | 0.373 / 0.004 | 12 / 136 | 0.320 / 0.004 | 0.476 |
+| share50_nolsw | **0.340** [0.28,0.41] (70/206) | 0.004 (2/465) | 0.188 (15/80) / 0.000 (0/217) | 0.444 (20/45) / 0.007 (1/139) | 0.432 (35/81) / 0.009 (1/109) | 0.437 / 0.008 | 13 / 123 | 0.359 / 0.006 | 0.553 |
+| share50_speed | **0.485** [0.42,0.55] (100/206) | 0.013 (6/465) | 0.263 (21/80) / 0.000 (0/217) | 0.556 (25/45) / 0.022 (3/139) | 0.667 (54/81) / 0.028 (3/109) | 0.627 / 0.024 | 11 / 95 | 0.485 / 0.013 | 0.587 |
+| share50_w48 | **0.262** [0.21,0.33] (54/206) | 0.000 (0/465) | 0.138 (11/80) / 0.000 (0/217) | 0.133 (6/45) / 0.000 (0/139) | 0.457 (37/81) / 0.000 (0/109) | 0.341 / 0.000 | 10 / 142 | 0.296 / 0.000 | 0.529 |
+| share50_none50 | **0.383** [0.32,0.45] (79/206) | 0.002 (1/465) | 0.212 (17/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.494 (40/81) / 0.009 (1/109) | 0.492 / 0.004 | 12 / 115 | 0.427 / 0.004 | 0.568 |
+| share50_aux_speed | **0.388** [0.32,0.46] (80/206) | 0.006 (3/465) | 0.188 (15/80) / 0.000 (0/217) | 0.400 (18/45) / 0.000 (0/139) | 0.580 (47/81) / 0.028 (3/109) | 0.516 / 0.012 | 12 / 114 | 0.413 / 0.009 | 0.563 |
+| share25_aux | **0.311** [0.25,0.38] (64/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.378 (17/45) / 0.007 (1/139) | 0.444 (36/81) / 0.000 (0/109) | 0.421 / 0.004 | 8 / 134 | 0.388 / 0.002 | 0.524 |
+| share75_aux | **0.272** [0.22,0.34] (56/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | 0.395 (32/81) / 0.009 (1/109) | 0.357 / 0.004 | 8 / 142 | 0.306 / 0.002 | 0.461 |
+| real_pre_aux | **0.233** [0.18,0.30] (48/206) | 0.002 (1/465) | 0.125 (10/80) / 0.000 (0/217) | 0.467 (21/45) / 0.000 (0/139) | 0.210 (17/81) / 0.009 (1/109) | 0.302 / 0.004 | 3 / 155 | 0.291 / 0.004 | 0.413 |
+| share75_aux_speed | **0.364** [0.30,0.43] (75/206) | 0.002 (1/465) | 0.188 (15/80) / 0.000 (0/217) | 0.333 (15/45) / 0.000 (0/139) | 0.556 (45/81) / 0.009 (1/109) | 0.476 / 0.004 | 11 / 120 | 0.393 / 0.006 | 0.500 |
+| real_pre_aux_speed | **0.262** [0.21,0.33] (54/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.259 (21/81) / 0.009 (1/109) | 0.341 / 0.004 | 10 / 142 | 0.340 / 0.013 | 0.447 |
+| share50_aux_none50 | **0.209** [0.16,0.27] (43/206) | 0.002 (1/465) | 0.100 (8/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | 0.272 (22/81) / 0.009 (1/109) | 0.278 / 0.004 | 9 / 154 | 0.306 / 0.004 | 0.471 |
+| share50_aux_e20 | **0.379** [0.32,0.45] (78/206) | 0.004 (2/465) | 0.188 (15/80) / 0.000 (0/217) | 0.467 (21/45) / 0.000 (0/139) | 0.519 (42/81) / 0.018 (2/109) | 0.500 / 0.008 | 14 / 114 | 0.417 / 0.004 | 0.549 |
+| share50_aux_lr03 | **0.359** [0.30,0.43] (74/206) | 0.002 (1/465) | 0.200 (16/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.444 (36/81) / 0.009 (1/109) | 0.460 / 0.004 | 13 / 119 | 0.403 / 0.004 | 0.519 |
+| real_aux | **0.252** [0.20,0.32] (52/206) | 0.006 (3/465) | 0.113 (9/80) / 0.009 (2/217) | 0.400 (18/45) / 0.000 (0/139) | 0.309 (25/81) / 0.009 (1/109) | 0.341 / 0.004 | 6 / 148 | 0.301 / 0.006 | 0.408 |
+| real_only_wide | **0.296** [0.24,0.36] (61/206) | 0.013 (6/465) | 0.150 (12/80) / 0.005 (1/217) | 0.378 (17/45) / 0.007 (1/139) | 0.395 (32/81) / 0.037 (4/109) | 0.389 / 0.020 | 12 / 133 | 0.359 / 0.015 | 0.568 |
+| real_aux_wide | **0.184** [0.14,0.24] (38/206) | 0.000 (0/465) | 0.075 (6/80) / 0.000 (0/217) | 0.222 (10/45) / 0.000 (0/139) | 0.272 (22/81) / 0.000 (0/109) | 0.254 / 0.000 | 9 / 159 | 0.291 / 0.002 | 0.442 |
+| real_only_rel12 | **0.413** [0.35,0.48] (85/206) | 0.010 (5/499) | 0.150 (12/80) / 0.004 (1/234) | 0.622 (28/45) / 0.000 (0/151) | 0.556 (45/81) / 0.035 (4/114) | 0.579 / 0.015 | 10 / 111 | 0.437 / 0.010 | 0.563 |
+| real_aux_rel12 | **0.286** [0.23,0.35] (59/206) | 0.004 (2/499) | 0.087 (7/80) / 0.004 (1/234) | 0.533 (24/45) / 0.000 (0/151) | 0.346 (28/81) / 0.009 (1/114) | 0.413 / 0.004 | 4 / 143 | 0.335 / 0.006 | 0.413 |
+| real_pre_aux_rel12 | **0.238** [0.18,0.30] (49/206) | 0.004 (2/499) | 0.138 (11/80) / 0.000 (0/234) | 0.489 (22/45) / 0.000 (0/151) | 0.198 (16/81) / 0.018 (2/114) | 0.302 / 0.008 | 3 / 154 | 0.325 / 0.004 | 0.481 |
+| share50_aux_rel12 | **0.282** [0.22,0.35] (58/206) | 0.000 (0/499) | 0.125 (10/80) / 0.000 (0/234) | 0.422 (19/45) / 0.000 (0/151) | 0.358 (29/81) / 0.000 (0/114) | 0.381 / 0.000 | 8 / 140 | 0.359 / 0.004 | 0.495 |
+| share75_aux_rel12 | **0.272** [0.22,0.34] (56/206) | 0.000 (0/499) | 0.125 (10/80) / 0.000 (0/234) | 0.422 (19/45) / 0.000 (0/151) | 0.333 (27/81) / 0.000 (0/114) | 0.365 / 0.000 | 5 / 145 | 0.350 / 0.002 | 0.466 |
+| real_aux_wide_rel12 | **0.350** [0.29,0.42] (72/206) | 0.002 (1/499) | 0.212 (17/80) / 0.000 (0/234) | 0.533 (24/45) / 0.000 (0/151) | 0.383 (31/81) / 0.009 (1/114) | 0.437 / 0.004 | 7 / 127 | 0.427 / 0.006 | 0.558 |
+| real_aux_rel12nc | **0.272** [0.22,0.34] (56/206) | 0.002 (1/567) | 0.050 (4/80) / 0.004 (1/244) | 0.578 (26/45) / 0.000 (0/206) | 0.321 (26/81) / 0.000 (0/117) | 0.413 / 0.000 | 7 / 143 | 0.320 / 0.002 | 0.437 |
+| real_pre_aux_rel12nc | **0.252** [0.20,0.32] (52/206) | 0.000 (0/567) | 0.125 (10/80) / 0.000 (0/244) | 0.400 (18/45) / 0.000 (0/206) | 0.296 (24/81) / 0.000 (0/117) | 0.333 / 0.000 | 5 / 149 | 0.345 / 0.000 | 0.490 |
+| share50_aux_rel12nc | **0.350** [0.29,0.42] (72/206) | 0.004 (2/567) | 0.175 (14/80) / 0.000 (0/244) | 0.489 (22/45) / 0.000 (0/206) | 0.444 (36/81) / 0.017 (2/117) | 0.460 / 0.006 | 7 / 127 | 0.379 / 0.004 | 0.510 |
+| share75_aux_rel12nc | **0.311** [0.25,0.38] (64/206) | 0.004 (2/567) | 0.163 (13/80) / 0.000 (0/244) | 0.422 (19/45) / 0.000 (0/206) | 0.395 (32/81) / 0.017 (2/117) | 0.405 / 0.006 | 7 / 135 | 0.379 / 0.004 | 0.505 |
+
+## Per class (pooled, nested temperature): recognised / total
+
+| arm | swipe_left | swipe_right | push |
+|---|---|---|---|
+| released | 38/69 | 36/69 | 26/68 |
+| real_only | 31/69 | 28/69 | 11/68 |
+| real_pre | 30/69 | 27/69 | 11/68 |
+| real_pre_lr03 | 37/69 | 32/69 | 16/68 |
+| share25 | 34/69 | 33/69 | 17/68 |
+| share50 | 30/69 | 31/69 | 16/68 |
+| share75 | 31/69 | 33/69 | 18/68 |
+| share50_scratch | 33/69 | 31/69 | 13/68 |
+| share50_pure | 36/69 | 36/69 | 11/68 |
+| share50_aux | 24/69 | 25/69 | 9/68 |
+| share50_nolsw | 23/69 | 32/69 | 15/68 |
+| share50_speed | 43/69 | 35/69 | 22/68 |
+| share50_w48 | 17/69 | 22/69 | 15/68 |
+| share50_none50 | 33/69 | 31/69 | 15/68 |
+| share50_aux_speed | 37/69 | 29/69 | 14/68 |
+| share25_aux | 23/69 | 25/69 | 16/68 |
+| share75_aux | 23/69 | 23/69 | 10/68 |
+| real_pre_aux | 26/69 | 14/69 | 8/68 |
+| share75_aux_speed | 33/69 | 31/69 | 11/68 |
+| real_pre_aux_speed | 31/69 | 16/69 | 7/68 |
+| share50_aux_none50 | 20/69 | 16/69 | 7/68 |
+| share50_aux_e20 | 27/69 | 34/69 | 17/68 |
+| share50_aux_lr03 | 27/69 | 31/69 | 16/68 |
+| real_aux | 27/69 | 20/69 | 5/68 |
+| real_only_wide | 26/69 | 19/69 | 16/68 |
+| real_aux_wide | 21/69 | 10/69 | 7/68 |
+| real_only_rel12 | 37/69 | 34/69 | 14/68 |
+| real_aux_rel12 | 29/69 | 22/69 | 8/68 |
+| real_pre_aux_rel12 | 23/69 | 20/69 | 6/68 |
+| share50_aux_rel12 | 27/69 | 21/69 | 10/68 |
+| share75_aux_rel12 | 27/69 | 21/69 | 8/68 |
+| real_aux_wide_rel12 | 28/69 | 21/69 | 23/68 |
+| real_aux_rel12nc | 30/69 | 22/69 | 4/68 |
+| real_pre_aux_rel12nc | 21/69 | 24/69 | 7/68 |
+| share50_aux_rel12nc | 33/69 | 23/69 | 16/68 |
+| share75_aux_rel12nc | 26/69 | 26/69 | 12/68 |
+
+## Spread over seeds (single models, nested temperature): recall per fold
+
+- released: lance 0.237 0.275 0.300; aarsh 0.511 0.533 0.578; mahimn 0.605 0.667 0.654
+- real_only: lance 0.150 0.188 0.225; aarsh 0.356 0.356 0.467; mahimn 0.457 0.321 0.395
+- real_pre: lance 0.225 0.188 0.200; aarsh 0.511 0.467 0.511; mahimn 0.444 0.395 0.395
+- real_pre_lr03: lance 0.250 0.250 0.250; aarsh 0.489 0.533 0.578; mahimn 0.481 0.506 0.519
+- share25: lance 0.200 0.200 0.188; aarsh 0.533 0.467 0.533; mahimn 0.506 0.617 0.593
+- share50: lance 0.188 0.188 0.188; aarsh 0.422 0.400 0.356; mahimn 0.568 0.543 0.580
+- share75: lance 0.237 0.212 0.263; aarsh 0.422 0.422 0.422; mahimn 0.531 0.617 0.568
+- share50_scratch: lance 0.287 0.250 0.225; aarsh 0.378 0.400 0.400; mahimn 0.519 0.568 0.556
+- share50_pure: lance 0.212 0.225 0.200; aarsh 0.622 0.533 0.578; mahimn 0.432 0.531 0.506
+- share50_aux: lance 0.163 0.138 0.150; aarsh 0.422 0.289 0.244; mahimn 0.420 0.420 0.383
+- share50_nolsw: lance 0.188 0.188 0.188; aarsh 0.422 0.422 0.489; mahimn 0.481 0.395 0.457
+- share50_speed: lance 0.300 0.287 0.263; aarsh 0.444 0.467 0.600; mahimn 0.667 0.630 0.691
+- share50_w48: lance 0.150 0.125 0.138; aarsh 0.133 0.156 0.267; mahimn 0.432 0.444 0.407
+- share50_none50: lance 0.200 0.237 0.250; aarsh 0.467 0.467 0.489; mahimn 0.469 0.469 0.568
+- share50_aux_speed: lance 0.225 0.250 0.200; aarsh 0.400 0.400 0.444; mahimn 0.580 0.593 0.568
+- share25_aux: lance 0.150 0.150 0.163; aarsh 0.444 0.333 0.400; mahimn 0.383 0.543 0.481
+- share75_aux: lance 0.100 0.125 0.175; aarsh 0.333 0.222 0.333; mahimn 0.346 0.383 0.432
+- real_pre_aux: lance 0.125 0.100 0.113; aarsh 0.467 0.467 0.489; mahimn 0.296 0.222 0.222
+- share75_aux_speed: lance 0.188 0.200 0.188; aarsh 0.356 0.267 0.356; mahimn 0.531 0.556 0.568
+- real_pre_aux_speed: lance 0.138 0.150 0.113; aarsh 0.400 0.511 0.489; mahimn 0.259 0.272 0.309
+- share50_aux_none50: lance 0.163 0.050 0.138; aarsh 0.422 0.289 0.267; mahimn 0.309 0.309 0.346
+- share50_aux_e20: lance 0.163 0.237 0.225; aarsh 0.489 0.489 0.511; mahimn 0.506 0.469 0.568
+- share50_aux_lr03: lance 0.188 0.225 0.188; aarsh 0.578 0.400 0.422; mahimn 0.420 0.469 0.506
+- real_aux: lance 0.113 0.113 0.150; aarsh 0.222 0.444 0.378; mahimn 0.259 0.259 0.333
+- real_only_wide: lance 0.163 0.150 0.150; aarsh 0.378 0.400 0.378; mahimn 0.432 0.407 0.481
+- real_aux_wide: lance 0.113 0.087 0.087; aarsh 0.267 0.400 0.222; mahimn 0.309 0.321 0.296
+- real_only_rel12: lance 0.125 0.175 0.237; aarsh 0.600 0.622 0.622; mahimn 0.568 0.543 0.580
+- real_aux_rel12: lance 0.075 0.100 0.087; aarsh 0.422 0.378 0.600; mahimn 0.333 0.370 0.333
+- real_pre_aux_rel12: lance 0.113 0.150 0.125; aarsh 0.444 0.556 0.489; mahimn 0.198 0.198 0.247
+- share50_aux_rel12: lance 0.175 0.188 0.138; aarsh 0.489 0.422 0.311; mahimn 0.346 0.420 0.358
+- share75_aux_rel12: lance 0.100 0.125 0.150; aarsh 0.378 0.378 0.422; mahimn 0.432 0.358 0.346
+- real_aux_wide_rel12: lance 0.250 0.175 0.250; aarsh 0.533 0.533 0.511; mahimn 0.432 0.432 0.407
+- real_aux_rel12nc: lance 0.025 0.050 0.050; aarsh 0.578 0.533 0.644; mahimn 0.333 0.370 0.383
+- real_pre_aux_rel12nc: lance 0.113 0.138 0.113; aarsh 0.333 0.467 0.511; mahimn 0.346 0.296 0.284
+- share50_aux_rel12nc: lance 0.212 0.163 0.138; aarsh 0.511 0.467 0.444; mahimn 0.469 0.420 0.519
+- share75_aux_rel12nc: lance 0.138 0.125 0.163; aarsh 0.444 0.333 0.444; mahimn 0.432 0.469 0.444
+
+
+=== finalists (rule: highest pooled recall with pooled false <= 0.0551; 'released' always): ['released', 'share50_speed', 'real_pre_lr03']
+
+=== final: 9 training runs, 0 to do, 1 at a time on cuda
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\released: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.59e-06, temperature 1.02
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\share50_speed: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.18e-06, temperature 1.01
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\real_pre_lr03: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.98e-06, temperature 1.05
+
+DONE in 8.6 min. Everything is in C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651
+=== recall suite 20261114-061651 (full), device cuda; log: C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\log.txt
+GPU-against-CPU picture check: passed (see parity.txt)
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (std): 940 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 83, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 49, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 72, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 61, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 60, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 36, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 89, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 47, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 24, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 37, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12): 1131 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 91, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 76, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 7, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 81, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 100, 'burst': 0, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 65, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 64, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 5, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 100, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 71, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 25, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 62, 'burst': 0, 'idle': 8}
+
+left/right labels EXCHANGED in [np.str_('20261114-001248_mahimn_gestures')] (the person swept the opposite way to the prompts; see the label audit below)
+
+table (rel12nc): 1246 rows from 13 sessions; humans [np.str_('aarsh'), np.str_('lance'), np.str_('mahimn')]; locked (never trained on, scored separately): none
+  20261113-232748_lance_scene              lance    {'gesture': 0, 'aux': 0, 'burst': 78, 'idle': 8}
+  20261113-233122_lance_gestures           lance    {'gesture': 35, 'aux': 79, 'burst': 1, 'idle': 8}
+  20261113-233427_lance_breathing          lance    {'gesture': 0, 'aux': 0, 'burst': 6, 'idle': 8}
+  20261113-235154_lance2_scene             lance2   {'gesture': 0, 'aux': 0, 'burst': 96, 'idle': 8}
+  20261113-235514_lance2_gestures          lance2   {'gesture': 45, 'aux': 111, 'burst': 1, 'idle': 8}
+  20261113-235900_lance2_breathing         lance2   {'gesture': 0, 'aux': 0, 'burst': 14, 'idle': 8}
+  20261114-000902_mahimn_scene             mahimn   {'gesture': 0, 'aux': 0, 'burst': 61, 'idle': 8}
+  20261114-001248_mahimn_gestures          mahimn   {'gesture': 45, 'aux': 66, 'burst': 0, 'idle': 8}
+  20261114-001650_mahimn_breathing         mahimn   {'gesture': 0, 'aux': 0, 'burst': 12, 'idle': 8}
+  20261114-020852_aarsh_scene              aarsh    {'gesture': 0, 'aux': 0, 'burst': 106, 'idle': 8}
+  20261114-021255_aarsh_gestures           aarsh    {'gesture': 45, 'aux': 78, 'burst': 2, 'idle': 8}
+  20261114-021645_aarsh_breathing          aarsh    {'gesture': 0, 'aux': 0, 'burst': 74, 'idle': 8}
+  20261114-025724_mahimn_gestures          mahimn   {'gesture': 48, 'aux': 69, 'burst': 0, 'idle': 8}
+
+label audit (labels as recorded): left-speaker tone minus right-speaker tone, Hz (positive = hand moving LEFT)
+  session                                    n     left prompts    right prompts       t  verdict
+  20261113-233122_lance_gestures            24    +47.8± 52.2     -1.2± 46.9   +2.42  unclear (no clean direction cue)
+  20261113-235514_lance2_gestures           30    +33.8± 31.8    +19.0± 17.2   +1.59  unclear (no clean direction cue)
+  20261114-001248_mahimn_gestures           30    -63.2± 67.6    +90.7± 50.3   -7.08  OPPOSITE to the prompts  -> left/right labels exchanged for this run
+  20261114-021255_aarsh_gestures            30    +77.4± 23.1    -95.4±  9.6  +26.79  as prompted
+  20261114-025724_mahimn_gestures           24    +77.3± 56.7    -99.8± 57.5   +7.59  as prompted
+
+=== synthetic data
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\old_full\dataset.npz
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\bg_lance_full\dataset.npz
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\bg_aarsh_full\dataset.npz
+reusing C:\Users\lance\sonar-wt-recall\train_out\recall\synth\bg_mahimn_full\dataset.npz
+calibrated simulator data: family macbook_v2 (0 sets found)
+arm cal50: skipped, its synthetic sets are not on this machine (macbook_v2_all, macbook_v2_no_aarsh ...)
+arm cal25: skipped, its synthetic sets are not on this machine (macbook_v2_all, macbook_v2_no_aarsh ...)
+arm cal50_aux: skipped, its synthetic sets are not on this machine (macbook_v2_all, macbook_v2_no_aarsh ...)
+arm cal_pre_real: skipped, its synthetic sets are not on this machine (macbook_v2_all, macbook_v2_no_aarsh ...)
+arm calm50: skipped, its synthetic sets are not on this machine (macbook_v2_motion_all, macbook_v2_motion_no_aarsh ...)
+arm calm50_aux: skipped, its synthetic sets are not on this machine (macbook_v2_motion_all, macbook_v2_motion_no_aarsh ...)
+arm calbg50: skipped, its synthetic sets are not on this machine (macbook_v2_bg_all, macbook_v2_bg_no_aarsh ...)
+arm calbg50_aux: skipped, its synthetic sets are not on this machine (macbook_v2_bg_all, macbook_v2_bg_no_aarsh ...)
+arm calbg25_aux: skipped, its synthetic sets are not on this machine (macbook_v2_bg_all, macbook_v2_bg_no_aarsh ...)
+arm calbg50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v2_bg_rel12_all, macbook_v2_bg_rel12_no_aarsh ...)
+arm calbg25_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v2_bg_rel12_all, macbook_v2_bg_rel12_no_aarsh ...)
+arm calbg75_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v2_bg_rel12_all, macbook_v2_bg_rel12_no_aarsh ...)
+arm cal50_aux_rel12: skipped, its synthetic sets are not on this machine (macbook_v2_rel12_all, macbook_v2_rel12_no_aarsh ...)
+
+=== pretrain: 2 training runs, 0 to do, 1 at a time on cuda
+
+=== folds: 540 training runs, 0 to do, 1 at a time on cuda
+
+# Leave-one-human-out scores (gestures recognised / non-gestures that trigger, at the engine's 0.6 threshold)
+
+Run `20261114-061651`. Each cell: 3-seed average of the model's probabilities. Temperature from the training humans only (nested). Budget for false triggers: 0.0551.
+
+| arm | pooled recall [95% CI] | pooled false | lance recall / false | aarsh recall / false | mahimn recall / false | without lance | wrong / silent | recall at temperature 1 | best possible at budget |
+|---|---|---|---|---|---|---|---|---|---|
+| released | **0.485** [0.42,0.55] (100/206) | 0.024 (11/465) | 0.237 (19/80) / 0.000 (0/217) | 0.578 (26/45) / 0.029 (4/139) | 0.679 (55/81) / 0.064 (7/109) | 0.643 / 0.044 | 22 / 84 | 0.490 / 0.024 | 0.607 |
+| real_only | **0.340** [0.28,0.41] (70/206) | 0.004 (2/465) | 0.200 (16/80) / 0.005 (1/217) | 0.444 (20/45) / 0.000 (0/139) | 0.420 (34/81) / 0.009 (1/109) | 0.429 / 0.004 | 12 / 124 | 0.379 / 0.004 | 0.519 |
+| real_pre | **0.330** [0.27,0.40] (68/206) | 0.009 (4/465) | 0.188 (15/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.383 (31/81) / 0.037 (4/109) | 0.421 / 0.016 | 9 / 129 | 0.369 / 0.009 | 0.553 |
+| real_pre_lr03 | **0.413** [0.35,0.48] (85/206) | 0.013 (6/465) | 0.250 (20/80) / 0.000 (0/217) | 0.533 (24/45) / 0.014 (2/139) | 0.506 (41/81) / 0.037 (4/109) | 0.516 / 0.024 | 15 / 106 | 0.437 / 0.015 | 0.563 |
+| share25 | **0.408** [0.34,0.48] (84/206) | 0.004 (2/465) | 0.175 (14/80) / 0.000 (0/217) | 0.489 (22/45) / 0.007 (1/139) | 0.593 (48/81) / 0.009 (1/109) | 0.556 / 0.008 | 16 / 106 | 0.422 / 0.006 | 0.563 |
+| share50 | **0.374** [0.31,0.44] (77/206) | 0.004 (2/465) | 0.188 (15/80) / 0.000 (0/217) | 0.444 (20/45) / 0.007 (1/139) | 0.519 (42/81) / 0.009 (1/109) | 0.492 / 0.008 | 16 / 113 | 0.398 / 0.004 | 0.558 |
+| share75 | **0.398** [0.33,0.47] (82/206) | 0.004 (2/465) | 0.225 (18/80) / 0.000 (0/217) | 0.422 (19/45) / 0.007 (1/139) | 0.556 (45/81) / 0.009 (1/109) | 0.508 / 0.008 | 12 / 112 | 0.408 / 0.006 | 0.568 |
+| share50_scratch | **0.374** [0.31,0.44] (77/206) | 0.004 (2/465) | 0.250 (20/80) / 0.005 (1/217) | 0.311 (14/45) / 0.000 (0/139) | 0.531 (43/81) / 0.009 (1/109) | 0.452 / 0.004 | 14 / 115 | 0.413 / 0.009 | 0.602 |
+| share50_pure | **0.403** [0.34,0.47] (83/206) | 0.004 (2/465) | 0.212 (17/80) / 0.000 (0/217) | 0.578 (26/45) / 0.000 (0/139) | 0.494 (40/81) / 0.018 (2/109) | 0.524 / 0.008 | 10 / 113 | 0.408 / 0.004 | 0.573 |
+| share50_aux | **0.282** [0.22,0.35] (58/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | 0.420 (34/81) / 0.009 (1/109) | 0.373 / 0.004 | 12 / 136 | 0.320 / 0.004 | 0.476 |
+| share50_nolsw | **0.340** [0.28,0.41] (70/206) | 0.004 (2/465) | 0.188 (15/80) / 0.000 (0/217) | 0.444 (20/45) / 0.007 (1/139) | 0.432 (35/81) / 0.009 (1/109) | 0.437 / 0.008 | 13 / 123 | 0.359 / 0.006 | 0.553 |
+| share50_speed | **0.485** [0.42,0.55] (100/206) | 0.013 (6/465) | 0.263 (21/80) / 0.000 (0/217) | 0.556 (25/45) / 0.022 (3/139) | 0.667 (54/81) / 0.028 (3/109) | 0.627 / 0.024 | 11 / 95 | 0.485 / 0.013 | 0.587 |
+| share50_w48 | **0.262** [0.21,0.33] (54/206) | 0.000 (0/465) | 0.138 (11/80) / 0.000 (0/217) | 0.133 (6/45) / 0.000 (0/139) | 0.457 (37/81) / 0.000 (0/109) | 0.341 / 0.000 | 10 / 142 | 0.296 / 0.000 | 0.529 |
+| share50_none50 | **0.383** [0.32,0.45] (79/206) | 0.002 (1/465) | 0.212 (17/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.494 (40/81) / 0.009 (1/109) | 0.492 / 0.004 | 12 / 115 | 0.427 / 0.004 | 0.568 |
+| share50_aux_speed | **0.388** [0.32,0.46] (80/206) | 0.006 (3/465) | 0.188 (15/80) / 0.000 (0/217) | 0.400 (18/45) / 0.000 (0/139) | 0.580 (47/81) / 0.028 (3/109) | 0.516 / 0.012 | 12 / 114 | 0.413 / 0.009 | 0.563 |
+| share25_aux | **0.311** [0.25,0.38] (64/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.378 (17/45) / 0.007 (1/139) | 0.444 (36/81) / 0.000 (0/109) | 0.421 / 0.004 | 8 / 134 | 0.388 / 0.002 | 0.524 |
+| share75_aux | **0.272** [0.22,0.34] (56/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | 0.395 (32/81) / 0.009 (1/109) | 0.357 / 0.004 | 8 / 142 | 0.306 / 0.002 | 0.461 |
+| real_pre_aux | **0.233** [0.18,0.30] (48/206) | 0.002 (1/465) | 0.125 (10/80) / 0.000 (0/217) | 0.467 (21/45) / 0.000 (0/139) | 0.210 (17/81) / 0.009 (1/109) | 0.302 / 0.004 | 3 / 155 | 0.291 / 0.004 | 0.413 |
+| share75_aux_speed | **0.364** [0.30,0.43] (75/206) | 0.002 (1/465) | 0.188 (15/80) / 0.000 (0/217) | 0.333 (15/45) / 0.000 (0/139) | 0.556 (45/81) / 0.009 (1/109) | 0.476 / 0.004 | 11 / 120 | 0.393 / 0.006 | 0.500 |
+| real_pre_aux_speed | **0.262** [0.21,0.33] (54/206) | 0.002 (1/465) | 0.138 (11/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.259 (21/81) / 0.009 (1/109) | 0.341 / 0.004 | 10 / 142 | 0.340 / 0.013 | 0.447 |
+| share50_aux_none50 | **0.209** [0.16,0.27] (43/206) | 0.002 (1/465) | 0.100 (8/80) / 0.000 (0/217) | 0.289 (13/45) / 0.000 (0/139) | 0.272 (22/81) / 0.009 (1/109) | 0.278 / 0.004 | 9 / 154 | 0.306 / 0.004 | 0.471 |
+| share50_aux_e20 | **0.379** [0.32,0.45] (78/206) | 0.004 (2/465) | 0.188 (15/80) / 0.000 (0/217) | 0.467 (21/45) / 0.000 (0/139) | 0.519 (42/81) / 0.018 (2/109) | 0.500 / 0.008 | 14 / 114 | 0.417 / 0.004 | 0.549 |
+| share50_aux_lr03 | **0.359** [0.30,0.43] (74/206) | 0.002 (1/465) | 0.200 (16/80) / 0.000 (0/217) | 0.489 (22/45) / 0.000 (0/139) | 0.444 (36/81) / 0.009 (1/109) | 0.460 / 0.004 | 13 / 119 | 0.403 / 0.004 | 0.519 |
+| real_aux | **0.252** [0.20,0.32] (52/206) | 0.006 (3/465) | 0.113 (9/80) / 0.009 (2/217) | 0.400 (18/45) / 0.000 (0/139) | 0.309 (25/81) / 0.009 (1/109) | 0.341 / 0.004 | 6 / 148 | 0.301 / 0.006 | 0.408 |
+| real_only_wide | **0.296** [0.24,0.36] (61/206) | 0.013 (6/465) | 0.150 (12/80) / 0.005 (1/217) | 0.378 (17/45) / 0.007 (1/139) | 0.395 (32/81) / 0.037 (4/109) | 0.389 / 0.020 | 12 / 133 | 0.359 / 0.015 | 0.568 |
+| real_aux_wide | **0.184** [0.14,0.24] (38/206) | 0.000 (0/465) | 0.075 (6/80) / 0.000 (0/217) | 0.222 (10/45) / 0.000 (0/139) | 0.272 (22/81) / 0.000 (0/109) | 0.254 / 0.000 | 9 / 159 | 0.291 / 0.002 | 0.442 |
+| real_only_rel12 | **0.413** [0.35,0.48] (85/206) | 0.010 (5/499) | 0.150 (12/80) / 0.004 (1/234) | 0.622 (28/45) / 0.000 (0/151) | 0.556 (45/81) / 0.035 (4/114) | 0.579 / 0.015 | 10 / 111 | 0.437 / 0.010 | 0.563 |
+| real_aux_rel12 | **0.286** [0.23,0.35] (59/206) | 0.004 (2/499) | 0.087 (7/80) / 0.004 (1/234) | 0.533 (24/45) / 0.000 (0/151) | 0.346 (28/81) / 0.009 (1/114) | 0.413 / 0.004 | 4 / 143 | 0.335 / 0.006 | 0.413 |
+| real_pre_aux_rel12 | **0.238** [0.18,0.30] (49/206) | 0.004 (2/499) | 0.138 (11/80) / 0.000 (0/234) | 0.489 (22/45) / 0.000 (0/151) | 0.198 (16/81) / 0.018 (2/114) | 0.302 / 0.008 | 3 / 154 | 0.325 / 0.004 | 0.481 |
+| share50_aux_rel12 | **0.282** [0.22,0.35] (58/206) | 0.000 (0/499) | 0.125 (10/80) / 0.000 (0/234) | 0.422 (19/45) / 0.000 (0/151) | 0.358 (29/81) / 0.000 (0/114) | 0.381 / 0.000 | 8 / 140 | 0.359 / 0.004 | 0.495 |
+| share75_aux_rel12 | **0.272** [0.22,0.34] (56/206) | 0.000 (0/499) | 0.125 (10/80) / 0.000 (0/234) | 0.422 (19/45) / 0.000 (0/151) | 0.333 (27/81) / 0.000 (0/114) | 0.365 / 0.000 | 5 / 145 | 0.350 / 0.002 | 0.466 |
+| real_aux_wide_rel12 | **0.350** [0.29,0.42] (72/206) | 0.002 (1/499) | 0.212 (17/80) / 0.000 (0/234) | 0.533 (24/45) / 0.000 (0/151) | 0.383 (31/81) / 0.009 (1/114) | 0.437 / 0.004 | 7 / 127 | 0.427 / 0.006 | 0.558 |
+| real_aux_rel12nc | **0.272** [0.22,0.34] (56/206) | 0.002 (1/567) | 0.050 (4/80) / 0.004 (1/244) | 0.578 (26/45) / 0.000 (0/206) | 0.321 (26/81) / 0.000 (0/117) | 0.413 / 0.000 | 7 / 143 | 0.320 / 0.002 | 0.437 |
+| real_pre_aux_rel12nc | **0.252** [0.20,0.32] (52/206) | 0.000 (0/567) | 0.125 (10/80) / 0.000 (0/244) | 0.400 (18/45) / 0.000 (0/206) | 0.296 (24/81) / 0.000 (0/117) | 0.333 / 0.000 | 5 / 149 | 0.345 / 0.000 | 0.490 |
+| share50_aux_rel12nc | **0.350** [0.29,0.42] (72/206) | 0.004 (2/567) | 0.175 (14/80) / 0.000 (0/244) | 0.489 (22/45) / 0.000 (0/206) | 0.444 (36/81) / 0.017 (2/117) | 0.460 / 0.006 | 7 / 127 | 0.379 / 0.004 | 0.510 |
+| share75_aux_rel12nc | **0.311** [0.25,0.38] (64/206) | 0.004 (2/567) | 0.163 (13/80) / 0.000 (0/244) | 0.422 (19/45) / 0.000 (0/206) | 0.395 (32/81) / 0.017 (2/117) | 0.405 / 0.006 | 7 / 135 | 0.379 / 0.004 | 0.505 |
+
+## Per class (pooled, nested temperature): recognised / total
+
+| arm | swipe_left | swipe_right | push |
+|---|---|---|---|
+| released | 38/69 | 36/69 | 26/68 |
+| real_only | 31/69 | 28/69 | 11/68 |
+| real_pre | 30/69 | 27/69 | 11/68 |
+| real_pre_lr03 | 37/69 | 32/69 | 16/68 |
+| share25 | 34/69 | 33/69 | 17/68 |
+| share50 | 30/69 | 31/69 | 16/68 |
+| share75 | 31/69 | 33/69 | 18/68 |
+| share50_scratch | 33/69 | 31/69 | 13/68 |
+| share50_pure | 36/69 | 36/69 | 11/68 |
+| share50_aux | 24/69 | 25/69 | 9/68 |
+| share50_nolsw | 23/69 | 32/69 | 15/68 |
+| share50_speed | 43/69 | 35/69 | 22/68 |
+| share50_w48 | 17/69 | 22/69 | 15/68 |
+| share50_none50 | 33/69 | 31/69 | 15/68 |
+| share50_aux_speed | 37/69 | 29/69 | 14/68 |
+| share25_aux | 23/69 | 25/69 | 16/68 |
+| share75_aux | 23/69 | 23/69 | 10/68 |
+| real_pre_aux | 26/69 | 14/69 | 8/68 |
+| share75_aux_speed | 33/69 | 31/69 | 11/68 |
+| real_pre_aux_speed | 31/69 | 16/69 | 7/68 |
+| share50_aux_none50 | 20/69 | 16/69 | 7/68 |
+| share50_aux_e20 | 27/69 | 34/69 | 17/68 |
+| share50_aux_lr03 | 27/69 | 31/69 | 16/68 |
+| real_aux | 27/69 | 20/69 | 5/68 |
+| real_only_wide | 26/69 | 19/69 | 16/68 |
+| real_aux_wide | 21/69 | 10/69 | 7/68 |
+| real_only_rel12 | 37/69 | 34/69 | 14/68 |
+| real_aux_rel12 | 29/69 | 22/69 | 8/68 |
+| real_pre_aux_rel12 | 23/69 | 20/69 | 6/68 |
+| share50_aux_rel12 | 27/69 | 21/69 | 10/68 |
+| share75_aux_rel12 | 27/69 | 21/69 | 8/68 |
+| real_aux_wide_rel12 | 28/69 | 21/69 | 23/68 |
+| real_aux_rel12nc | 30/69 | 22/69 | 4/68 |
+| real_pre_aux_rel12nc | 21/69 | 24/69 | 7/68 |
+| share50_aux_rel12nc | 33/69 | 23/69 | 16/68 |
+| share75_aux_rel12nc | 26/69 | 26/69 | 12/68 |
+
+## Spread over seeds (single models, nested temperature): recall per fold
+
+- released: lance 0.237 0.275 0.300; aarsh 0.511 0.533 0.578; mahimn 0.605 0.667 0.654
+- real_only: lance 0.150 0.188 0.225; aarsh 0.356 0.356 0.467; mahimn 0.457 0.321 0.395
+- real_pre: lance 0.225 0.188 0.200; aarsh 0.511 0.467 0.511; mahimn 0.444 0.395 0.395
+- real_pre_lr03: lance 0.250 0.250 0.250; aarsh 0.489 0.533 0.578; mahimn 0.481 0.506 0.519
+- share25: lance 0.200 0.200 0.188; aarsh 0.533 0.467 0.533; mahimn 0.506 0.617 0.593
+- share50: lance 0.188 0.188 0.188; aarsh 0.422 0.400 0.356; mahimn 0.568 0.543 0.580
+- share75: lance 0.237 0.212 0.263; aarsh 0.422 0.422 0.422; mahimn 0.531 0.617 0.568
+- share50_scratch: lance 0.287 0.250 0.225; aarsh 0.378 0.400 0.400; mahimn 0.519 0.568 0.556
+- share50_pure: lance 0.212 0.225 0.200; aarsh 0.622 0.533 0.578; mahimn 0.432 0.531 0.506
+- share50_aux: lance 0.163 0.138 0.150; aarsh 0.422 0.289 0.244; mahimn 0.420 0.420 0.383
+- share50_nolsw: lance 0.188 0.188 0.188; aarsh 0.422 0.422 0.489; mahimn 0.481 0.395 0.457
+- share50_speed: lance 0.300 0.287 0.263; aarsh 0.444 0.467 0.600; mahimn 0.667 0.630 0.691
+- share50_w48: lance 0.150 0.125 0.138; aarsh 0.133 0.156 0.267; mahimn 0.432 0.444 0.407
+- share50_none50: lance 0.200 0.237 0.250; aarsh 0.467 0.467 0.489; mahimn 0.469 0.469 0.568
+- share50_aux_speed: lance 0.225 0.250 0.200; aarsh 0.400 0.400 0.444; mahimn 0.580 0.593 0.568
+- share25_aux: lance 0.150 0.150 0.163; aarsh 0.444 0.333 0.400; mahimn 0.383 0.543 0.481
+- share75_aux: lance 0.100 0.125 0.175; aarsh 0.333 0.222 0.333; mahimn 0.346 0.383 0.432
+- real_pre_aux: lance 0.125 0.100 0.113; aarsh 0.467 0.467 0.489; mahimn 0.296 0.222 0.222
+- share75_aux_speed: lance 0.188 0.200 0.188; aarsh 0.356 0.267 0.356; mahimn 0.531 0.556 0.568
+- real_pre_aux_speed: lance 0.138 0.150 0.113; aarsh 0.400 0.511 0.489; mahimn 0.259 0.272 0.309
+- share50_aux_none50: lance 0.163 0.050 0.138; aarsh 0.422 0.289 0.267; mahimn 0.309 0.309 0.346
+- share50_aux_e20: lance 0.163 0.237 0.225; aarsh 0.489 0.489 0.511; mahimn 0.506 0.469 0.568
+- share50_aux_lr03: lance 0.188 0.225 0.188; aarsh 0.578 0.400 0.422; mahimn 0.420 0.469 0.506
+- real_aux: lance 0.113 0.113 0.150; aarsh 0.222 0.444 0.378; mahimn 0.259 0.259 0.333
+- real_only_wide: lance 0.163 0.150 0.150; aarsh 0.378 0.400 0.378; mahimn 0.432 0.407 0.481
+- real_aux_wide: lance 0.113 0.087 0.087; aarsh 0.267 0.400 0.222; mahimn 0.309 0.321 0.296
+- real_only_rel12: lance 0.125 0.175 0.237; aarsh 0.600 0.622 0.622; mahimn 0.568 0.543 0.580
+- real_aux_rel12: lance 0.075 0.100 0.087; aarsh 0.422 0.378 0.600; mahimn 0.333 0.370 0.333
+- real_pre_aux_rel12: lance 0.113 0.150 0.125; aarsh 0.444 0.556 0.489; mahimn 0.198 0.198 0.247
+- share50_aux_rel12: lance 0.175 0.188 0.138; aarsh 0.489 0.422 0.311; mahimn 0.346 0.420 0.358
+- share75_aux_rel12: lance 0.100 0.125 0.150; aarsh 0.378 0.378 0.422; mahimn 0.432 0.358 0.346
+- real_aux_wide_rel12: lance 0.250 0.175 0.250; aarsh 0.533 0.533 0.511; mahimn 0.432 0.432 0.407
+- real_aux_rel12nc: lance 0.025 0.050 0.050; aarsh 0.578 0.533 0.644; mahimn 0.333 0.370 0.383
+- real_pre_aux_rel12nc: lance 0.113 0.138 0.113; aarsh 0.333 0.467 0.511; mahimn 0.346 0.296 0.284
+- share50_aux_rel12nc: lance 0.212 0.163 0.138; aarsh 0.511 0.467 0.444; mahimn 0.469 0.420 0.519
+- share75_aux_rel12nc: lance 0.138 0.125 0.163; aarsh 0.444 0.333 0.444; mahimn 0.432 0.469 0.444
+
+
+=== finalists (rule: highest pooled recall with pooled false <= 0.0551; 'released' always): ['released', 'share50_speed', 'real_pre_lr03', 'share50_none50', 'real_pre']
+
+=== final: 15 training runs, 6 to do, 4 at a time on cuda
+  done real_pre__final__s0  41.4 s  n_train 671  real share 1.00  gpu: peak 3.7 GB, kept 0.6 GB
+  done share50_none50__final__s1  72.0 s  n_train 16811  real share 0.50  gpu: peak 1.8 GB, kept 0.7 GB
+  done real_pre__final__s1  41.5 s  n_train 671  real share 1.00  gpu: peak 3.7 GB, kept 0.6 GB
+  done share50_none50__final__s2  72.0 s  n_train 16811  real share 0.50  gpu: peak 1.8 GB, kept 0.7 GB
+  done real_pre__final__s2  41.3 s  n_train 671  real share 1.00  gpu: peak 3.7 GB, kept 0.6 GB
+  done share50_none50__final__s0  94.4 s  n_train 16811  real share 0.50  gpu: peak 4.0 GB, kept 0.8 GB
+final: finished in 118 s; 0 failed run(s)
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\released: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.59e-06, temperature 1.02
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\share50_speed: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.18e-06, temperature 1.01
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\real_pre_lr03: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.98e-06, temperature 1.05
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\share50_none50: input [2, 64, 80], ONNX vs PyTorch max logit difference 2.86e-06, temperature 1.10
+exported C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651\final\real_pre: input [2, 64, 80], ONNX vs PyTorch max logit difference 1.43e-06, temperature 1.05
+
+DONE in 2.2 min. Everything is in C:\Users\lance\sonar-wt-recall\train_out\recall\suite\20261114-061651
