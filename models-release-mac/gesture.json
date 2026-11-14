@@ -5,7 +5,7 @@
   "swipe_right",
   "push"
  ],
- "temperature": 1.2783,
+ "temperature": 1.0561,
  "input_shape": [
   2,
   64,
@@ -105,7 +105,7 @@
  "gesture_peak_db_p10": 36.6,
  "metrics": {
   "split": "none (trained on everything, no validation)",
-  "n_train": 11405,
+  "n_train": 11498,
   "n_val": 0,
   "best_epoch": 60,
   "train_seconds": 18.3,
@@ -120,7 +120,7 @@
    "amp": "auto",
    "channels_last": "auto",
    "compile": false,
-   "init": "C:\\Users\\lance\\sonar-hack\\train_out\\pretrain\\6304ae0b2696\\gesture.pt",
+   "init": "C:\\Users\\lance\\sonar-hack\\train_out\\pretrain\\0e4cef5eccca\\gesture.pt",
    "labels": [
     "none",
     "swipe_left",
@@ -128,9 +128,9 @@
     "push"
    ]
   },
-  "onnx_max_logit_diff": 2.0265579223632812e-06,
-  "onnx_ms_per_inference": 0.549
+  "onnx_max_logit_diff": 1.6689300537109375e-06,
+  "onnx_ms_per_inference": 0.577
  },
- "trained": "2026-11-14 03:18:44",
+ "trained": "2026-11-14 04:10:36",
  "torch": "2.15.0+cu132"
 }

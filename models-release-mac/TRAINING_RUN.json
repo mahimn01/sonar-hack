@@ -1,10 +1,8 @@
 {
- "started": "20261114-030255",
+ "started": "20261114-040002",
  "argv": [
   "--device",
   "cuda",
-  "--size",
-  "full",
   "--data",
   "mac",
   "--val-person",
@@ -28,7 +26,7 @@
   0
  ],
  "git": {
-  "commit": "8fef500",
+  "commit": "12c3f3a",
   "branch": "gpu-train",
   "uncommitted_changes": false
  },
@@ -51,6 +49,10 @@
   "os": "Windows 11",
   "cpus": 24
  },
+ "motion": {
+  "library": "datagen\\motion_library\\unica_v1.npz",
+  "share": 0.5
+ },
  "generation": {
   "device": "cuda",
   "precision": "auto"
@@ -58,8 +60,8 @@
  "parity": {
   "status": "passed",
   "clips": 1000,
-  "seconds": 266.9,
-  "report": "train_out\\parity\\passed_a910f6e659cf.json"
+  "seconds": 272.7,
+  "report": "train_out\\parity\\passed_0b193e5d0d7b.json"
  },
  "sessions": [
   {
@@ -194,17 +196,17 @@
   {
    "width": 24,
    "seed": 0,
-   "folder": "C:\\Users\\lance\\sonar-hack\\train_out\\pretrain\\6304ae0b2696",
-   "accuracy": 0.8716,
-   "macro_f1": 0.7742,
-   "recall": 0.7332,
-   "false_triggers": 0.0801,
-   "best_epoch": 34,
-   "seconds": 44.1,
+   "folder": "C:\\Users\\lance\\sonar-hack\\train_out\\pretrain\\0e4cef5eccca",
+   "accuracy": 0.8324,
+   "macro_f1": 0.7127,
+   "recall": 0.6643,
+   "false_triggers": 0.0878,
+   "best_epoch": 51,
+   "seconds": 46.9,
    "temperature": 1.0,
-   "split": "held-out sessions (2578): synth-2842, synth-8325, synth-7334, synth-1054, synth-3021, ... (+2573 more)",
-   "n_train": 14905,
-   "n_val": 4969
+   "split": "held-out sessions (2604): synth-10569, synth-11009, synth-11879, synth-10552, synth-6146, ... (+2599 more)",
+   "n_train": 14856,
+   "n_val": 4953
   }
  ],
  "val_people": [
@@ -214,59 +216,59 @@
   {
    "width": 24,
    "seed": 0,
-   "folder": "C:\\Users\\lance\\sonar-hack\\train_out\\runs\\20261114-030255\\sweep\\w24_s0",
-   "accuracy": 0.7263,
-   "macro_f1": 0.605,
-   "recall": 0.2963,
-   "false_triggers": 0.055,
-   "best_epoch": 43,
-   "seconds": 18.9,
-   "temperature": 1.2782698426715537,
+   "folder": "C:\\Users\\lance\\sonar-hack\\train_out\\runs\\20261114-040002\\sweep\\w24_s0",
+   "accuracy": 0.7789,
+   "macro_f1": 0.6623,
+   "recall": 0.321,
+   "false_triggers": 0.0183,
+   "best_epoch": 11,
+   "seconds": 18.8,
+   "temperature": 1.0560729003996305,
    "split": "held-out person mahimn",
-   "n_train": 11381,
+   "n_train": 11465,
    "n_val": 190
   }
  ],
  "winner": {
   "width": 24,
   "seed": 0,
-  "folder": "C:\\Users\\lance\\sonar-hack\\train_out\\runs\\20261114-030255\\sweep\\w24_s0",
-  "accuracy": 0.7263,
-  "macro_f1": 0.605,
-  "recall": 0.2963,
-  "false_triggers": 0.055,
-  "best_epoch": 43,
-  "seconds": 18.9,
-  "temperature": 1.2782698426715537,
+  "folder": "C:\\Users\\lance\\sonar-hack\\train_out\\runs\\20261114-040002\\sweep\\w24_s0",
+  "accuracy": 0.7789,
+  "macro_f1": 0.6623,
+  "recall": 0.321,
+  "false_triggers": 0.0183,
+  "best_epoch": 11,
+  "seconds": 18.8,
+  "temperature": 1.0560729003996305,
   "split": "held-out person mahimn",
-  "n_train": 11381,
+  "n_train": 11465,
   "n_val": 190
  },
- "model_from": "train_out\\runs\\20261114-030255\\final",
+ "model_from": "train_out\\runs\\20261114-040002\\final",
  "verdict": "POOR: do not rely on it yet; see TRAINING.md, 'If the numbers are poor'",
  "honest_score": {
-  "accuracy": 0.7263,
-  "macro_f1": 0.605,
-  "recall": 0.2963,
-  "false_triggers": 0.055,
+  "accuracy": 0.7789,
+  "macro_f1": 0.6623,
+  "recall": 0.321,
+  "false_triggers": 0.0183,
   "split": "held-out person mahimn"
  },
  "engine_check": {
   "bursts_classified": 8,
   "gestures": [
-   "swipe_right 0.92"
+   "swipe_left 0.97"
   ]
  },
  "minutes": {
   "GPU parity check": 4.5,
   "cut sessions": 0.2,
-  "generate synthetic": 5.7,
-  "generate on real backgrounds": 2.5,
-  "generate on all backgrounds": 2.1,
-  "pre-train": 4.6,
+  "generate synthetic": 2.6,
+  "generate on real backgrounds": 1.3,
+  "generate on all backgrounds": 1.0,
+  "pre-train": 2.3,
   "fine-tune sweep": 0.4,
   "refit on everyone": 0.4,
-  "total": 15.9
+  "total": 10.6
  },
- "finished": "2026-11-14 03:18:47"
+ "finished": "2026-11-14 04:10:39"
 }

@@ -1,0 +1,755 @@
+{
+ "passed": true,
+ "failures": [],
+ "checks": [
+  {
+   "check": "same number of redraws",
+   "worst": 0.0,
+   "median": 0.0,
+   "limit": 0.0,
+   "ok": true,
+   "n": 1040,
+   "what": "share of clips redrawn a different number of times",
+   "worst_clips": []
+  },
+  {
+   "check": "echo loudness (dB)",
+   "worst": 6.9876663886248025e-06,
+   "median": 9.242669278819449e-07,
+   "limit": 0.001,
+   "ok": true,
+   "n": 1040,
+   "what": "difference of the 'how audible is the gesture' figure",
+   "worst_clips": [
+    {
+     "value": 6.9876663886248025e-06,
+     "clip": "pull",
+     "seed": 9000360
+    },
+    {
+     "value": 6.438070357717152e-06,
+     "clip": "none",
+     "seed": 9000422
+    },
+    {
+     "value": 6.295353365715073e-06,
+     "clip": "swipe_left",
+     "seed": 9000077
+    },
+    {
+     "value": 6.025595901348879e-06,
+     "clip": "swipe_left",
+     "seed": 9000025
+    },
+    {
+     "value": 5.609226050751204e-06,
+     "clip": "swipe_left",
+     "seed": 9000058
+    }
+   ]
+  },
+  {
+   "check": "moving echoes, before rounding",
+   "worst": 6.976016741450902e-07,
+   "median": 4.2130560258178017e-07,
+   "limit": 2e-05,
+   "ok": true,
+   "n": 929,
+   "what": "RMS difference / RMS",
+   "worst_clips": [
+    {
+     "value": 6.976016741450902e-07,
+     "clip": "none, one microphone",
+     "seed": 9000742
+    },
+    {
+     "value": 6.873652568592024e-07,
+     "clip": "none",
+     "seed": 9000511
+    },
+    {
+     "value": 6.631221656511551e-07,
+     "clip": "none, fastest / most reflectors",
+     "seed": 9100133
+    },
+    {
+     "value": 6.564349792812631e-07,
+     "clip": "swipe_left",
+     "seed": 9000025
+    },
+    {
+     "value": 6.349642252356413e-07,
+     "clip": "pull",
+     "seed": 9000347
+    }
+   ]
+  },
+  {
+   "check": "direct sound + room, before rounding",
+   "worst": 3.974209988701032e-10,
+   "median": 4.04418802695126e-11,
+   "limit": 1e-08,
+   "ok": true,
+   "n": 929,
+   "what": "RMS difference / RMS",
+   "worst_clips": [
+    {
+     "value": 3.974209988701032e-10,
+     "clip": "swipe_left, one microphone",
+     "seed": 9000663
+    },
+    {
+     "value": 3.5999165131659425e-10,
+     "clip": "present",
+     "seed": 9000648
+    },
+    {
+     "value": 3.5769732839519916e-10,
+     "clip": "push",
+     "seed": 9000231
+    },
+    {
+     "value": 3.5516186831037627e-10,
+     "clip": "swipe_left",
+     "seed": 9000048
+    },
+    {
+     "value": 3.3820204429352907e-10,
+     "clip": "push",
+     "seed": 9000235
+    }
+   ]
+  },
+  {
+   "check": "audio right before the converter",
+   "worst": 2.4723083476967485e-06,
+   "median": 2.5801165841595055e-08,
+   "limit": 0.0001,
+   "ok": true,
+   "n": 929,
+   "what": "RMS difference / RMS",
+   "worst_clips": [
+    {
+     "value": 2.4723083476967485e-06,
+     "clip": "swipe_left",
+     "seed": 9000018
+    },
+    {
+     "value": 2.3458059839102363e-06,
+     "clip": "none",
+     "seed": 9000470
+    },
+    {
+     "value": 2.139020484207628e-06,
+     "clip": "swipe_left",
+     "seed": 9000015
+    },
+    {
+     "value": 1.911847668823086e-06,
+     "clip": "none, strong desk bounce",
+     "seed": 9000819
+    },
+    {
+     "value": 1.8157874982570794e-06,
+     "clip": "swipe_left, swapped microphones",
+     "seed": 9000670
+    }
+   ]
+  },
+  {
+   "check": "final audio: largest difference / what rounding allows",
+   "worst": 0.9999990844715467,
+   "median": 0.9961541966764946,
+   "limit": 1.0001,
+   "ok": true,
+   "n": 924,
+   "what": "<= 1: one converter step plus the largest difference before the converter",
+   "worst_clips": [
+    {
+     "value": 0.9999990844715467,
+     "clip": "swipe_right",
+     "seed": 9000163
+    },
+    {
+     "value": 0.9999977134384027,
+     "clip": "present",
+     "seed": 9000638
+    },
+    {
+     "value": 0.999997500130288,
+     "clip": "none, clock -30 ppm",
+     "seed": 9000769
+    },
+    {
+     "value": 0.9999967116210787,
+     "clip": "push, no desk bounce",
+     "seed": 9000812
+    },
+    {
+     "value": 0.9999962640746695,
+     "clip": "push",
+     "seed": 9000214
+    }
+   ]
+  },
+  {
+   "check": "final audio: samples one step apart / what rounding predicts",
+   "worst": 0.7992136607930098,
+   "median": 0.3657473060782657,
+   "limit": 1.0,
+   "ok": true,
+   "n": 924,
+   "what": "<= 1: share of flipped samples against 1.5 x (average difference before the converter / step)",
+   "worst_clips": [
+    {
+     "value": 0.7992136607930098,
+     "clip": "none, one microphone",
+     "seed": 9000740
+    },
+    {
+     "value": 0.7957598768811815,
+     "clip": "none",
+     "seed": 9000511
+    },
+    {
+     "value": 0.7939363901718324,
+     "clip": "swipe_right",
+     "seed": 9000195
+    },
+    {
+     "value": 0.788342610933709,
+     "clip": "pull",
+     "seed": 9000349
+    },
+    {
+     "value": 0.7811121683506823,
+     "clip": "none",
+     "seed": 9000521
+    }
+   ]
+  },
+  {
+   "check": "  (for information) 16 bit: share of samples one step apart",
+   "worst": 0.02793439716312057,
+   "median": 2.2163120567375886e-06,
+   "limit": 1.0,
+   "ok": true,
+   "n": 552,
+   "what": "",
+   "worst_clips": [
+    {
+     "value": 0.02793439716312057,
+     "clip": "pull, clipping hard, 16 bit",
+     "seed": 9000783
+    },
+    {
+     "value": 0.00524822695035461,
+     "clip": "none, clipping hard, 16 bit",
+     "seed": 9000784
+    },
+    {
+     "value": 0.0042730496453900705,
+     "clip": "swipe_left, clipping mild",
+     "seed": 9000790
+    },
+    {
+     "value": 0.003978280141843971,
+     "clip": "pull, clipping mild",
+     "seed": 9000793
+    },
+    {
+     "value": 0.0038453014184397162,
+     "clip": "swipe_right, clipping mild",
+     "seed": 9000791
+    }
+   ]
+  },
+  {
+   "check": "  (for information) 24 bit: share of samples one step apart",
+   "worst": 0.4548936170212766,
+   "median": 0.0005784574468085106,
+   "limit": 1.0,
+   "ok": true,
+   "n": 372,
+   "what": "",
+   "worst_clips": [
+    {
+     "value": 0.4548936170212766,
+     "clip": "swipe_left",
+     "seed": 9000015
+    },
+    {
+     "value": 0.21801640070921985,
+     "clip": "pull, clipping hard, 24 bit",
+     "seed": 9000788
+    },
+    {
+     "value": 0.19343971631205673,
+     "clip": "swipe_right",
+     "seed": 9000183
+    },
+    {
+     "value": 0.17836436170212766,
+     "clip": "push, clipping hard, 24 bit",
+     "seed": 9000787
+    },
+    {
+     "value": 0.11096187943262412,
+     "clip": "push",
+     "seed": 9000223
+    }
+   ]
+  },
+  {
+   "check": "final audio, pure clip without rounding",
+   "worst": 0.6804122621096087,
+   "median": 0.6028193613057286,
+   "limit": 1.0,
+   "ok": true,
+   "n": 5,
+   "what": "<= 1",
+   "worst_clips": [
+    {
+     "value": 0.6804122621096087,
+     "clip": "push, no rounding",
+     "seed": 9000797
+    },
+    {
+     "value": 0.6328938037465045,
+     "clip": "pull, no rounding",
+     "seed": 9000798
+    },
+    {
+     "value": 0.6028193613057286,
+     "clip": "swipe_right, no rounding",
+     "seed": 9000796
+    },
+    {
+     "value": 0.3701048117128042,
+     "clip": "none, no rounding",
+     "seed": 9000799
+    },
+    {
+     "value": 0.2603938365706442,
+     "clip": "swipe_left, no rounding",
+     "seed": 9000795
+    }
+   ]
+  },
+  {
+   "check": "final audio, overlays (no rounding): largest difference",
+   "worst": 1.5832483768463135e-08,
+   "median": 6.984919309616089e-10,
+   "limit": 2e-06,
+   "ok": true,
+   "n": 111,
+   "what": "full scale = 1",
+   "worst_clips": [
+    {
+     "value": 1.5832483768463135e-08,
+     "clip": "pull, on a recording",
+     "seed": 9000960
+    },
+    {
+     "value": 1.4901161193847656e-08,
+     "clip": "swipe_right, on a recording",
+     "seed": 9000917
+    },
+    {
+     "value": 7.450580596923828e-09,
+     "clip": "pull, on a recording",
+     "seed": 9000954
+    },
+    {
+     "value": 6.984919309616089e-09,
+     "clip": "push, on a recording",
+     "seed": 9000920
+    },
+    {
+     "value": 5.587935447692871e-09,
+     "clip": "push, on a recording",
+     "seed": 9000933
+    }
+   ]
+  },
+  {
+   "check": "final audio: correlation",
+   "worst": 0.9999999227111254,
+   "median": 0.9999999999997682,
+   "limit": 0.99999,
+   "ok": true,
+   "n": 1040,
+   "what": "",
+   "worst_clips": [
+    {
+     "value": 0.9999999227111254,
+     "clip": "none, one microphone",
+     "seed": 9000745
+    },
+    {
+     "value": 0.9999999832540956,
+     "clip": "none",
+     "seed": 9000470
+    },
+    {
+     "value": 0.9999999833905663,
+     "clip": "pull",
+     "seed": 9000367
+    },
+    {
+     "value": 0.9999999878925612,
+     "clip": "wave",
+     "seed": 9000548
+    },
+    {
+     "value": 0.9999999894633206,
+     "clip": "none",
+     "seed": 9000401
+    }
+   ]
+  },
+  {
+   "check": "features from IDENTICAL audio: largest difference",
+   "worst": 2.1606683731079102e-07,
+   "median": 0.0,
+   "limit": 0.0001,
+   "ok": true,
+   "n": 1040,
+   "what": "pictures are 0..1",
+   "worst_clips": [
+    {
+     "value": 2.1606683731079102e-07,
+     "clip": "none",
+     "seed": 9000528
+    },
+    {
+     "value": 2.086162567138672e-07,
+     "clip": "present",
+     "seed": 9000630
+    },
+    {
+     "value": 2.086162567138672e-07,
+     "clip": "pull, fastest / most reflectors",
+     "seed": 9100093
+    },
+    {
+     "value": 1.7881393432617188e-07,
+     "clip": "swipe_left, on a recording",
+     "seed": 9000879
+    },
+    {
+     "value": 1.0617077350616455e-07,
+     "clip": "swipe_left, clipping hard, 16 bit",
+     "seed": 9000780
+    }
+   ]
+  },
+  {
+   "check": "features from IDENTICAL audio: same bursts",
+   "worst": 0.0,
+   "median": 0.0,
+   "limit": 0.0,
+   "ok": true,
+   "n": 1040,
+   "what": "share of clips with different bursts",
+   "worst_clips": []
+  },
+  {
+   "check": "feature stream: average difference",
+   "worst": 0.0008579873247072101,
+   "median": 7.940782040805061e-07,
+   "limit": 0.003,
+   "ok": true,
+   "n": 1040,
+   "what": "pictures are 0..1",
+   "worst_clips": [
+    {
+     "value": 0.0008579873247072101,
+     "clip": "swipe_left",
+     "seed": 9000018
+    },
+    {
+     "value": 0.0005285727675072849,
+     "clip": "swipe_right",
+     "seed": 9000135
+    },
+    {
+     "value": 0.0003742010158021003,
+     "clip": "swipe_right",
+     "seed": 9000158
+    },
+    {
+     "value": 0.00036433368222787976,
+     "clip": "push",
+     "seed": 9000262
+    },
+    {
+     "value": 0.0003406191826798022,
+     "clip": "swipe_left, real hand path",
+     "seed": 9500010
+    }
+   ]
+  },
+  {
+   "check": "same bursts and labels",
+   "worst": 0.0038461538461538464,
+   "median": 0.0038461538461538464,
+   "limit": 0.02,
+   "ok": true,
+   "n": 1040,
+   "what": "share of clips where a burst boundary or a label differs",
+   "worst_clips": [
+    {
+     "value": 1.0,
+     "clip": "swipe_left",
+     "seed": 9000012
+    },
+    {
+     "value": 1.0,
+     "clip": "push",
+     "seed": 9000260
+    },
+    {
+     "value": 1.0,
+     "clip": "pull",
+     "seed": 9000378
+    },
+    {
+     "value": 1.0,
+     "clip": "pull, swapped speakers",
+     "seed": 9000739
+    }
+   ]
+  },
+  {
+   "check": "pictures: average difference",
+   "worst": 0.0010316841071471572,
+   "median": 1.2138132206018781e-06,
+   "limit": 0.004,
+   "ok": true,
+   "n": 904,
+   "what": "the model's input, 0..1",
+   "worst_clips": [
+    {
+     "value": 0.0010316841071471572,
+     "clip": "swipe_left",
+     "seed": 9000018
+    },
+    {
+     "value": 0.0006661757943220437,
+     "clip": "swipe_right",
+     "seed": 9000135
+    },
+    {
+     "value": 0.00044532201718539,
+     "clip": "push, real hand path",
+     "seed": 9500027
+    },
+    {
+     "value": 0.00044506011181510985,
+     "clip": "swipe_right",
+     "seed": 9000158
+    },
+    {
+     "value": 0.00040737498784437776,
+     "clip": "swipe_left, swapped speakers",
+     "seed": 9000675
+    }
+   ]
+  },
+  {
+   "check": "pictures: largest single pixel (Doppler pictures)",
+   "worst": 0.028413772583007812,
+   "median": 6.739288801327348e-05,
+   "limit": 0.12,
+   "ok": true,
+   "n": 904,
+   "what": "the model's input, 0..1",
+   "worst_clips": [
+    {
+     "value": 0.028413772583007812,
+     "clip": "swipe_left",
+     "seed": 9000018
+    },
+    {
+     "value": 0.024052513763308525,
+     "clip": "wave",
+     "seed": 9000545
+    },
+    {
+     "value": 0.0232018381357193,
+     "clip": "swipe_left, real hand path",
+     "seed": 9500025
+    },
+    {
+     "value": 0.022809982299804688,
+     "clip": "swipe_left, swapped speakers",
+     "seed": 9000675
+    },
+    {
+     "value": 0.019158469927788246,
+     "clip": "swipe_right",
+     "seed": 9000158
+    }
+   ]
+  },
+  {
+   "check": "pictures: correlation (Doppler pictures)",
+   "worst": 0.9980651879872157,
+   "median": 0.9999999985383344,
+   "limit": 0.99,
+   "ok": true,
+   "n": 904,
+   "what": "",
+   "worst_clips": [
+    {
+     "value": 0.9980651879872157,
+     "clip": "none",
+     "seed": 9000436
+    },
+    {
+     "value": 0.9990657867272635,
+     "clip": "none, strong desk bounce",
+     "seed": 9000819
+    },
+    {
+     "value": 0.9998774602132736,
+     "clip": "none",
+     "seed": 9000482
+    },
+    {
+     "value": 0.999883105161365,
+     "clip": "none, loudest speaker, 16 bit",
+     "seed": 9000869
+    },
+    {
+     "value": 0.9999206310232345,
+     "clip": "none",
+     "seed": 9000473
+    }
+   ]
+  },
+  {
+   "check": "left/right picture: average difference",
+   "worst": 0.0006898769643157721,
+   "median": 5.673933287653199e-07,
+   "limit": 0.004,
+   "ok": true,
+   "n": 861,
+   "what": "-1..1; an angle, single pixels can wrap",
+   "worst_clips": [
+    {
+     "value": 0.0006898769643157721,
+     "clip": "swipe_left",
+     "seed": 9000018
+    },
+    {
+     "value": 0.000462068390334025,
+     "clip": "swipe_right",
+     "seed": 9000135
+    },
+    {
+     "value": 0.0004027277755085379,
+     "clip": "swipe_right",
+     "seed": 9000158
+    },
+    {
+     "value": 0.00039156945422291756,
+     "clip": "push, real hand path",
+     "seed": 9500027
+    },
+    {
+     "value": 0.000312323885736987,
+     "clip": "swipe_left, swapped speakers",
+     "seed": 9000675
+    }
+   ]
+  },
+  {
+   "check": "  (for information) left/right picture: largest single pixel",
+   "worst": 1.5072068572044373,
+   "median": 0.00016721338033676147,
+   "limit": 2.0,
+   "ok": true,
+   "n": 861,
+   "what": "-1..1",
+   "worst_clips": [
+    {
+     "value": 1.5072068572044373,
+     "clip": "swipe_left",
+     "seed": 9000018
+    },
+    {
+     "value": 1.3140311241149902,
+     "clip": "pull",
+     "seed": 9000390
+    },
+    {
+     "value": 1.1610058546066284,
+     "clip": "swipe_right",
+     "seed": 9000158
+    },
+    {
+     "value": 0.9415905773639679,
+     "clip": "pull",
+     "seed": 9000380
+    },
+    {
+     "value": 0.9235719740390778,
+     "clip": "swipe_left, swapped speakers",
+     "seed": 9000675
+    }
+   ]
+  }
+ ],
+ "pictures_compared": 1694,
+ "pictures_total": 1702,
+ "clips": 1040,
+ "device": "cuda",
+ "precision": "ref",
+ "torch": "2.15.0+cu132",
+ "echo_loop": "fused CUDA kernel",
+ "kernel_note": "CUDA kernel (NVRTC): echoes within 2.6e-07 of the PyTorch path; 4.53 ms per clip against 23.95",
+ "seconds": {
+  "cpu": 226.1,
+  "gpu": 24.7
+ },
+ "limits": {
+  "dyn_rel": 2e-05,
+  "static_rel": 1e-08,
+  "snr_db": 0.001,
+  "conv_rel": 0.0001,
+  "overlay_abs": 2e-06,
+  "same_audio_feat": 0.0001,
+  "same_audio_seg": 0.0,
+  "stream_mean": 0.003,
+  "pic_mean": 0.004,
+  "pic_max": 0.12,
+  "pic_corr": 0.99,
+  "seg_differs": 0.02
+ },
+ "per_clip_ms": {
+  "cpu": 217.4,
+  "gpu": 23.8
+ },
+ "drift": {
+  "status": "close",
+  "worst": {
+   "thumb_mean": 0.0,
+   "act_median_db": 0.0,
+   "seg_differs": 0.0,
+   "rms_rel": 8.744407153926659e-08
+  },
+  "limits": {
+   "thumb_mean": 0.6,
+   "act_median_db": 0.05,
+   "seg_differs": 0.03,
+   "rms_rel": 0.001
+  },
+  "over": [],
+  "clips": 1000,
+  "detail": "not bit-identical to the stored CPU results but within rounding (another computer or library version)"
+ },
+ "total_seconds": 307.8,
+ "reference_sha256": "56bde48bd6e57f367768fb652b607d38351e26e6b5ee128b314aeca2ea520d62"
+}
