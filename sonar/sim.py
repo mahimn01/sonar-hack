@@ -224,6 +224,249 @@ def hand_reflector(path: PathFn, echo_db: float = -30.0) -> list[Reflector]:
 
 
 # ---------------------------------------------------------------------------
+# "Busy hall" scene: what a real demo room throws at the presence and breathing detectors
+# ---------------------------------------------------------------------------
+# The first run on the real laptop (a hackathon hall) showed what the tidy scenes above
+# leave out: the seated person is never perfectly still (hands, head, small posture
+# shifts), other people walk past 1.5-3 m away, somebody else sits at the next table, and
+# keys, wrappers and claps put short bursts of noise into the ultrasonic band.
+def _event_times(rng: np.random.Generator, t0: float, t1: float, mean_gap_s: float, min_gap_s: float = 0.0) -> list[float]:
+    """Random event times in t0..t1 with at least `min_gap_s` between them."""
+    out: list[float] = []
+    t = t0
+    while True:
+        t += min_gap_s + float(rng.exponential(max(mean_gap_s - min_gap_s, 1e-3)))
+        if t >= t1:
+            return out
+        out.append(t)
+
+
+def fidget_path(
+    rest: tuple[float, float, float],
+    seed: int = 0,
+    t_end: float = 600.0,
+    mean_gap_s: float = 7.0,
+    reach_m: float = 0.03,
+    start_s: float = 6.0,
+    slow_share: float = 0.4,
+) -> WaypointPath:
+    """A body part that rests, now and then moves a few centimetres, and rests again.
+
+    Most moves are quick (0.25-0.6 s: a hand twitch, a head turn); `slow_share` of them
+    take 1-2 s (shifting a hand on the lap), which is too slow to look like gross movement
+    but still changes the echo.
+    """
+    rng = np.random.default_rng(seed + 4201)                  # what each move looks like
+    base = np.asarray(rest, dtype=np.float64)
+    times, points = [0.0], [tuple(base)]
+    here = base
+    for t in _event_times(np.random.default_rng(seed + 4202), start_s, t_end, mean_gap_s, min_gap_s=2.5):
+        dur = float(rng.uniform(1.0, 2.0) if rng.random() < slow_share else rng.uniform(0.25, 0.6))
+        there = base + rng.normal(0.0, reach_m, size=3) * np.array([1.0, 1.0, 0.4])
+        times += [t, t + dur]
+        points += [tuple(here), tuple(there)]
+        here = there
+    return WaypointPath(times, points)
+
+
+def posture_shift(t: np.ndarray, seed: int = 0, t_end: float = 600.0, mean_gap_s: float = 18.0, step_m: float = 0.002) -> np.ndarray:
+    """Small changes of how the person sits (m towards the laptop): a 1-3 mm lean every ~18 s."""
+    rng = np.random.default_rng(seed + 977)
+    times, levels = [0.0], [0.0]
+    level = 0.0
+    for t0 in _event_times(np.random.default_rng(seed + 978), 8.0, t_end, mean_gap_s, min_gap_s=6.0):
+        dur = float(rng.uniform(0.5, 1.2))
+        new = float(np.clip(level + rng.normal(0.0, step_m), -0.006, 0.006))
+        times += [t0, t0 + dur]
+        levels += [level, new]
+        level = new
+    path = WaypointPath(times, [(0.0, lv, 0.0) for lv in levels])
+    return path(np.asarray(t, dtype=np.float64))[:, 1]
+
+
+def heartbeat_displacement(t: np.ndarray, bpm: float = 68.0, amp_m: float = 0.0001) -> np.ndarray:
+    """The heart taps the chest wall from inside: ~0.1-0.3 mm, with a sharp upstroke."""
+    th = 2 * np.pi * bpm / 60.0 * t
+    return amp_m * sum(np.sin(k * th + 0.7 * k) / k for k in range(1, 7)) / 1.2
+
+
+def seated_person(
+    distance_m: float = 0.7,
+    bpm: float = 15.0,
+    breath_amp_m: float = 0.0025,
+    sway_rms_m: float = 0.0004,
+    chest_db: float = -30.0,
+    body_db: float = -28.0,
+    hand_db: float = -30.0,
+    x_m: float = 0.0,
+    seed: int = 0,
+    fidgets: bool = True,
+    t_end: float = 600.0,
+) -> list[Reflector]:
+    """A real-looking seated person: breathing chest with a heartbeat, shoulders, a head that
+    turns, one hand on the desk and one on the lap that fidget, and small posture shifts."""
+    def common(t: np.ndarray) -> np.ndarray:
+        d = sway_displacement(t, sway_rms_m, seed)
+        return d + posture_shift(t, seed, t_end) if fidgets else d
+
+    def chest(t: np.ndarray) -> np.ndarray:
+        d = breathing_displacement(t, bpm, breath_amp_m) + heartbeat_displacement(t) + common(t)
+        return np.stack([np.full_like(t, x_m), distance_m - d, np.full_like(t, 0.22)], axis=1)
+
+    def belly(t: np.ndarray) -> np.ndarray:
+        d = 1.4 * breathing_displacement(t, bpm, breath_amp_m, phase=-0.3) + common(t)
+        return np.stack([np.full_like(t, x_m), distance_m - 0.02 - d, np.full_like(t, 0.05)], axis=1)
+
+    def shoulders(t: np.ndarray) -> np.ndarray:
+        d = 0.15 * breathing_displacement(t, bpm, breath_amp_m) + common(t)
+        return np.stack([np.full_like(t, x_m + 0.16), distance_m + 0.03 - d, np.full_like(t, 0.38)], axis=1)
+
+    head_rest = (x_m, distance_m - 0.02, 0.52)
+    head_move = fidget_path(head_rest, seed + 1, t_end, mean_gap_s=9.0, reach_m=0.012) if fidgets else static_path(head_rest)
+
+    def head(t: np.ndarray) -> np.ndarray:
+        p = head_move(t).copy()
+        p[:, 1] -= common(t)
+        return p
+
+    parts = [
+        Reflector(chest, echo_db=chest_db, ref_m=0.7),
+        Reflector(belly, echo_db=chest_db - 3.0, ref_m=0.7),
+        Reflector(shoulders, echo_db=body_db, ref_m=0.7),
+        Reflector(head, echo_db=body_db - 4.0, ref_m=0.7),
+    ]
+    if fidgets:
+        desk = fidget_path((x_m + 0.18, distance_m - 0.28, 0.03), seed + 2, t_end, mean_gap_s=8.0, reach_m=0.03)
+        lap = fidget_path((x_m - 0.14, distance_m - 0.12, -0.05), seed + 3, t_end, mean_gap_s=11.0, reach_m=0.02)
+        parts += [Reflector(desk, echo_db=hand_db, ref_m=0.3), Reflector(lap, echo_db=hand_db - 2.0, ref_m=0.3)]
+    return parts
+
+
+def walker_reflectors(
+    seed: int = 0,
+    t_end: float = 600.0,
+    y_range_m: tuple[float, float] = (1.5, 3.0),
+    mean_gap_s: float = 4.0,
+    body_db: float = -26.0,
+    span_m: float = 5.0,
+    start_s: float = 5.0,
+) -> list[Reflector]:
+    """One passer-by who keeps crossing behind the user, `y_range_m` away, at walking speed.
+
+    Each pass goes from one side to the other (5 m out on both sides, where the echo is
+    negligible) at 0.8-1.5 m/s with swinging legs. Returns torso, two legs and head.
+    """
+    rng = np.random.default_rng(seed + 31337)
+    starts: list[float] = []
+    ys: list[float] = []
+    speeds: list[float] = []
+    dirs: list[float] = []
+    t = start_s + float(rng.uniform(0.0, mean_gap_s))
+    while t < t_end:
+        v = float(rng.uniform(0.8, 1.5))
+        starts.append(t)
+        ys.append(float(rng.uniform(*y_range_m)))
+        speeds.append(v)
+        dirs.append(float(rng.choice([-1.0, 1.0])))
+        t += 2 * span_m / v + float(rng.exponential(mean_gap_s))
+    if not starts:                                           # scene shorter than the first gap: nobody walks
+        starts, ys, speeds, dirs = [t_end + 1e6], [y_range_m[1]], [1.0], [1.0]
+    a_start, a_y, a_v, a_dir = map(np.asarray, (starts, ys, speeds, dirs))
+
+    def part(dy: float, dz: float, swing_m: float, swing_phase: float) -> PathFn:
+        def f(tt: np.ndarray) -> np.ndarray:
+            k = np.clip(np.searchsorted(a_start, tt, side="right") - 1, 0, len(a_start) - 1)
+            x_raw = a_dir[k] * (-span_m + a_v[k] * (tt - a_start[k]))
+            walking = np.abs(x_raw) < span_m
+            gait = 2 * np.pi * 1.8 * tt
+            x = np.clip(x_raw, -span_m, span_m) + np.where(walking, a_dir[k] * swing_m * np.sin(0.5 * gait + swing_phase), 0.0)
+            y = a_y[k] + dy + np.where(walking, 0.02 * np.sin(gait), 0.0)
+            return np.stack([x, y, np.full_like(tt, dz)], axis=1)
+        return f
+
+    return [
+        Reflector(part(0.0, 0.30, 0.0, 0.0), echo_db=body_db, ref_m=0.7),
+        Reflector(part(0.0, -0.40, 0.25, 0.0), echo_db=body_db - 4.0, ref_m=0.7),
+        Reflector(part(0.0, -0.40, 0.25, np.pi), echo_db=body_db - 4.0, ref_m=0.7),
+        Reflector(part(0.0, 0.75, 0.0, 0.0), echo_db=body_db - 8.0, ref_m=0.7),
+    ]
+
+
+@dataclass
+class HallNoise:
+    """Short bursts of noise in the ultrasonic band: key jingles, wrappers, claps, hissing "s" sounds.
+
+    `sigma` is the steady sensor-noise level (rms per sample) the bursts are measured
+    against. Two kinds: clicks (1-3 ms, 20-34 dB above it) and hisses (0.08-0.4 s, 4-12 dB
+    above it). Every burst is regenerated from its own seed, so audio rendered in blocks of
+    any size is identical.
+    """
+
+    cfg: SonarConfig
+    sigma: float
+    seed: int = 0
+    t_end: float = 600.0
+    click_gap_s: float = 1.5
+    click_db: tuple[float, float] = (20.0, 34.0)
+    hiss_gap_s: float = 5.0
+    hiss_db: tuple[float, float] = (4.0, 12.0)
+    start_s: float = 5.0
+
+    def __post_init__(self) -> None:
+        fs = self.cfg.fs
+        self._events: list[tuple[int, int, float, int]] = []          # (first sample, length, rms, seed)
+        # separate random streams for "when" and "what", so a longer scene starts exactly like a shorter one
+        rng = np.random.default_rng(self.seed + 8191)
+        for t in _event_times(np.random.default_rng(self.seed + 8192), self.start_s, self.t_end, self.click_gap_s):
+            n = int(rng.uniform(0.001, 0.003) * fs)
+            self._events.append((int(t * fs), n, self.sigma * 10 ** (rng.uniform(*self.click_db) / 20), int(rng.integers(1 << 30))))
+        rng = np.random.default_rng(self.seed + 8193)
+        for t in _event_times(np.random.default_rng(self.seed + 8194), self.start_s, self.t_end, self.hiss_gap_s):
+            n = int(rng.uniform(0.08, 0.4) * fs)
+            self._events.append((int(t * fs), n, self.sigma * 10 ** (rng.uniform(*self.hiss_db) / 20), int(rng.integers(1 << 30))))
+        self._events.sort()
+        self._starts = np.array([e[0] for e in self._events], dtype=np.int64)
+        self._longest = max((e[1] for e in self._events), default=0)
+
+    def add(self, rx: np.ndarray, start_sample: int) -> np.ndarray:
+        """Add the bursts that overlap samples start .. start+len(rx) to `rx` (in place) and return it."""
+        n = len(rx)
+        lo = int(np.searchsorted(self._starts, start_sample - self._longest, side="left"))
+        hi = int(np.searchsorted(self._starts, start_sample + n, side="left"))
+        for first, length, rms, seed in self._events[lo:hi]:
+            a, b = max(first, start_sample), min(first + length, start_sample + n)
+            if b <= a:
+                continue
+            burst = np.random.default_rng(seed).standard_normal((length, rx.shape[1]))
+            burst *= (rms * np.hanning(length + 2)[1:-1] * np.sqrt(8.0 / 3.0))[:, None]   # Hann envelope, same energy
+            rx[a - start_sample:b - start_sample] += burst[a - first:b - first].astype(rx.dtype)
+        return rx
+
+
+def hall_reflectors(
+    seated: bool = True,
+    bpm: float = 15.0,
+    distance_m: float = 0.7,
+    walkers: int = 2,
+    neighbour: bool = True,
+    fidgets: bool = True,
+    seed: int = 0,
+    t_end: float = 600.0,
+    walker_range_m: tuple[float, float] = (1.5, 3.0),
+) -> list[Reflector]:
+    """Everybody in the busy-hall scene: the seated user (optional), `walkers` passers-by
+    1.5-3 m away, and a neighbour sitting 2 m away who also breathes and fidgets."""
+    out: list[Reflector] = []
+    if seated:
+        out += seated_person(distance_m, bpm=bpm, seed=seed, fidgets=fidgets, t_end=t_end)
+    for k in range(walkers):
+        out += walker_reflectors(seed + 10 * (k + 1), t_end, y_range_m=walker_range_m)
+    if neighbour:
+        out += seated_person(1.9, bpm=19.0, x_m=0.9, chest_db=-27.0, body_db=-25.0, seed=seed + 50, fidgets=fidgets, t_end=t_end)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # The simulator
 # ---------------------------------------------------------------------------
 @dataclass

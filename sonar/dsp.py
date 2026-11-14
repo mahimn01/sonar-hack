@@ -55,6 +55,23 @@ def design_prefilter(cfg: SonarConfig) -> np.ndarray:
     return sps.firwin(numtaps, 0.5 * (pass_edge + stop_edge), window=("kaiser", beta), pass_zero=False, fs=cfg.fs)
 
 
+def guard_bins(cfg: SonarConfig) -> np.ndarray:
+    """FFT bins of one frame that lie in the ultrasonic band but carry none of our own signal.
+
+    They are inside the prefilter's passband, at least 350 Hz away from every pilot tone
+    (so no Doppler-shifted echo reaches them) and 150 Hz outside the chirp band. What is
+    left there is the room's own noise: the per-frame "how noisy is it right now" meter.
+    """
+    span = cfg.doppler_bins / 2 * cfg.bb_fs / cfg.stft_fft
+    lowest = min(min(cfg.tone_hz), cfg.chirp_lo_hz)
+    f = np.fft.rfftfreq(cfg.frame_len, 1.0 / cfg.fs)
+    ok = (f >= lowest - span - cfg.prefilter_margin_hz + 100.0) & (f <= 0.49 * cfg.fs)
+    for tone in cfg.tone_hz:
+        ok &= np.abs(f - tone) > span + 100.0
+    ok &= (f < cfg.chirp_lo_hz - 150.0) | (f > cfg.chirp_hi_hz + 150.0)
+    return np.flatnonzero(ok)
+
+
 class Prefilter:
     """Streaming high-pass over [n, n_mics] blocks."""
 
@@ -202,6 +219,7 @@ class CirFrame:
     delay_samples: float      # current fractional delay correction
     drift_ppm: float          # estimated speaker-vs-mic clock offset
     direct_db: np.ndarray     # [n_mics] direct-path gain in dB (RX amplitude / TX amplitude)
+    ambient: float = 0.0      # noise power of this frame in the ultrasonic band, measured where we transmit nothing
 
 
 class ChirpReceiver:
@@ -235,6 +253,7 @@ class ChirpReceiver:
         wn = 2 * np.pi * cfg.drift_loop_hz / cfg.frame_rate
         self._kp, self._ki = (2.0 * wn, wn * wn) if cfg.drift_loop_hz > 0 else (0.0, 0.0)
         self._keep = 64                                                        # samples kept before `_start`
+        self._guard = guard_bins(cfg)
         self.reset()
 
     # -- state -------------------------------------------------------------
@@ -350,7 +369,11 @@ class ChirpReceiver:
                 break                       # not enough audio yet; nothing was committed
             self._delta, self._start = delta, start
             frame = self._buf[start - self._base:start - self._base + self._N]
-            h_k = self._spectrum(frame) * np.exp(2j * np.pi * self._bins * self._delta / self._N)[:, None]
+            spec = np.fft.rfft(frame, axis=0)
+            # Ambient noise of this frame: the FFT bins next to our band that carry none of our
+            # own signal. A click or a hiss in the room shows here whatever the echoes are doing.
+            ambient = float(np.median(np.abs(spec[self._guard]) ** 2)) if len(self._guard) else 0.0
+            h_k = spec[self._bins] * self._conj_ref[:, None] * np.exp(2j * np.pi * self._bins * self._delta / self._N)[:, None]
             assert self._h_ref is not None
             z = np.sum(h_k * np.conj(self._h_ref))
             norm = np.sqrt(np.sum(np.abs(h_k) ** 2) * np.sum(np.abs(self._h_ref) ** 2)) + _EPS
@@ -370,6 +393,7 @@ class ChirpReceiver:
                     delay_samples=float(self._delta),
                     drift_ppm=self.drift_ppm,
                     direct_db=np.asarray(db(np.max(np.abs(cir[:, :cfg.direct_tap + 6]), axis=1))),
+                    ambient=ambient,
                 )
             )
             self._start += self._N

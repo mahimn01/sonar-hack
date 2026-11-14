@@ -38,10 +38,12 @@ from .config import SonarConfig
 from .sim import (
     HAND_REST,
     EchoSimulator,
+    HallNoise,
     Reflector,
     WaypointPath,
     breathing_displacement,
     gesture_waypoints,
+    hall_reflectors,
     hand_reflector,
     min_jerk,
     person_reflectors,
@@ -393,6 +395,10 @@ class SimAudio:
     scene="demo"  the repeating scripted visitor above.
     scene="idle"  one person sitting still; gestures happen only when `perform()` is called
                   (the recorder uses this so the whole record -> train chain can be tested).
+    scene="hall"  a busy room: a seated person breathing 15 times a minute who fidgets, passers-by
+                  1.5-3 m behind, a neighbour 2 m away, and clicks and hisses in the ultrasonic
+                  band, at the noise level measured on the demo laptop. What the real hall does
+                  to presence and breathing. "hall_empty" is the same hall with nobody at the laptop.
     """
 
     name = "sim"
@@ -412,8 +418,9 @@ class SimAudio:
         self.n_mics = cfg.n_mics
         self.realtime = realtime
         self.block = block
-        sim_kwargs.setdefault("cn0_db", 70.0)
+        sim_kwargs.setdefault("cn0_db", 66.0 if scene.startswith("hall") else 70.0)
         self._sim = EchoSimulator(cfg, seed=seed, **sim_kwargs)
+        self._noise: HallNoise | None = None
         self._rng = np.random.default_rng(seed + 1)
         self._pos = 0
         self._t_start = 0.0
@@ -428,6 +435,10 @@ class SimAudio:
             )
         elif scene == "empty":
             self._reflectors = []
+        elif scene in ("hall", "hall_empty"):
+            # one hour of scripted hall, after which the walkers stay away and the room goes quiet
+            self._reflectors = hall_reflectors(seated=scene == "hall", seed=seed, t_end=3600.0)
+            self._noise = HallNoise(cfg, self._sim._noise_sigma, seed=seed, t_end=3600.0)
         else:
             raise ValueError(f"unknown scene {scene!r}")
         self.info = {"mode": "sim", "scene": scene}
@@ -460,6 +471,8 @@ class SimAudio:
                 time.sleep(min(wait, timeout))
         with self._lock:
             rx = self._sim.render(self.block, self._reflectors, start_sample=self._pos)
+        if self._noise is not None:
+            self._noise.add(rx, self._pos)
         self._pos += self.block
         return rx
 

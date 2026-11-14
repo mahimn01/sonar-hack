@@ -274,6 +274,7 @@ class Engine:
             "dropped": self._dropped,
             "resyncs": self.pipeline.frontend.n_resync,
             "activity_db": round(self.pipeline.segmenter.activity_db, 1),
+            "noise_db": round(10.0 * float(np.log10(max(self.pipeline.presence._base, 1e-3))), 1),
             "classifier": self.classifier.source,
             "backend": getattr(self.backend, "name", "custom"),
             "source": getattr(self.backend, "name", "custom"),
@@ -361,9 +362,13 @@ class Engine:
                         "range_m": None if b.range_m is None else round(b.range_m, 2),
                         "amplitude_mm": round(b.amplitude_mm, 2),
                         "window_s": round(b.window_s, 1),
-                        # somebody is there, did not walk away, and nothing at all has moved for 5 s
-                        "apnea": bool(p is not None and p.state == "present" and p.motionless_s >= 5.0),
+                        # somebody is there and did not walk away, and either nothing at all has moved
+                        # for 5 s, or the breathing rhythm we were following stopped 6 s ago and the
+                        # chest has been still since (a pulse or a little sway does not count as breathing)
+                        "apnea": bool(p is not None and p.state == "present" and (p.motionless_s >= 5.0 or b.stopped_s >= 6.0)),
                         "motionless_s": 0.0 if p is None else round(p.motionless_s, 1),
+                        "stopped_s": round(b.stopped_s, 1),
+                        "held": b.held,
                     }
                 )
 
@@ -485,7 +490,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--shared", action="store_true", help="Windows: do NOT use exclusive mode (the mic is low-passed; debugging only)")
     ap.add_argument("--duplex", action="store_true", help="one duplex stream instead of separate input and output streams")
     ap.add_argument("--file", help="recorded audio.wav for --backend file")
-    ap.add_argument("--scene", default="demo", choices=["demo", "idle", "empty"], help="simulator scene")
+    ap.add_argument("--scene", default="demo", choices=["demo", "idle", "empty", "hall", "hall_empty"],
+                    help="simulator scene (hall = a seated person in a busy, noisy room)")
     ap.add_argument("--list-devices", action="store_true", help="print the audio devices and exit")
     ap.add_argument("-v", "--verbose", action="store_true", help="also print status and unconfident breathing lines")
     args = ap.parse_args(argv)

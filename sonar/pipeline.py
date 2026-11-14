@@ -93,13 +93,20 @@ class Pipeline:
             breathing = None
             if fr.cir is not None:
                 # Only a confident, periodic breathing detection counts as proof of life; a weak
-                # "something moves slowly" reading is also produced by a person walking off.
-                vital = self.breathing.last.state == "tracking"
+                # "something moves slowly" reading is also produced by a person walking off, and a
+                # rate that is merely being held through a disturbance proves nothing either.
+                last = self.breathing.last
+                vital = last.state == "tracking" and last.fresh and not last.held
                 presence = self.presence.update(
-                    fr.cir, vital=vital, doppler_db=self.segmenter.activity_db if feat is not None else 0.0
+                    fr.cir, vital=vital, doppler_db=self.segmenter.activity_db if feat is not None else 0.0,
+                    vital_range_m=last.range_m if vital else None, ambient=fr.ambient,
                 )
                 if self.presence.calibrated:
-                    breathing = self.breathing.update(fr.cir, moving=presence.moving)
+                    # The breathing estimator gets the per-distance movement levels, so it can skip
+                    # exactly the moments and distances that were disturbed and keep the rest.
+                    breathing = self.breathing.update(
+                        fr.cir, moving=presence.moving, disturb=self.presence.fast_ratio, weight=self.presence.frame_weight
+                    )
                     self._last_presence = presence
                 else:
                     presence = None
