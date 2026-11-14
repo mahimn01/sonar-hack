@@ -576,7 +576,10 @@ What you need to know to use it:
   `macbook_v<N>_no_<person>.json`, fitted without that person (lance and lance2 count as one). `--calibration auto`
   picks that file by itself when one person is held out, and says so in the log.
 - `scripts/make_calibrated_sets.py` makes one synthetic set per held-out person and per recipe
-  (`train_out/synth_cal/...`; its header has the list) for the leave-one-person-out scoring.
+  (`train_out/synth_cal/...`; its header has the list) for the leave-one-person-out scoring. With
+  `--rel-off-db 12` it makes the same clips again with the bursts ended 12 dB below their own peak (the engine's
+  `seg_rel_off_db`, off by default; `SONAR_SEG_REL_OFF_DB=12` switches it on everywhere) into folders named
+  `..._rel12`. Without that option the sets are cut the usual way whatever the shell's variable says.
 - A recording that somebody set aside in a folder named `excluded` (e.g. `mac/excluded/<session>`: left and
   right turned out flipped) is skipped by the training script, the fit and the set maker.
 - With a fitted laptop, three more things change in the synthetic clips, because the recordings showed them:

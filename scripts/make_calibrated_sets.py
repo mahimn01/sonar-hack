@@ -28,6 +28,10 @@ Why
 How to run (on the GPU box, from the repo folder; `mac` is where the recorded sessions are)
     .venv\\Scripts\\python scripts\\make_calibrated_sets.py --data mac
     more: --per-class 2000 --negatives 2 --arms plain,motion,bg --folds all,no_lance --force --dry-run
+    --rel-off-db 12 makes the SAME clips (same seeds) but cuts their movement bursts the peak-relative way
+    (sonar/config.py, seg_rel_off_db) and writes them next to the others with `_rel12` added to the family name,
+    e.g. train_out/synth_cal/macbook_v<N>_bg_rel12/<fold>/. Without it the sets are always cut the engine's
+    default way, whatever SONAR_SEG_REL_OFF_DB says in the shell.
 
 What it changes
     Writes train_out/synth_cal/** and, when missing, calibration/macbook_v<N>_no_<human>.json plus a
@@ -62,10 +66,17 @@ def show(cmd: list[str]) -> str:
     return subprocess.list2cmdline(cmd) if os.name == "nt" else shlex.join(cmd)
 
 
-def run(cmd: list[str]) -> float:
-    """Run one step with its output on the screen. Returns the seconds it took; stops the script if the step fails."""
-    print(f"\n$ {show(cmd)}", flush=True)
+def run(cmd: list[str], rel_off_db: float = 0.0) -> float:
+    """Run one step with its output on the screen. Returns the seconds it took; stops the script if the step fails.
+
+    `rel_off_db` > 0 switches the engine's peak-relative burst closing on for that step (SONAR_SEG_REL_OFF_DB);
+    0 switches it OFF even if the shell has the variable set, so a set's folder name always says how it was cut.
+    """
+    print(f"\n$ {show(cmd)}" + (f"      (SONAR_SEG_REL_OFF_DB={rel_off_db:g})" if rel_off_db > 0 else ""), flush=True)
     env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
+    env.pop("SONAR_SEG_REL_OFF_DB", None)
+    if rel_off_db > 0:
+        env["SONAR_SEG_REL_OFF_DB"] = f"{rel_off_db:g}"
     # one worker process per core already: the maths libraries must not start threads of their own
     env.update({k: "1" for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")})
     t0 = time.time()
@@ -117,6 +128,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gen-device", default="auto", choices=["auto", "cpu", "cuda", "mps", "torch-cpu"],
                     help="auto = cuda when there is one, else the numpy code on the CPU cores (slow)")
     ap.add_argument("--profile", default=None, help="signal profile of the recordings, as in datagen.generate (default: the core default)")
+    ap.add_argument("--rel-off-db", type=float, default=0.0,
+                    help="cut the bursts the peak-relative way (a burst ends this many dB below its own peak; the engine's "
+                         "seg_rel_off_db) and add _rel<N> to the family folders; default 0 = the engine's usual cutting")
     ap.add_argument("--gen-batch", type=int, default=0, help="clips per GPU batch (default: fills the GPU's memory)")
     ap.add_argument("--gen-kernel", default="auto", choices=["auto", "on", "off"], help="as in datagen.generate")
     ap.add_argument("--workers", type=int, default=0, help="CPU processes (default: every core)")
@@ -182,6 +196,7 @@ def main(argv: list[str] | None = None) -> int:
         for f, (fold, human) in enumerate(folds):
             cal = cal_of[fold]
             suffix, motion_share, bg_share = ARMS[arm]
+            suffix += f"_rel{args.rel_off_db:g}" if args.rel_off_db > 0 else ""       # same clips, bursts cut the peak-relative way
             bg_share = args.bg_share if arm == "bg" else bg_share
             name = f"{base.stem}{suffix}/{fold}"
             folder = out_root / f"{base.stem}{suffix}" / fold
@@ -210,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
             settings = {"calibration": cal.name, "calibration_sha256": None, "per_class": args.per_class, "negatives": args.negatives,
                         "seed": seed, "motion_share": motion_share, "background_share": bg_share,
                         "backgrounds": [Path(b).parent.name for b in backgrounds], "held_out_human": human,
-                        "profile": args.profile}
+                        "profile": args.profile, "seg_rel_off_db": args.rel_off_db}
             if cal.exists():
                 import hashlib
 
@@ -221,14 +236,15 @@ def main(argv: list[str] | None = None) -> int:
                 index["sets"][name] = json.loads(done.read_text())
                 continue
             if args.dry_run:
-                print(f"\n{name}: (dry run) $ {show(cmd)}")
+                print(f"\n{name}: (dry run) $ {show(cmd)}" + (f"      (SONAR_SEG_REL_OFF_DB={args.rel_off_db:g})" if args.rel_off_db > 0 else ""))
                 continue
             print(f"\n=== {name}: laptop {cal.name}" + (f", not {human}'s movement habits" if human else ", everyone")
+                  + (f", bursts end {args.rel_off_db:g} dB below their own peak" if args.rel_off_db > 0 else "")
                   + (f", {motion_share:.0%} real hand paths" if motion_share else "")
                   + (f", {bg_share:.0%} of the clips over {len(backgrounds)} real recordings" if backgrounds else ""))
             if folder.exists():
                 shutil.rmtree(folder)
-            seconds = run(cmd)
+            seconds = run(cmd, args.rel_off_db)
             import numpy as np
 
             with np.load(folder / "dataset.npz", allow_pickle=False) as z:

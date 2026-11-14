@@ -422,6 +422,9 @@ def run(n_clips: int, device: str, precision: str = "auto", workers: int = 4, ba
     report["packed"] = pack_signatures(sigs, [clip_key(name, job) for name, job in jobs[:n_stored]])
     if profile not in (None, "default"):                     # the stored file holds the default profile's CPU results
         report["drift"] = {"status": "skipped", "detail": f"signal profile '{profile}': the stored file is for the default profile"}
+    elif getattr(core.cfg, "seg_rel_off_db", 0.0) > 0:       # ... cut the engine's usual way (SONAR_SEG_REL_OFF_DB not set)
+        report["drift"] = {"status": "skipped", "detail": "peak-relative burst cutting is switched on (SONAR_SEG_REL_OFF_DB): "
+                                                          "the stored file is for the usual cutting"}
     elif n_stored >= 1000:
         report["drift"] = drift(report["packed"])
     else:

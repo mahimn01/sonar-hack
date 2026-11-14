@@ -284,6 +284,8 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
         how += ["noise", args.gen_noise]
     if on_gpu and args.gen_features != "conv":
         how += ["features", args.gen_features]
+    if os.environ.get("SONAR_SEG_REL_OFF_DB", "").strip():   # the engine's burst-cutting experiment switch changes the pictures
+        how += ["seg_rel_off_db", os.environ["SONAR_SEG_REL_OFF_DB"].strip()]
     if args.calibration:                                     # a laptop fitted to real recordings instead of the generic one
         how += ["calibration", hashlib.sha256(Path(args.calibration).read_bytes()).hexdigest()[:12]]
     if args.motion:                                          # real hand paths for a share of the gestures
@@ -341,7 +343,8 @@ def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log:
     key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE + GPU_CODE + PARITY_CODE), info.get("torch"), info.get("gpu"),
                  args.gen_device, args.gen_precision, args.gen_kernel, args.profile, clips,
                  *(["noise", args.gen_noise] if args.gen_noise != "cpu" else []),
-                 *(["features", args.gen_features] if args.gen_features != "conv" else []))
+                 *(["features", args.gen_features] if args.gen_features != "conv" else []),
+                 *(["seg_rel_off_db", os.environ["SONAR_SEG_REL_OFF_DB"].strip()] if os.environ.get("SONAR_SEG_REL_OFF_DB", "").strip() else []))
     marker = work / "parity" / f"passed_{key}.json"
     if marker.exists() and not args.recheck_parity:
         old = json.loads(marker.read_text())
@@ -446,6 +449,8 @@ def cut_sessions(rows: list[dict[str, Any]], out: Path, workers: int, log: Log, 
     """
     out.mkdir(parents=True, exist_ok=True)
     code = code_hash(FEATURE_CODE) if device == "cpu" else key_of(code_hash(FEATURE_CODE + GPU_CODE), device.split(":")[0])
+    if os.environ.get("SONAR_SEG_REL_OFF_DB", "").strip():   # the burst-cutting experiment switch: other bursts, other pictures
+        code = key_of(code, "seg_rel_off_db", os.environ["SONAR_SEG_REL_OFF_DB"].strip())
     jobs = []
     for r in rows:
         target = out / f"{r['session']}__{key_of(code, r['size'], r['mtime'], r['meta_id'])}.npz"

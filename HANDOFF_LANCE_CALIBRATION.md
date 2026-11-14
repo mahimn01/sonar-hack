@@ -41,6 +41,7 @@ sits on the deck next to the left speaker, the tones arrive much louder, hands p
 | B | two training runs: with the fitted laptop, and the old way | about 12 + 7 min | the headline: what is the honest score without the flipped session, and what does the fitted laptop add? |
 | C | 12 synthetic sets, one per scoring fold | 45-70 min, unattended | the recall session's scoring suite reads these |
 | D | optional: check and time the next speed step | about 8 min | decides whether it becomes the default |
+| E | after C: the bg and plain sets again, cut the new way | about 30 min, unattended | the recall session's newest recipes train on pictures cut that way |
 
 If time is short: A and B matter most. C can run afterwards and can be stopped and started again.
 
@@ -149,6 +150,28 @@ pipeline three ways; the one to look at is the block headed `... NEW OPTIONS: --
 its `random draws`, `Doppler columns`, `END TO END` and `GPU load` lines against the first block's. If both
 are fine they become the default next round.
 
+## Part E, after part C: the same sets with the new burst cutting (about 30 minutes, unattended)
+
+```powershell
+git pull
+.venv\Scripts\python scripts\make_calibrated_sets.py --data mac --arms bg,plain --rel-off-db 12 2>&1 | Tee-Object round3\r3_sets_rel12.log
+```
+Why: the data-engine session found a better rule for where a movement burst ends (12 dB below the burst's own
+peak, instead of waiting for the movement level to fall back to the floor). On this loud laptop the old rule
+glued hand raise, stroke and hand drop into one long burst that was chopped after 1.4 s. With the new rule, and
+no retraining, the held-out person's score went from 0.65 to 0.73 of gestures recognised (the recall session's
+measurement). If the engine switches to it, the synthetic clips must be cut the same way.
+What it makes: the same clips as part C (same random seeds; only where the bursts end differs), in
+```
+train_out\synth_cal\macbook_v2_bg_rel12\{all,no_aarsh,no_lance,no_mahimn}\
+train_out\synth_cal\macbook_v2_rel12\{all,no_aarsh,no_lance,no_mahimn}\
+```
+The `git pull` matters: this option is newer than the commit parts A-D were written for. Parts A-D do not need
+to be repeated. `git pull` changes two engine files (`sonar\config.py`, `sonar\gestures.py`; the new rule is
+off unless asked for), so a training run started after it checks the pictures once more (about 5 minutes).
+Expected at the end: `DONE: 20 set(s) under ...` (the 12 from part C and these 8). It can be stopped and
+started again like part C.
+
 ## What to send back
 
 The same way as round 2: push to branch `model-sat-am`, in a folder `round3\`:
@@ -164,7 +187,8 @@ Get-ChildItem train_out_base\runs | Sort-Object Name | Select-Object -Last 1 | F
 then commit `round3\` and `models-release-cal\` on `model-sat-am` and push, as you did for round 2.
 What matters most, in this order: `round3\r3_train_cal.log` and `r3_train_base.log` (the two honest scores),
 `round3\calibration\` (the fitted files; the Mac needs them back), `r3_fit.log`, `r3_folds.log`, `r3_sets.log`, `INDEX.json`,
-and from part D `r3_parity_new.log`, `r3_bench.log` and the `train_out\bench\bench_<time>.json` it names.
+and from part D `r3_parity_new.log`, `r3_bench.log` and the `train_out\bench\bench_<time>.json` it names; from part E
+`r3_sets_rel12.log` and the `INDEX.json` again.
 
 ## If something goes wrong
 

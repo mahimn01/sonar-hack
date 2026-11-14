@@ -452,6 +452,9 @@ def fit(real: dict, levels: dict, work: Path, n_per_class: int, workers: int, lo
         return gap(s, real), s
 
     extra: dict = {"conditions": "trial clips laid over the real no-gesture recordings" if over else "pure simulation"}
+    from sonar.config import default_config
+
+    extra["seg_rel_off_db"] = float(getattr(default_config(), "seg_rel_off_db", 0.0))   # how the bursts were cut (0 = the usual way)
     with Sim(device, workers) as pool:
         before = sim_stats(None, n_per_class, pool, backgrounds=backgrounds)
         log(f"  generic laptop: gap {gap(before, real):.2f}   ({extra['conditions']})")
