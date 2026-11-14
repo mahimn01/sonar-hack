@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Monitor · Laptop Sonar</title>
+<meta name="description" content="Live camera-free care monitor: breathing rate, presence and gestures from laptop ultrasound.">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/atkinson-next-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/lexend-digits.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/monitor.css">
+<script>
+  // Apply the saved theme before first paint.
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    try { t = t || localStorage.getItem('sonar.theme'); } catch (e) { /* storage blocked */ }
+    if (t === 'dark' || t === 'night') document.documentElement.setAttribute('data-theme', 'night');
+  })();
+</script>
+</head>
+<body class="monitor">
+<div class="stage mon">
+
+  <header class="mon__head">
+    <div class="mon__brand"><span data-icon="ping"></span><b>Laptop Sonar</b><span class="mon__sub">Care Monitor</span></div>
+    <div class="mon__room" id="room"></div>
+    <div class="mon__status">
+      <span class="sim-tag">Simulated data</span>
+      <span class="privacy"><span data-icon="cameraOff"></span>Camera off</span>
+      <span id="conn"></span>
+      <span class="mon__clock num" id="clock"></span>
+    </div>
+  </header>
+
+  <div class="mon__banner" id="banner"></div>
+
+  <section class="panel panel--breath" id="breathPanel" data-live-scope aria-labelledby="t-breath">
+    <h2 class="panel__title" id="t-breath"><span data-icon="breath"></span>Breathing</h2>
+    <div class="breath__orb" id="orb"></div>
+    <div class="breath__side">
+      <p class="breath__status" id="breathStatus">Waiting for sensor</p>
+      <div id="range"></div>
+      <dl class="facts">
+        <div><dt>Quality</dt><dd class="num" id="quality">&mdash;</dd></div>
+        <div id="distanceFact" hidden><dt>Distance</dt><dd class="num" id="distance">&mdash;</dd></div>
+        <div><dt>Pause alert</dt><dd class="num" id="apneaRule"></dd></div>
+      </dl>
+    </div>
+    <div class="breath__wave" id="wave"></div>
+  </section>
+
+  <section class="panel panel--presence" aria-labelledby="t-presence">
+    <h2 class="panel__title" id="t-presence"><span data-icon="person"></span>Presence</h2>
+    <div id="presence"></div>
+  </section>
+
+  <section class="panel panel--activity" aria-labelledby="t-gestures">
+    <h2 class="panel__title" id="t-gestures"><span data-icon="swipe_right"></span>Gestures</h2>
+    <div id="feed"></div>
+    <h2 class="panel__title panel__title--second"><span data-icon="check"></span>Activity</h2>
+    <ol class="log" id="log" aria-live="polite"></ol>
+    <p class="mon__note">Prototype · not a medical device</p>
+  </section>
+
+  <section class="panel panel--spectro" data-live-scope aria-labelledby="t-spectro">
+    <h2 class="panel__title" id="t-spectro"><span data-icon="signal"></span>Doppler, live<small>motion toward and away from the laptop</small></h2>
+    <div class="spectro-wrap" id="spectro"></div>
+  </section>
+
+  <section class="panel panel--signal" aria-labelledby="t-signal">
+    <h2 class="panel__title" id="t-signal"><span data-icon="ping"></span>Signal health</h2>
+    <div id="signal"></div>
+  </section>
+
+</div>
+
+<script src="js/adapter.js"></script>
+<script src="js/config.js"></script>
+<script src="js/connection.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/widgets.js"></script>
+<script src="js/monitor.js"></script>
+<script>
+  // Safety net: if a script above failed to load, reload (up to 3 times) instead of showing a half-working page.
+  (function () {
+    var ok = !!window.sonarStore, key = 'sonar.reloads', n = 0;
+    try { n = Number(sessionStorage.getItem(key) || 0); if (ok) sessionStorage.removeItem(key); else sessionStorage.setItem(key, n + 1); } catch (e) { /* storage blocked */ }
+    if (!ok && n < 3) setTimeout(function () { location.reload(); }, 800);
+  })();
+</script>
+</body>
+</html>

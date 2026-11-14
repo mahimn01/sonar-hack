@@ -1,0 +1,644 @@
+{
+ "_about": "Engine messages and the normalised events both adapters (web/js/adapter.js, adapter.py) must produce. Keys ending in _len check a list length; rows_shape checks [rows, bins]; rows_in_01 checks every value is in 0..1.",
+ "now": 1794600000.0,
+ "cases": [
+  {
+   "name": "provisional gesture",
+   "raw": {
+    "type": "gesture",
+    "label": "swipe_left",
+    "confidence": 0.93,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "swipe_left",
+     "confidence": 0.93,
+     "t": 1794600000.5,
+     "tLocal": false
+    }
+   ]
+  },
+  {
+   "name": "gesture as JSON text",
+   "raw_text": "{\"type\":\"gesture\",\"label\":\"push\",\"confidence\":0.8,\"t\":1794600000.5}",
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "push",
+     "confidence": 0.8
+    }
+   ]
+  },
+  {
+   "name": "gesture alias wave, percent confidence",
+   "raw": {
+    "type": "gesture",
+    "label": "Wave",
+    "confidence": 87,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "pull",
+     "rawLabel": "Wave",
+     "confidence": 0.87
+    }
+   ]
+  },
+  {
+   "name": "gesture timestamp in ms",
+   "raw": {
+    "type": "gesture",
+    "label": "swipe-right",
+    "conf": 0.7,
+    "t": 1794600000500.0
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "swipe_right",
+     "confidence": 0.7,
+     "t": 1794600000.5
+    }
+   ]
+  },
+  {
+   "name": "no-gesture class",
+   "raw": {
+    "type": "gesture",
+    "label": "none",
+    "confidence": 0.99,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "none"
+    }
+   ]
+  },
+  {
+   "name": "unknown gesture label",
+   "raw": {
+    "type": "gesture",
+    "label": "clap",
+    "confidence": 0.9,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "unknown",
+     "rawLabel": "clap"
+    }
+   ]
+  },
+  {
+   "name": "provisional presence",
+   "raw": {
+    "type": "presence",
+    "state": "entering",
+    "confidence": 0.88,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "presence",
+     "state": "entering",
+     "confidence": 0.88
+    }
+   ]
+  },
+  {
+   "name": "presence training class names",
+   "raw": [
+    {
+     "type": "presence",
+     "state": "person_present_still",
+     "t": 1794600000.5
+    },
+    {
+     "type": "presence",
+     "state": "empty_room",
+     "t": 1794600000.5
+    },
+    {
+     "type": "presence",
+     "label": "person_walking_in",
+     "t": 1794600000.5
+    }
+   ],
+   "expect": [
+    {
+     "kind": "presence",
+     "state": "present"
+    },
+    {
+     "kind": "presence",
+     "state": "empty"
+    },
+    {
+     "kind": "presence",
+     "state": "entering"
+    }
+   ]
+  },
+  {
+   "name": "provisional breathing",
+   "raw": {
+    "type": "breathing",
+    "bpm": 14.2,
+    "confidence": 0.8,
+    "waveform": [
+     0.1,
+     0.2,
+     0.3,
+     0.2,
+     0.1
+    ],
+    "fs": 20,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "bpm": 14.2,
+     "confidence": 0.8,
+     "fs": 20,
+     "waveform_len": 5,
+     "apnea": null,
+     "t": 1794600000.5
+    }
+   ]
+  },
+  {
+   "name": "breathing with nested waveform object",
+   "raw": {
+    "type": "breathing",
+    "rate_bpm": "12.5",
+    "waveform": {
+     "samples": [
+      0,
+      1,
+      0,
+      -1
+     ],
+     "fs": 10,
+     "t0": 1794600000.2
+    },
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "bpm": 12.5,
+     "fs": 10,
+     "waveform_len": 4,
+     "t0": 1794600000.2
+    }
+   ]
+  },
+  {
+   "name": "breathing zero means no estimate",
+   "raw": {
+    "type": "breathing",
+    "bpm": 0,
+    "confidence": 0.1,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "bpm": null,
+     "confidence": 0.1,
+     "waveform": null
+    }
+   ]
+  },
+  {
+   "name": "breathing apnea flag",
+   "raw": {
+    "type": "breathing",
+    "bpm": 13,
+    "apnea": true,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "apnea": true,
+     "breathState": "apnea"
+    }
+   ]
+  },
+  {
+   "name": "breathing state string and range",
+   "raw": {
+    "type": "breathing",
+    "bpm": 15,
+    "state": "motion",
+    "range_m": 0.8,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "breathState": "motion",
+     "rangeM": 0.8
+    }
+   ]
+  },
+  {
+   "name": "provisional status",
+   "raw": {
+    "type": "status",
+    "snr_db": 55.1,
+    "carrier_hz": 19000,
+    "fps": 30,
+    "calibrating": false,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "status",
+     "snrDb": 55.1,
+     "carrierHz": 19000,
+     "fps": 30,
+     "calibrating": false,
+     "bandHz": null
+    }
+   ]
+  },
+  {
+   "name": "status for a chirp band, SNR per channel",
+   "raw": {
+    "type": "status",
+    "snr_db": [
+     40,
+     52,
+     58
+    ],
+    "band_hz": [
+     21000,
+     17000
+    ],
+    "calibrating": "running",
+    "source": "engine",
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "status",
+     "snrDb": 52,
+     "bandHz": [
+      17000,
+      21000
+     ],
+     "calibrating": true,
+     "source": "engine"
+    }
+   ]
+  },
+  {
+   "name": "status with multi-tone carriers",
+   "raw": {
+    "type": "status",
+    "carriers_hz": [
+     18000,
+     19000,
+     20000
+    ],
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "status",
+     "carrierHz": 19000,
+     "carriersHz_len": 3
+    }
+   ]
+  },
+  {
+   "name": "provisional spectrogram",
+   "raw": {
+    "type": "spectrogram",
+    "rows": [
+     [
+      0,
+      0.5,
+      1,
+      0.2
+     ],
+     [
+      0.1,
+      0.2,
+      0.3,
+      0.4
+     ]
+    ],
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "spectrogram",
+     "rows_shape": [
+      2,
+      4
+     ],
+     "autoscaled": false,
+     "rows_in_01": true
+    }
+   ]
+  },
+  {
+   "name": "spectrogram in dB gets rescaled",
+   "raw": {
+    "type": "spectrogram",
+    "rows": [
+     [
+      -120,
+      -60,
+      -20,
+      0
+     ]
+    ],
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "spectrogram",
+     "rows_shape": [
+      1,
+      4
+     ],
+     "autoscaled": true,
+     "rows_in_01": true
+    }
+   ]
+  },
+  {
+   "name": "spectrogram single flat row",
+   "raw": {
+    "type": "doppler",
+    "row": [
+     0.1,
+     0.9,
+     0.4
+    ],
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "spectrogram",
+     "rows_shape": [
+      1,
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "name": "type + data envelope",
+   "raw": {
+    "type": "gesture",
+    "data": {
+     "label": "swipe_right",
+     "confidence": 0.91
+    },
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "swipe_right",
+     "confidence": 0.91,
+     "t": 1794600000.5
+    }
+   ]
+  },
+  {
+   "name": "batch envelope",
+   "raw": {
+    "events": [
+     {
+      "type": "gesture",
+      "label": "push",
+      "t": 1794600000.5
+     },
+     {
+      "type": "presence",
+      "state": "present",
+      "t": 1794600000.5
+     }
+    ]
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "push",
+     "confidence": null
+    },
+    {
+     "kind": "presence",
+     "state": "present"
+    }
+   ]
+  },
+  {
+   "name": "snapshot without a type",
+   "raw": {
+    "t": 1794600000.5,
+    "breathing": {
+     "bpm": 16
+    },
+    "presence": {
+     "state": "present"
+    }
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "bpm": 16,
+     "t": 1794600000.5
+    },
+    {
+     "kind": "presence",
+     "state": "present",
+     "t": 1794600000.5
+    }
+   ]
+  },
+  {
+   "name": "missing timestamp uses local clock",
+   "raw": {
+    "type": "gesture",
+    "label": "pull"
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "pull",
+     "t": 1794600000.0,
+     "tLocal": true
+    }
+   ]
+  },
+  {
+   "name": "relative engine clock uses local clock",
+   "raw": {
+    "type": "presence",
+    "state": "present",
+    "t": 12.5
+   },
+   "expect": [
+    {
+     "kind": "presence",
+     "t": 1794600000.0,
+     "tLocal": true
+    }
+   ]
+  },
+  {
+   "name": "hello",
+   "raw": {
+    "type": "hello",
+    "source": "mock",
+    "version": "mock-1.0",
+    "schema": "provisional",
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "hello",
+     "source": "mock",
+     "schema": "provisional"
+    }
+   ]
+  },
+  {
+   "name": "unknown type",
+   "raw": {
+    "type": "telemetry",
+    "x": 1
+   },
+   "expect": [
+    {
+     "kind": "unknown"
+    }
+   ]
+  },
+  {
+   "name": "invalid JSON",
+   "raw_text": "{not json",
+   "expect": [
+    {
+     "kind": "unknown",
+     "reason": "invalid JSON"
+    }
+   ]
+  },
+  {
+   "name": "engine breathing while acquiring (sonar/breathing.py shape)",
+   "raw": {
+    "type": "breathing",
+    "bpm": null,
+    "confidence": 0.21,
+    "state": "acquiring",
+    "waveform": [
+     0.2,
+     -0.4,
+     1.0,
+     -1.0
+    ],
+    "fs": 10.0,
+    "range_m": 0.72,
+    "amplitude_mm": 4.2,
+    "window_s": 6.0,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "bpm": null,
+     "breathState": "measuring",
+     "fs": 10,
+     "rangeM": 0.72,
+     "amplitude": 4.2,
+     "windowS": 6,
+     "waveform_len": 4
+    }
+   ]
+  },
+  {
+   "name": "engine breathing states tracking / moving / no_signal",
+   "raw": [
+    {
+     "type": "breathing",
+     "bpm": 14.5,
+     "confidence": 0.7,
+     "state": "tracking",
+     "t": 1794600000.5
+    },
+    {
+     "type": "breathing",
+     "bpm": null,
+     "confidence": 0.0,
+     "state": "moving",
+     "t": 1794600000.5
+    },
+    {
+     "type": "breathing",
+     "bpm": null,
+     "confidence": 0.0,
+     "state": "no_signal",
+     "t": 1794600000.5
+    }
+   ],
+   "expect": [
+    {
+     "kind": "breathing",
+     "breathState": "breathing",
+     "bpm": 14.5
+    },
+    {
+     "kind": "breathing",
+     "breathState": "motion"
+    },
+    {
+     "kind": "breathing",
+     "breathState": "measuring"
+    }
+   ]
+  },
+  {
+   "name": "status with pilot tones and a chirp band",
+   "raw": {
+    "type": "status",
+    "tone_hz": [
+     18000,
+     18500
+    ],
+    "chirp_hz": [
+     19000,
+     21500
+    ],
+    "fps": 50,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "status",
+     "carriersHz_len": 2,
+     "bandHz": [
+      19000,
+      21500
+     ],
+     "fps": 50
+    }
+   ]
+  }
+ ]
+}

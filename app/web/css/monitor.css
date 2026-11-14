@@ -1,0 +1,77 @@
+/* monitor.css: the Care Monitor dashboard. Built to be read from two metres away. */
+
+.mon {
+  display: grid;
+  grid-template-columns: 45fr 23fr 25fr;
+  grid-template-rows: auto minmax(0, 1fr) calc(var(--u) * 13.4);
+  gap: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-4) var(--s-4);
+}
+
+.mon__head { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--s-4); min-height: calc(var(--u) * 3.6); }
+.mon__brand { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--fs-h3); white-space: nowrap; }
+.mon__brand .icon { color: var(--tide); font-size: 1.3em; stroke-width: 2; }
+.mon__brand b { font-weight: 750; letter-spacing: -0.01em; }
+.mon__sub { color: var(--ink-2); font-weight: 500; padding-left: var(--s-1); }
+.mon__room { font-size: var(--fs-label); color: var(--ink-2); font-weight: 600; padding: calc(var(--u) * 0.3) calc(var(--u) * 0.7); border-radius: var(--r-chip); background: var(--panel-2); white-space: nowrap; }
+.mon__note { margin-top: auto; font-size: var(--fs-small); color: var(--ink-2); }
+.mon__status { margin-left: auto; display: flex; align-items: center; gap: var(--s-3); }
+.mon__clock { font-size: var(--fs-h3); font-weight: 600; min-width: 5.2em; text-align: right; }
+
+.mon__banner { position: absolute; z-index: 10; left: 50%; top: var(--s-2); width: calc(var(--u) * 44); transform: translateX(-50%); pointer-events: none; }
+
+.panel {
+  position: relative; min-height: 0; min-width: 0;
+  padding: var(--s-3);
+  border-radius: var(--r-zone);
+  background: var(--panel);
+  transition: background-color var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease-out);
+}
+.panel__title { display: flex; align-items: center; gap: calc(var(--u) * 0.6); font-size: var(--fs-label); font-weight: 680; color: var(--ink-2); line-height: 1.2; }
+.panel__title .icon { font-size: 1.3em; color: var(--tide); }
+.panel__title small { font-size: var(--fs-small); font-weight: 450; margin-left: var(--s-1); }
+
+/* Breathing: the hero */
+.panel--breath {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 19.5) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) calc(var(--u) * 7.4);
+  gap: var(--s-1) var(--s-4);
+}
+.panel--breath .panel__title { grid-column: 1 / -1; }
+.breath__orb { align-self: center; --orb-fs: calc(var(--u) * 7.6); --orb-unit-fs: var(--fs-label); }
+.breath__side { display: flex; flex-direction: column; justify-content: center; gap: var(--s-3); min-width: 0; }
+.breath__status { font-size: var(--fs-h2); font-weight: 700; line-height: 1.12; text-wrap: balance; }
+.breath__wave { grid-column: 1 / -1; min-height: 0; }
+.facts { display: flex; gap: var(--s-4); margin: 0; }
+.facts div { display: flex; flex-direction: column; gap: calc(var(--u) * 0.2); }
+.facts dt { font-size: var(--fs-small); color: var(--ink-2); font-weight: 550; }
+.facts dd { margin: 0; font-size: var(--fs-h3); font-weight: 650; }
+.panel--breath.is-alarm { background: var(--alarm-wash); box-shadow: inset 0 0 0 calc(var(--u) * 0.25) var(--alarm); }
+.panel--breath.is-alarm .breath__status { color: var(--alarm); }
+.panel--breath[data-zone='edge'] .breath__status { color: var(--caution); }
+.panel--breath[data-zone='out'] .breath__status { color: var(--alarm); }
+
+/* Presence */
+.panel--presence { display: flex; flex-direction: column; gap: var(--s-2); }
+.panel--presence > div:last-child { flex: 1; display: grid; align-content: center; }
+.panel--presence .presence__art { margin-bottom: var(--s-1); }
+
+/* Gestures + activity */
+.panel--activity { display: flex; flex-direction: column; gap: var(--s-2); overflow: hidden; }
+.panel__title--second { margin-top: var(--s-1); }
+.log { display: flex; flex-direction: column; gap: calc(var(--u) * 0.55); margin: 0; font-size: var(--fs-label); overflow: hidden; }
+.log li { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: calc(var(--u) * 0.6); }
+.log time { color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: var(--fs-small); min-width: 6.2em; }
+.log .icon { font-size: 1.15em; color: var(--tide); }
+.log li[data-level='alert'] { color: var(--alarm); font-weight: 700; }
+.log li[data-level='alert'] .icon { color: var(--alarm); }
+.log li[data-level='warn'] .icon { color: var(--caution); }
+.log li[data-level='ok'] .icon { color: var(--ok); }
+.log__empty { color: var(--ink-2); }
+
+/* Spectrogram + signal */
+.panel--spectro { grid-column: 1 / 3; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: var(--s-1); }
+.spectro-wrap { min-height: 0; }
+.panel--signal { display: grid; grid-template-rows: auto 1fr; gap: var(--s-2); }
+.panel--signal .signal { align-content: center; }

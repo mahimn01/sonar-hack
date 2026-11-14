@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laptop Sonar</title>
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/atkinson-next-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/lexend-digits.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<style>
+  body { overflow: auto; }
+  .launch { min-height: 100%; display: grid; place-content: center; gap: 28px; padding: 48px 24px; max-width: 980px; margin: 0 auto; }
+  .launch h1 { font-size: clamp(30px, 4vw, 48px); font-weight: 750; letter-spacing: -0.02em; line-height: 1.05; }
+  .launch h1 .icon { color: var(--tide); stroke-width: 2; }
+  .launch p { font-size: 18px; color: var(--ink-2); max-width: 60ch; }
+  .views { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .view {
+    display: flex; flex-direction: column; gap: 6px; padding: 22px 24px; border-radius: 16px;
+    background: var(--panel); color: var(--ink); text-decoration: none; box-shadow: inset 0 0 0 1px var(--line);
+    transition: box-shadow var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+  }
+  .view:hover { box-shadow: inset 0 0 0 2px var(--tide); }
+  .view:active { transform: scale(0.99); }
+  .view:focus-visible { outline: 3px solid var(--tide); outline-offset: 3px; }
+  .view b { font-size: 22px; }
+  .view span { font-size: 16px; color: var(--ink-2); }
+  .launch .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 16px; }
+  .launch .conn { font-size: 16px; }
+  .launch code { font-size: 15px; background: var(--panel-2); padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main class="launch">
+  <h1><span data-icon="ping"></span> Laptop Sonar</h1>
+  <p>Camera-free care from the laptop already in the room. Pick a view. Both connect to the sonar engine at <code id="wsUrl"></code>.</p>
+  <div class="row"><span id="conn"></span><span class="sim-tag">Simulated data</span><span class="privacy"><span data-icon="cameraOff"></span>Camera off</span></div>
+  <div class="views">
+    <a class="view" id="toPresenter" href="presenter.html"><b>Presenter</b><span>Pitch slides you change with a swipe of the hand. Arrow keys work too. Press ? for keys.</span></a>
+    <a class="view" id="toMonitor" href="monitor.html"><b>Care Monitor</b><span>Breathing rate, presence, gestures and signal health, readable from across the room.</span></a>
+  </div>
+</main>
+<script src="js/adapter.js"></script>
+<script src="js/config.js"></script>
+<script src="js/connection.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/widgets.js"></script>
+<script>
+  (function () {
+    var UI = window.SonarUI, cfg = window.SonarConfig;
+    UI.setTheme(cfg.theme);
+    document.querySelectorAll('[data-icon]').forEach(function (el) { el.innerHTML = UI.icon(el.getAttribute('data-icon')); });
+    document.getElementById('wsUrl').textContent = cfg.wsUrl;
+    // Keep any ?ws=... settings when moving to a view.
+    ['toPresenter', 'toMonitor'].forEach(function (id) { var a = document.getElementById(id); a.href += location.search; });
+    var store = window.SonarStore.start(cfg);
+    window.SonarWidgets.conn(document.getElementById('conn'), store);
+    function sim() { document.body.classList.toggle('is-simulated', store.state.simulated); }
+    store.on('hello', sim); store.on('status', sim);
+  })();
+</script>
+</body>
+</html>

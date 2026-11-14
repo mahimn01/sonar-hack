@@ -1,0 +1,3 @@
+# Laptop Sonar app layer. serve.py needs nothing beyond the standard library.
+websockets>=13      # mock_engine.py and keys_bridge.py (asyncio API, tested with 17.4)
+pynput>=1.7         # keys_bridge.py only: presses arrow keys for PowerPoint / Google Slides

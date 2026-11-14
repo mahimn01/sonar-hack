@@ -1,0 +1,14 @@
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.runs/
+datagen/out/
+data/
+models/
+*.npz
+*.onnx
+*.pt
+.DS_Store
+node_modules/

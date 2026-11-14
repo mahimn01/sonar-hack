@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "app/web/monitor.html"
+        ],
+        "createdAt": "2026-11-14T01:31:19.004Z",
+        "reason": "Claude (agent) decided: paddings are calc(var(--u)*N) with --u built from viewport units, which the layout-less file scan cannot resolve; real-browser detect at 1536x864 and 1280x720 reports no cramped-padding, and app/refs screenshots show 15-23px insets"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "app/web/presenter.html"
+        ],
+        "createdAt": "2026-11-14T01:31:19.081Z",
+        "reason": "Claude (agent) decided: paddings are calc(var(--u)*N) with --u built from viewport units, which the layout-less file scan cannot resolve; real-browser detect at 1536x864 and 1280x720 reports no cramped-padding, and app/refs screenshots show 15-23px insets"
+      },
+      {
+        "rule": "tight-leading",
+        "value": "*",
+        "files": [
+          "app/web/index.html"
+        ],
+        "createdAt": "2026-11-14T01:31:19.171Z",
+        "reason": "Claude (agent) decided: layout-less scan artifact; real-browser detect of index.html at 1536x864 reports no findings (body copy uses line-height 1.35; only the one-line display heading is tighter)"
+      }
+    ]
+  }
+}

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laptop Sonar · Presenter</title>
+<meta name="description" content="Pitch slides for Laptop Sonar, driven by mid-air hand gestures detected with ultrasound.">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/atkinson-next-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/lexend-digits.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/presenter.css">
+<script>
+  // Apply the saved theme before first paint.
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    try { t = t || localStorage.getItem('sonar.theme'); } catch (e) { /* storage blocked */ }
+    if (t === 'dark' || t === 'night') document.documentElement.setAttribute('data-theme', 'night');
+  })();
+</script>
+</head>
+<body class="presenter">
+
+<main class="stage deck" id="deck">
+
+  <!-- 1. Title -->
+  <section class="slide slide--title" data-title="Laptop Sonar">
+    <div class="title__copy">
+      <p class="wordmark"><span data-icon="ping"></span>Laptop Sonar</p>
+      <h1 class="display">Camera-free care, from the laptop already in the room.</h1>
+      <p class="lede">Ultrasound from an ordinary laptop recognises hand gestures, notices who comes and goes, and measures a still person's breathing. No camera. Nothing to wear.</p>
+      <p class="title__meta"><span class="privacy"><span data-icon="cameraOff"></span>Camera off <small>· no images captured</small></span><span>HackPrinceton · Healthcare track</span></p>
+    </div>
+    <figure class="title__art" aria-hidden="true">
+      <svg viewBox="0 0 420 320">
+        <g class="rings">
+          <circle cx="210" cy="128" r="118"/><circle cx="210" cy="128" r="118"/><circle cx="210" cy="128" r="118"/>
+        </g>
+        <rect class="lap-screen" x="80" y="40" width="260" height="170" rx="12"/>
+        <rect class="lap-glass" x="94" y="58" width="232" height="138" rx="5"/>
+        <circle class="lap-orb-halo" cx="156" cy="124" r="40"/>
+        <circle class="lap-orb" cx="156" cy="124" r="27"/>
+        <path class="lap-wave" d="M206 124q9-20 18 0t18 0t18 0t18 0t18 0t18 0"/>
+        <circle class="lap-cam" cx="210" cy="49" r="3.2"/>
+        <rect class="lap-tape" x="191" y="41" width="38" height="16" rx="2" transform="rotate(-7 210 49)"/>
+        <path class="lap-base" d="M54 216h312l-20 24H74z"/>
+      </svg>
+    </figure>
+  </section>
+
+  <!-- 2. Problem -->
+  <section class="slide slide--problem" data-title="The problem">
+    <h2 class="headline">The rooms where older adults fall are the rooms where no one wants a camera.</h2>
+    <div class="stats">
+      <div class="stat"><span class="stat__n num">1 in 4</span><span class="stat__t">adults aged 65+ report a fall every year</span><span class="stat__src">CDC</span></div>
+      <div class="stat"><span class="stat__n num">82%</span><span class="stat__t">of falls among people over 90 happened while they were alone</span><span class="stat__src">BMJ 2008</span></div>
+      <div class="stat"><span class="stat__n num">28%</span><span class="stat__t">of older Americans living in the community live alone</span><span class="stat__src">ACL 2023</span></div>
+    </div>
+    <div class="tradeoffs">
+      <p><b>Cameras</b> see everything, so families keep them out of bedrooms and bathrooms.</p>
+      <p><b>Pendants and wearables</b> must be worn, charged and pressed. In the BMJ study, call alarms were widely available but went unused in most long lies on the floor.</p>
+    </div>
+    <p class="sources">Sources: CDC Older Adult Falls Data · Fleming &amp; Brayne, BMJ 2008;337:a2227 (adults over 90) · ACL 2023 Profile of Older Americans</p>
+  </section>
+
+  <!-- 3. Insight -->
+  <section class="slide slide--insight" data-title="The insight">
+    <h2 class="display">Every laptop is already a sonar.</h2>
+    <div class="insight">
+      <figure class="insight__art" aria-hidden="true">
+        <svg viewBox="0 0 480 260">
+          <rect class="solid" x="22" y="204" width="136" height="10" rx="5"/>
+          <g transform="rotate(-13 28 209)">
+            <rect class="solid" x="22" y="96" width="10" height="116" rx="5"/>
+            <circle class="spot" cx="36" cy="112" r="5.5"/>
+          </g>
+          <circle class="spot" cx="70" cy="199" r="5.5"/>
+          <path class="wave-out" d="M104 150a30 30 0 0 1 0 46"/>
+          <path class="wave-out" d="M128 136a50 50 0 0 1 0 74"/>
+          <path class="wave-out" d="M152 122a70 70 0 0 1 0 102"/>
+          <path class="wave-back" d="M318 120a70 70 0 0 0 0 102"/>
+          <path class="wave-back" d="M294 134a50 50 0 0 0 0 74"/>
+          <circle class="body-fill" cx="408" cy="58" r="25"/>
+          <path class="body-fill" d="M368 252V134c0-25 16-40 40-40s40 15 40 40v118z"/>
+          <path class="chest" d="M362 136c-5 22-5 52 0 78"/>
+          <path class="chest chest--in" d="M353 136c-5 22-5 52 0 78"/>
+          <text class="label" x="44" y="242">speaker</text>
+          <text class="label" x="14" y="80">mic</text>
+          <text class="label" x="104" y="104">18–21.5 kHz out</text>
+          <text class="label" x="246" y="246">echo back</text>
+          <text class="label label--strong" x="408" y="18" text-anchor="middle">chest moves ~4 mm</text>
+        </svg>
+      </figure>
+      <ul class="points">
+        <li><b>The speakers</b> play near-inaudible sound at 18–21.5 kHz, the top edge of human hearing and the first range to fade with age.</li>
+        <li><b>The microphone</b> hears its echoes off hands, bodies and a chest.</li>
+        <li><b>Motion</b> shifts the echo's pitch (the Doppler effect). <b>Breathing</b> shifts its timing: at 20 kHz a wave is 1.7 cm long, so a 4 mm breath moves the echo by almost half a wave.</li>
+        <li><b>No new hardware.</b> The speaker, microphone and processor are already in the room.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 4. How it works -->
+  <section class="slide slide--how" data-title="How it works">
+    <h2 class="headline">Sound out, echoes in, numbers out.</h2>
+    <ol class="pipeline">
+      <li><span class="step__n num">1</span><b>Emit</b><span>Two pilot tones (18 and 18.5 kHz) and a 19–21.5 kHz chirp, 48 kHz audio</span></li>
+      <li><span class="step__n num">2</span><b>Listen</b><span>Mic records the echoes, with Windows' voice filters switched off so ultrasound survives</span></li>
+      <li><span class="step__n num">3</span><b>Clean</b><span>Remove the speaker-to-mic leak and static room echoes</span></li>
+      <li><span class="step__n num">4</span><b>Read</b><span>Tone Doppler for hand motion; chirp echoes by distance for presence and breathing</span></li>
+      <li><span class="step__n num">5</span><b>Decide</b><span>A small CNN names the gesture and presence; filtering gives breaths per minute</span></li>
+    </ol>
+    <div class="how__live" data-live-scope>
+      <div class="how__strip" id="howSpectro"></div>
+      <p class="how__caption">Live from this laptop: the Doppler strip the model reads. Everything runs on-device and leaves as small JSON events.</p>
+    </div>
+  </section>
+
+  <!-- 5. Live demo -->
+  <section class="slide slide--live" data-title="Live demo" data-live-scope>
+    <header class="live__head">
+      <h2 class="headline">Live: camera taped over, sonar on.</h2>
+      <p>Swipe to change slides. Then stand still, about an arm's length away.</p>
+    </header>
+    <div class="live__grid">
+      <div class="live__breath">
+        <div class="live__orb" id="liveOrb"></div>
+        <div class="live__side">
+          <div id="livePresence"></div>
+          <div id="liveRange"></div>
+        </div>
+        <div class="live__wave" id="liveWave"></div>
+      </div>
+      <div class="live__right">
+        <div id="liveTiles"></div>
+        <div class="live__spectro" id="liveSpectro"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Healthcare impact -->
+  <section class="slide slide--impact" data-title="Healthcare impact">
+    <h2 class="headline">Breathing rate predicts trouble, and it is the vital sign most often missed.</h2>
+    <p class="lede">In hospitals, respiratory rate is the vital sign least often recorded, yet it strongly predicts serious events such as cardiac arrest. An adult breathing over 24 times a minute is likely critically ill.</p>
+    <div class="cases">
+      <article class="case"><span data-icon="breath"></span><h3>Night breathing checks</h3><p>Rate trends through the night, with pauses of 10 seconds or more flagged to a caregiver.</p></article>
+      <article class="case"><span data-icon="enter"></span><h3>Bedroom and bathroom presence</h3><p>Who came in, whether they are still there and for how long, without a single image.</p></article>
+      <article class="case"><span data-icon="ping"></span><h3>A wave as a call button</h3><p>Nothing to wear, charge or find on the floor. A hand gesture anywhere in the room can ask for help.</p></article>
+    </div>
+    <p class="impact__privacy"><span data-icon="cameraOff"></span>Runs on the laptop. Sends numbers, never audio or images.</p>
+    <p class="sources">Cretikos et al., "Respiratory rate: the neglected vital sign", Med J Aust 2008;188(11):657–659</p>
+  </section>
+
+  <!-- 7. Under the hood -->
+  <section class="slide slide--tech" data-title="Under the hood">
+    <h2 class="headline">Under the hood</h2>
+    <div class="tech">
+      <div class="tech__col">
+        <h3>Signal</h3>
+        <ul>
+          <li>Pilot tones at 18 and 18.5 kHz, one per speaker, plus a 19–21.5 kHz chirp every 20 ms</li>
+          <li>48 kHz in WASAPI exclusive mode: in shared mode, Windows' mic processing erased every tone from 15 to 22 kHz</li>
+          <li>Measured on the demo laptop: about 55–60 dB tone SNR at 17–20 kHz</li>
+        </ul>
+      </div>
+      <div class="tech__col">
+        <h3>Processing</h3>
+        <ul>
+          <li>Speaker-to-mic leak and static echoes removed</li>
+          <li>64-bin Doppler spectrogram per tone and mic (about ±2.3 m/s), 50 frames a second</li>
+          <li>Echoes in 5 cm steps out to 2.6 m; breathing from the echo phase at the chest, band-passed to 0.1–0.6 Hz</li>
+        </ul>
+      </div>
+      <div class="tech__col">
+        <h3>Model</h3>
+        <ul>
+          <li>Small CNN on Doppler spectrograms from 2 tones × 2 mics: four gestures plus "no gesture"</li>
+          <li>Presence from echo motion: empty, entering, present</li>
+          <li>ONNX on the laptop CPU, no GPU; calibration, thresholds and debouncing keep the live demo steady</li>
+        </ul>
+      </div>
+    </div>
+    <!-- Model results go here once training finishes. Remove `hidden` and add one block per number, e.g.
+         <div class="metric"><b class="num">NN%</b><span>gesture accuracy on held-out sessions</span></div> -->
+    <div class="metrics" hidden></div>
+    <div class="tech__live" data-live-scope>
+      <p class="tech__live-label"><span data-icon="ping"></span>Live from the engine, right now</p>
+      <div id="techSignal"></div>
+    </div>
+  </section>
+
+  <!-- 8. Roadmap -->
+  <section class="slide slide--roadmap" data-title="What's next">
+    <h2 class="headline">From one laptop to every room</h2>
+    <ul class="road">
+      <li><b><span data-icon="alert"></span>Fall detection</b><span>The Doppler signature of a fall: a fast downward rush, then stillness near the floor.</span></li>
+      <li><b><span data-icon="breath"></span>Overnight breathing</b><span>Rate trends and pauses through the night, building on contactless sleep apnea research such as UW's ApneaApp (MobiSys 2015).</span></li>
+      <li><b><span data-icon="ping"></span>Any speaker and mic</b><span>Smart speakers, TVs and tablets that are already in the room.</span></li>
+      <li><b><span data-icon="person"></span>Caregiver alerts</b><span>Alerts and trends on a family member's or nurse's phone. Never footage.</span></li>
+      <li><b><span data-icon="check"></span>Clinical validation</b><span>Against a respiration belt and nurse counts, across ages, rooms and beds.</span></li>
+    </ul>
+  </section>
+
+  <!-- 9. Team -->
+  <section class="slide slide--team" data-title="Team">
+    <h2 class="display">Camera-free care, from the laptop already in the room.</h2>
+    <!-- Add teammates as more <li> rows: <li><b>Name</b><span>School</span></li> -->
+    <ul class="team">
+      <li><b>Mahimn Patel</b><span>University of Toronto</span></li>
+    </ul>
+    <p class="team__cta">Try it at our table: wave at the laptop, then hold your breath.</p>
+    <p class="team__note">Built in 36 hours at HackPrinceton.</p>
+    <figure class="team__art" aria-hidden="true">
+      <svg viewBox="0 0 300 300"><g class="rings"><circle cx="150" cy="150" r="70"/><circle cx="150" cy="150" r="70"/><circle cx="150" cy="150" r="70"/></g><circle class="team__dot" cx="150" cy="150" r="16"/></svg>
+    </figure>
+  </section>
+
+</main>
+
+<!-- Live panel over any slide (push gesture or O key) -->
+<aside class="overlay" id="overlay" data-live-scope aria-label="Live sensing">
+  <div class="overlay__head"><b>Live sensing</b><span id="overlayConn"></span></div>
+  <div class="overlay__orb" id="overlayOrb"></div>
+  <div class="overlay__presence" id="overlayPresence"></div>
+  <div class="overlay__wave" id="overlayWave"></div>
+  <div class="overlay__spectro" id="overlaySpectro"></div>
+</aside>
+
+<!-- Corner HUD: connection + last gesture -->
+<div class="hud" id="hud">
+  <span id="hudConn"></span>
+  <span class="hud__gesture" id="hudGesture"><span class="hud__icon"></span><span class="hud__label">Waiting for a gesture</span><span class="hud__conf num"></span></span>
+  <span class="sim-tag">Simulated data</span>
+  <span class="hud__lock" id="hudLock"><span data-icon="lock"></span>Gestures paused</span>
+</div>
+<div class="counter num" id="counter"></div>
+<div class="visually-hidden" aria-live="polite" id="announce"></div>
+<div class="progress" aria-hidden="true"><i id="progress"></i></div>
+
+<div class="help" id="help" role="dialog" aria-label="Keyboard shortcuts">
+  <h2>Presenter keys</h2>
+  <dl>
+    <dt>Right, Down, PgDn, Space</dt><dd>Next slide</dd>
+    <dt>Left, Up, PgUp</dt><dd>Previous slide</dd>
+    <dt>1 to 9</dt><dd>Jump to slide</dd>
+    <dt>O</dt><dd>Live panel on or off (same as the push gesture)</dd>
+    <dt>L</dt><dd>Pause or resume gesture navigation</dd>
+    <dt>F</dt><dd>Fullscreen</dd>
+    <dt>T</dt><dd>Light or dark theme</dd>
+    <dt>H</dt><dd>Hide or show the corner HUD</dd>
+    <dt>M</dt><dd>Open the Care Monitor in a new tab</dd>
+    <dt>D</dt><dd>Raw event inspector</dd>
+    <dt>?</dt><dd>This help</dd>
+  </dl>
+</div>
+
+<script src="js/adapter.js"></script>
+<script src="js/config.js"></script>
+<script src="js/connection.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/widgets.js"></script>
+<script src="js/presenter.js"></script>
+<script>
+  // Safety net: if a script above failed to load, reload (up to 3 times) instead of showing a half-working page.
+  (function () {
+    var ok = !!window.sonarStore, key = 'sonar.reloads', n = 0;
+    try { n = Number(sessionStorage.getItem(key) || 0); if (ok) sessionStorage.removeItem(key); else sessionStorage.setItem(key, n + 1); } catch (e) { /* storage blocked */ }
+    if (!ok && n < 3) setTimeout(function () { location.reload(); }, 800);
+  })();
+</script>
+</body>
+</html>

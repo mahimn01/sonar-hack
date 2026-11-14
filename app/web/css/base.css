@@ -1,0 +1,264 @@
+/* base.css: reset, stage, and the live widgets shared by the presenter and the Care Monitor. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  line-height: 1.35;
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  transition: background-color var(--t-base) var(--ease-out), color var(--t-base) var(--ease-out);
+}
+h1, h2, h3, p, ul, ol, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+button { font: inherit; color: inherit; }
+canvas { display: block; }
+.num { font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+body.cursor-idle, body.cursor-idle * { cursor: none !important; }
+
+/* The 16:9 stage everything is laid out on. */
+.stage {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: calc(var(--u) * 100);
+  height: calc(var(--u) * 56.25);
+  transform: translate(-50%, -50%);
+}
+
+/* Icons are inline SVG strings from ui.js. */
+.icon {
+  width: 1em; height: 1em; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+  vertical-align: -0.14em;
+}
+
+/* ---- Privacy badge --------------------------------------------------------- */
+.privacy {
+  display: inline-flex; align-items: center; gap: var(--s-1);
+  padding: calc(var(--u) * 0.55) calc(var(--u) * 0.9);
+  border-radius: var(--r-chip);
+  background: var(--ink); color: var(--panel);
+  font-size: var(--fs-label); font-weight: 650; letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.privacy .icon { font-size: 1.25em; stroke-width: 2; }
+.privacy small { font-size: 0.86em; font-weight: 450; color: color-mix(in srgb, var(--panel) 80%, var(--ink)); }
+
+/* ---- Connection indicator ------------------------------------------------- */
+.conn { display: inline-flex; align-items: center; gap: calc(var(--u) * 0.55); font-size: var(--fs-label); color: var(--ink-2); white-space: nowrap; }
+.conn__dot {
+  position: relative; width: calc(var(--u) * 0.7); height: calc(var(--u) * 0.7);
+  border-radius: 50%; background: var(--ink-3); flex: none;
+}
+.conn[data-health='live'] .conn__dot { background: var(--ok); }
+.conn[data-health='live'] .conn__dot::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid var(--ok); animation: conn-ping 2.4s var(--ease-out) infinite;
+}
+.conn[data-health='stalled'] .conn__dot { background: var(--caution); }
+.conn[data-health='offline'] .conn__dot { background: var(--alarm); }
+@keyframes conn-ping { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.6); opacity: 0; } }
+
+.sim-tag {
+  display: none; align-items: center; gap: calc(var(--u) * 0.35);
+  padding: calc(var(--u) * 0.2) calc(var(--u) * 0.55);
+  border-radius: var(--r-chip);
+  background: var(--caution-wash); color: var(--caution);
+  font-size: var(--fs-small); font-weight: 650; white-space: nowrap;
+}
+body.is-simulated .sim-tag { display: inline-flex; }
+
+/* ---- Breathing orb with the numeral inside -------------------------------- */
+.orb {
+  position: relative; aspect-ratio: 1; width: 100%;
+  display: grid; place-items: center;
+  --breath: 0;            /* -1..1, set every frame from the waveform */
+  --tone: var(--tide);
+}
+.orb__halo, .orb__core, .orb__ripple { position: absolute; border-radius: 50%; pointer-events: none; }
+.orb__halo {
+  inset: 0;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--tone) 22%, transparent) 55%, transparent 100%);
+  transform: scale(calc(0.86 + var(--breath) * 0.11));
+}
+.orb__core {
+  inset: 15%;
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--tone) 16%, var(--panel)) 0%, color-mix(in srgb, var(--tone) 28%, var(--panel)) 72%, color-mix(in srgb, var(--tone) 40%, var(--panel)) 100%);
+  box-shadow: inset 0 0 0 calc(var(--u) * 0.16) color-mix(in srgb, var(--tone) 45%, transparent);
+  transform: scale(calc(0.96 + var(--breath) * 0.045));
+}
+.orb__ripple {
+  inset: 15%;
+  border: calc(var(--u) * 0.14) solid color-mix(in srgb, var(--tone) 55%, transparent);
+  animation: orb-ripple 2.6s var(--ease-out) forwards;
+}
+@keyframes orb-ripple { from { transform: scale(1); opacity: 0.8; } to { transform: scale(1.55); opacity: 0; } }
+.orb__text { position: relative; text-align: center; line-height: 1; }
+.orb__value {
+  display: block;
+  font-size: var(--orb-fs, var(--fs-vital)); font-weight: 400; letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.orb__unit { display: block; max-width: 11em; margin: 0.35em auto 0; font-size: var(--orb-unit-fs, var(--fs-label)); color: var(--ink-2); font-weight: 550; text-wrap: balance; line-height: 1.2; }
+.orb[data-state='idle'] { --tone: var(--ink-3); }
+.orb[data-state='idle'] .orb__value, .orb[data-state='measuring'] .orb__value { color: var(--ink-3); }
+.orb[data-state='measuring'] .orb__halo { animation: orb-idle 4.5s var(--ease-in-out) infinite alternate; }
+@keyframes orb-idle { from { opacity: 0.45; } to { opacity: 1; } }
+.orb[data-state='apnea'] { --tone: var(--alarm); }
+.orb[data-state='apnea'] .orb__value { color: var(--alarm); font-weight: 600; }
+.orb__suffix { font-size: 0.42em; margin-left: 0.06em; font-weight: 600; }
+.orb[data-state='apnea'] .orb__unit { color: var(--alarm); font-weight: 650; }
+
+/* ---- Gesture tiles (live slide) ------------------------------------------- */
+.gtiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s-2); }
+.gtile {
+  position: relative;
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: var(--s-2); align-items: center;
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-tile);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: background-color var(--t-base) var(--ease-out), box-shadow var(--t-base) var(--ease-out), transform var(--t-base) var(--ease-out);
+}
+.gtile__icon { grid-row: 1 / span 2; font-size: calc(var(--u) * 3.1); color: var(--ink-2); transition: color var(--t-base) var(--ease-out); }
+.gtile__name { font-size: var(--fs-h3); font-weight: 700; }
+.gtile__does { font-size: var(--fs-label); color: var(--ink-2); }
+.gtile__conf {
+  position: absolute; right: var(--s-2); top: var(--s-1);
+  font-size: var(--fs-label); font-weight: 700; color: var(--ember);
+  font-variant-numeric: tabular-nums; opacity: 0; transition: opacity var(--t-base) var(--ease-out);
+}
+.gtile.is-hit { background: var(--ember-wash); box-shadow: inset 0 0 0 calc(var(--u) * 0.18) var(--ember); transform: scale(1.025); }
+.gtile.is-hit .gtile__icon { color: var(--ember); }
+.gtile.is-hit .gtile__conf, .gtile.is-miss .gtile__conf { opacity: 1; }
+.gtile.is-miss { box-shadow: inset 0 0 0 calc(var(--u) * 0.12) var(--ink-3); }
+.gtile.is-miss .gtile__conf { color: var(--ink-3); }
+
+/* ---- Gesture feed --------------------------------------------------------- */
+.feed { display: flex; flex-direction: column; gap: calc(var(--u) * 0.45); }
+.feed__item {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s-2);
+  padding: calc(var(--u) * 0.55) var(--s-2);
+  border-radius: var(--r-tile);
+  background: var(--panel-2);
+  font-size: var(--fs-label);
+  animation: feed-in var(--t-base) var(--ease-out);
+}
+.feed__item .icon { font-size: 1.6em; color: var(--ember); }
+.feed__item b { font-weight: 700; }
+.feed__meta { color: var(--ink-2); font-variant-numeric: tabular-nums; text-align: right; }
+.feed__item.is-rejected { background: transparent; box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-2); }
+.feed__item.is-rejected .icon { color: var(--ink-3); }
+.feed__empty { color: var(--ink-2); font-size: var(--fs-label); padding: var(--s-1) 0; }
+@keyframes feed-in { from { transform: translateY(calc(var(--u) * -0.8)); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ---- Breathing rate against the typical resting range ---------------------- */
+.range { display: grid; gap: calc(var(--u) * 0.45); }
+.range__track { position: relative; height: calc(var(--u) * 0.7); border-radius: var(--r-chip); background: var(--panel-2); }
+.range__band { position: absolute; top: 0; bottom: 0; border-radius: var(--r-chip); background: var(--tide-wash); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tide) 40%, transparent); }
+.range__mark {
+  position: absolute; top: 50%; width: calc(var(--u) * 1.3); height: calc(var(--u) * 1.3); margin: calc(var(--u) * -0.65) 0 0 calc(var(--u) * -0.65);
+  border-radius: 50%; background: var(--tide); box-shadow: 0 0 0 calc(var(--u) * 0.22) var(--panel);
+  transition: left 600ms var(--ease-out), opacity var(--t-base) var(--ease-out), background-color var(--t-base) var(--ease-out);
+}
+.range__mark[data-zone='edge'] { background: var(--caution); }
+.range__mark[data-zone='out'] { background: var(--alarm); }
+.range__scale { position: relative; height: 1.2em; font-size: var(--fs-small); color: var(--ink-2); }
+.range__scale span { position: absolute; transform: translateX(-50%); }
+.range__scale span:nth-child(1) { left: 0; transform: none; }
+.range__scale span:nth-child(2) { left: 25%; }
+.range__scale span:nth-child(3) { left: 58.333%; }
+.range__scale span:nth-child(4) { right: 0; transform: none; }
+.range__note { font-size: var(--fs-small); color: var(--ink-2); }
+
+/* ---- Presence ------------------------------------------------------------- */
+.presence { display: grid; gap: var(--s-1); }
+.presence__art { width: 100%; height: auto; color: var(--ink); overflow: visible; }
+.presence__art .wall { stroke: var(--ink-3); stroke-width: 1.4; fill: none; }
+.presence__art .thing { stroke: var(--ink-2); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.presence__art .arc { stroke: var(--tide); stroke-width: 1.6; fill: none; stroke-linecap: round; opacity: 0; }
+.presence__art .person { fill: var(--tide); transition: transform 600ms var(--ease-out), opacity var(--t-base) var(--ease-out); opacity: 0; transform: translateX(26px); }
+.presence__art .door-leaf { fill: var(--panel-2); stroke: var(--ink-3); stroke-width: 1.4; transition: transform var(--t-slide) var(--ease-out); transform-box: fill-box; transform-origin: right center; }
+.presence[data-state='entering'] .person { opacity: 0.85; transform: translateX(22px); }
+.presence[data-state='entering'] .door-leaf { transform: scaleX(0.35); }
+.presence[data-state='present'] .person { opacity: 1; transform: none; }
+.presence[data-state='entering'] .arc, .presence[data-state='present'] .arc { animation: room-arc 2.8s var(--ease-out) infinite; }
+.presence__art .arc:nth-of-type(2) { animation-delay: 0.45s; }
+.presence__art .arc:nth-of-type(3) { animation-delay: 0.9s; }
+@keyframes room-arc { 0% { opacity: 0; } 25% { opacity: 0.9; } 100% { opacity: 0; } }
+.presence__state { font-size: var(--fs-h2); font-weight: 700; line-height: 1.1; }
+.presence__since { font-size: var(--fs-label); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.presence[data-state='entering'] .presence__state { color: var(--ember); }
+
+/* ---- Waveform & spectrogram containers ------------------------------------ */
+.wave, .spectro { position: relative; width: 100%; height: 100%; min-height: 0; }
+.wave canvas, .spectro canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.spectro canvas { border-radius: var(--r-tile); }
+.axis-note {
+  position: absolute; font-size: var(--fs-small); color: var(--ink-2); pointer-events: none;
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.spectro.is-empty .axis-note, .spectro.is-empty canvas { visibility: hidden; }
+.spectro__empty {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--ink-2); font-size: var(--fs-label); text-align: center; padding: var(--s-2);
+}
+
+/* ---- Signal health -------------------------------------------------------- */
+.signal { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2) var(--s-3); }
+.signal__item { display: grid; gap: calc(var(--u) * 0.2); }
+.signal__label { font-size: var(--fs-small); color: var(--ink-2); font-weight: 550; }
+.signal__value { font-size: var(--fs-h3); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.signal__value small { font-size: 0.6em; font-weight: 500; color: var(--ink-2); margin-left: 0.2em; }
+.meter { height: calc(var(--u) * 0.45); border-radius: var(--r-chip); background: var(--panel-2); overflow: hidden; }
+.meter > i { display: block; height: 100%; width: 100%; background: var(--tide); transform: scaleX(0); transform-origin: left center; transition: transform var(--t-base) var(--ease-out), background-color var(--t-base) var(--ease-out); }
+.meter[data-level='fair'] > i { background: var(--caution); }
+.meter[data-level='poor'] > i { background: var(--alarm); }
+
+/* ---- Alerts ---------------------------------------------------------------- */
+.banner {
+  display: flex; align-items: center; gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-tile);
+  font-size: var(--fs-h3); font-weight: 700;
+  background: var(--panel); color: var(--ink);
+  box-shadow: 0 calc(var(--u) * 0.6) calc(var(--u) * 2) rgba(0, 0, 0, 0.14);
+  transform: translateY(calc(var(--u) * -12)); opacity: 0;
+  transition: transform var(--t-slide) var(--ease-out), opacity var(--t-base) var(--ease-out);
+  pointer-events: none;
+}
+.banner.is-on { transform: none; opacity: 1; }
+.banner .icon { font-size: 1.3em; stroke-width: 2.2; }
+.banner small { display: block; font-size: var(--fs-label); font-weight: 450; opacity: 0.85; }
+.banner[data-level='alert'] { background: var(--alarm); color: var(--on-alarm); animation: alarm-breathe 1.6s var(--ease-in-out) infinite alternate; }
+.banner[data-level='warn'] { background: var(--caution-wash); color: var(--caution); }
+.banner[data-level='info'] { background: var(--ink); color: var(--panel); }
+@keyframes alarm-breathe { from { filter: brightness(1); } to { filter: brightness(1.12); } }
+
+/* ---- Raw event inspector (D key) ------------------------------------------ */
+.debug {
+  position: fixed; right: 12px; bottom: 12px; z-index: 50;
+  width: min(560px, 46vw); max-height: 60vh; overflow: auto;
+  padding: 12px 14px; border-radius: 10px;
+  background: rgba(8, 18, 20, 0.92); color: #d7ecea;
+  font: 12px/1.45 ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace;
+  white-space: pre-wrap; word-break: break-all;
+  display: none;
+}
+.debug.is-on { display: block; }
+.debug b { color: #ffd59a; font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+  .orb__halo, .orb__core { transform: none !important; }
+}

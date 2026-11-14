@@ -1,0 +1,121 @@
+/*
+ * tokens.css: the design system. Every colour, size and motion value lives here.
+ *
+ * Layout unit --u is 1/100 of a 16:9 stage that fits the window (letterboxed on
+ * 4:3 or 16:10), so slides and the monitor keep the same composition from a
+ * 1280x720 projector to a 1920x1080 laptop.
+ *
+ * Themes: "daylight" (default, projector-safe in bright halls) and "night"
+ * (dim stage). Toggle with the T key or ?theme=dark.
+ */
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: block;
+  src: url('../fonts/atkinson-next-latin.woff2') format('woff2');
+}
+
+/* Digits only, from Lexend (also built for reading ease): Atkinson's slashed zero
+   made years and readings look like code ("2Ø08"). unicode-range limits it to 0-9. */
+@font-face {
+  font-family: 'Sonar Digits';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: block;
+  src: url('../fonts/lexend-digits.woff2') format('woff2');
+  unicode-range: U+0030-0039;
+}
+
+:root {
+  --u: min(1vw, 1.77778vh);
+
+  /* Colour roles: daylight */
+  --paper: #edf1ef;        /* page */
+  --panel: #f8faf9;        /* raised zones */
+  --panel-2: #e2e9e6;      /* tracks, insets */
+  --ink: #0c2328;          /* primary text */
+  --ink-2: #43575b;        /* secondary text (7:1 on panel) */
+  --ink-3: #66787b;        /* large labels only (4.3:1) */
+  --line: rgba(12, 35, 40, 0.11);
+  --tide: #0b7285;         /* breathing, live data */
+  --tide-2: #4fb0bb;
+  --tide-wash: #d2ebec;
+  --ember: #b4561a;        /* gestures, attention */
+  --ember-wash: #f5e2d2;
+  --alarm: #b42318;        /* care alerts */
+  --alarm-wash: #fbe2de;
+  --ok: #217346;
+  --caution: #9a5a06;
+  --caution-wash: #f6ead2;
+  --on-alarm: #ffffff;
+
+  /* Spectrogram colour stops (low to high energy) */
+  --cm-0: #eef3f1;
+  --cm-1: #bfe0e1;
+  --cm-2: #5fb1bb;
+  --cm-3: #13697a;
+  --cm-4: #0a2e36;
+
+  /* Type */
+  --font: 'Sonar Digits', 'Atkinson Hyperlegible Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --fs-vital: calc(var(--u) * 11);     /* the breathing numeral */
+  --fs-display: calc(var(--u) * 4.6);  /* slide headlines */
+  --fs-h2: calc(var(--u) * 2.6);
+  --fs-h3: calc(var(--u) * 1.75);
+  --fs-body: calc(var(--u) * 1.45);
+  --fs-label: calc(var(--u) * 1.25);
+  --fs-small: calc(var(--u) * 1.1);
+
+  /* Space */
+  --s-1: calc(var(--u) * 0.5);
+  --s-2: calc(var(--u) * 1);
+  --s-3: calc(var(--u) * 1.5);
+  --s-4: calc(var(--u) * 2.25);
+  --s-5: calc(var(--u) * 3.25);
+  --s-6: calc(var(--u) * 5);
+
+  /* Radius hierarchy: zone > tile > chip */
+  --r-zone: calc(var(--u) * 1.5);
+  --r-tile: calc(var(--u) * 0.9);
+  --r-chip: calc(var(--u) * 0.45);
+
+  /* Motion: quick and eased-out; nothing loops faster than breathing */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --t-fast: 160ms;
+  --t-base: 260ms;
+  --t-slide: 340ms;
+
+  color-scheme: light;
+}
+
+:root[data-theme='night'] {
+  --paper: #091315;
+  --panel: #0f1c1f;
+  --panel-2: #16282b;
+  --ink: #e4efed;
+  --ink-2: #a9bcbb;
+  --ink-3: #82979a;
+  --line: rgba(228, 239, 237, 0.1);
+  --tide: #5cc9cb;
+  --tide-2: #2c8c94;
+  --tide-wash: #123437;
+  --ember: #f2a660;
+  --ember-wash: #3a2616;
+  --alarm: #ff7466;
+  --alarm-wash: #3d1613;
+  --ok: #5fd49f;
+  --caution: #f0c050;
+  --caution-wash: #33290f;
+  --on-alarm: #1a0705;
+
+  --cm-0: #0c1a1d;
+  --cm-1: #123e44;
+  --cm-2: #1f7f88;
+  --cm-3: #6fd3d1;
+  --cm-4: #f3fbf8;
+
+  color-scheme: dark;
+}
