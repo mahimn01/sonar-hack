@@ -151,13 +151,7 @@ def doppler_columns(core: Core, rx: np.ndarray) -> np.ndarray:
     # Best path: the core's own offline entry point (sonar/features.py), written for exactly this use.
     fmod = core.module("features")
     if fmod is not None:
-        st = fmod.stream_features(x, cfg)
-        windows = [fmod.window_from_stream(st, s.decided, nb) for s, nb in zip(st.segments, st.not_before)]
-        feat = np.concatenate([np.zeros((1, *st.feat.shape[1:]), np.float32), st.feat])  # row k = core frame k (1-based)
-        ready = np.nonzero(st.ready)[0]
-        stream = Stream(feat, int(ready[0]) + 1 if len(ready) else -1, st.segments, windows, float(st.cfg.frame_rate))
-        stream.core = st
-        return stream
+        return wrap_stream(core, fmod.stream_features(x, cfg))
     pre, demod, stft = dsp.Prefilter(cfg, x.shape[1]), dsp.ToneDemod(cfg, x.shape[1]), dsp.DopplerSTFT(cfg, x.shape[1])
     cols = []
     for i in range(0, len(x), 4800):
@@ -179,6 +173,17 @@ class Stream:
     core: object | None = None  # the core's own StreamFeatures object, when sonar/features.py exists
 
 
+def wrap_stream(core: Core, st: object) -> Stream:
+    """The core's StreamFeatures object -> the Stream the label code works with (one model input per burst)."""
+    fmod = core.module("features")
+    windows = [fmod.window_from_stream(st, s.decided, nb) for s, nb in zip(st.segments, st.not_before)]
+    feat = np.concatenate([np.zeros((1, *st.feat.shape[1:]), np.float32), st.feat])  # row k = core frame k (1-based)
+    ready = np.nonzero(st.ready)[0]
+    stream = Stream(feat, int(ready[0]) + 1 if len(ready) else -1, st.segments, windows, float(st.cfg.frame_rate))
+    stream.core = st
+    return stream
+
+
 def stream_features(core: Core, rx: np.ndarray) -> Stream:
     """Run the core's realtime chain over a clip exactly as a live stream would.
 
@@ -197,13 +202,7 @@ def stream_features(core: Core, rx: np.ndarray) -> Stream:
     # Best path: the core's own offline entry point (sonar/features.py), written for exactly this use.
     fmod = core.module("features")
     if fmod is not None:
-        st = fmod.stream_features(x, cfg)
-        windows = [fmod.window_from_stream(st, s.decided, nb) for s, nb in zip(st.segments, st.not_before)]
-        feat = np.concatenate([np.zeros((1, *st.feat.shape[1:]), np.float32), st.feat])  # row k = core frame k (1-based)
-        ready = np.nonzero(st.ready)[0]
-        stream = Stream(feat, int(ready[0]) + 1 if len(ready) else -1, st.segments, windows, float(st.cfg.frame_rate))
-        stream.core = st
-        return stream
+        return wrap_stream(core, fmod.stream_features(x, cfg))
     pipe_mod = core.module("pipeline")
     if pipe_mod is not None:
         pipe = pipe_mod.Pipeline(cfg, n_mics=x.shape[1])

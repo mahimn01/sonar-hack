@@ -16,3 +16,5 @@ train_out/
 # The trained models handed back from the training box ARE committed (TRAINING.md, steps 8 and 9)
 !models-release*/
 !models-release*/**
+# The stored CPU results the GPU parity check compares against (small, committed on purpose)
+!tests/fixtures/*.npz

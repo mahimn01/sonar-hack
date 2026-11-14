@@ -146,47 +146,87 @@ def _background(path: str, core: ad.Core) -> tuple:
     return _BACKGROUNDS[path]
 
 
-def make_clip(job: tuple) -> dict:
-    """Worker: one random clip -> labelled model inputs (+ optional raw audio)."""
-    seed, scene_label, profile, min_snr, keep_audio = job[:5]
+MAX_ATTEMPTS = 4  # a gesture too faint to see is redrawn (new room, new person) up to this many times
+
+
+def unpack_job(job: tuple) -> dict:
+    """Name the fields of one job tuple (shorter tuples from older callers still work)."""
     backgrounds, bg_share = (job[5], job[6]) if len(job) > 5 else ((), 0.0)
     swap_mics, swap_speakers = (job[7], job[8]) if len(job) > 8 else (False, False)
-    mics = job[9] if len(job) > 9 else None
-    core, (tx, pre, n) = _setup(profile)
-    hw_profile = Profile(band_hz=core.band, swap_mics=swap_mics, swap_speakers=swap_speakers)
-    rng = np.random.default_rng(seed)
-    use_real = bool(backgrounds) and rng.random() < bg_share
-    # a gesture that is physically inaudible should not be labelled as a gesture: redraw the room
-    for attempt in range(4):
-        centre = STORY / 2 + rng.uniform(-0.35, 0.35) if scene_label in GESTURE4 + ("wave",) else None
-        scene = sample_scene(rng, scene_label, STORY, event_center=centre, lead_in=LEAD_IN, distractors=not use_real)
-        if use_real:  # real laptop + room + noise, synthetic moving scene on top
-            audio, measured = _background(str(rng.choice(list(backgrounds))), core)
-            rx, info = bg.inject(bg.random_excerpt(rng, audio, n, core.period), core, scene, rng, measured=measured,
-                                 profile=hw_profile)
-            hw, snr = info["hardware"], info["echo_snr_db"]
-        else:
-            hw = sample_hardware(rng, hw_profile, core.fs)
-            if core.n_speakers >= 2:
-                hw.tx_route = "stereo"
-            out = render(tx, hw, scene, n, rng, pre=pre, band=core.band)
-            rx, snr = out.rx, out.echo_snr_db
-        if mics:  # the real laptop has fewer microphones (a MacBook records one channel): keep the left one
-            rx = rx[:, :mics]
-        if scene_label not in GESTURE4 or not np.isfinite(snr) or snr >= min_snr:
-            break
-    meta = {
-        "seed": int(seed),
-        "scene": scene_label,
+    return {"seed": job[0], "scene": job[1], "profile": job[2], "min_snr": job[3], "keep_audio": job[4],
+            "backgrounds": backgrounds, "bg_share": bg_share, "swap_mics": swap_mics, "swap_speakers": swap_speakers,
+            "mics": job[9] if len(job) > 9 else None,
+            "tweak": job[10] if len(job) > 10 else None}  # fixed overrides, only used by the parity fixture
+
+
+def draw_world(rng: np.random.Generator, core: ad.Core, j: dict, hw_profile: Profile, use_real: bool, n: int) -> tuple:
+    """One attempt at a clip: a random story and a random laptop (+ a piece of a real recording).
+
+    Returns (scene, hardware, real excerpt or None, measurements of the real recording or None).
+    The CPU and the GPU path both call this, so both make the same draws in the same order.
+    """
+    centre = STORY / 2 + rng.uniform(-0.35, 0.35) if j["scene"] in GESTURE4 + ("wave",) else None
+    scene = sample_scene(rng, j["scene"], STORY, event_center=centre, lead_in=LEAD_IN, distractors=not use_real)
+    excerpt = measured = None
+    if use_real:  # real laptop + room + noise, synthetic moving scene on top
+        audio, measured = _background(str(rng.choice(list(j["backgrounds"]))), core)
+        excerpt = bg.random_excerpt(rng, audio, n, core.period)
+        hw = bg.matched_hardware(rng, core, measured, hw_profile)
+    else:
+        hw = sample_hardware(rng, hw_profile, core.fs)
+        if core.n_speakers >= 2:
+            hw.tx_route = "stereo"
+    for name, value in ((j["tweak"] or {}).get("hw") or {}).items():
+        setattr(hw, name, value)
+    return scene, hw, excerpt, measured
+
+
+def accept(scene_label: str, snr: float, min_snr: float) -> bool:
+    """A gesture that is physically inaudible should not be labelled as a gesture: False = redraw the room."""
+    return scene_label not in GESTURE4 or not np.isfinite(snr) or snr >= min_snr
+
+
+def clip_meta(j: dict, scene, hw, snr: float, use_real: bool, n_mics: int) -> dict:
+    return {
+        "seed": int(j["seed"]),
+        "scene": j["scene"],
         "events": scene.events,
         "echo_snr_db": None if not np.isfinite(snr) else round(float(snr), 1),
         "real_background": use_real,
-        "n_mics": int(rx.shape[1]),
+        "n_mics": int(n_mics),
         "hardware": hw.summary(),
         "scene_meta": {k: (v if not isinstance(v, np.generic) else v.item()) for k, v in scene.meta.items()
                        if not isinstance(v, np.ndarray)},
     }
-    result = {"meta": meta, "examples": [], "audio": rx if keep_audio else None, "error": None}
+
+
+def make_clip(job: tuple, capture: dict | None = None) -> dict:
+    """Worker: one random clip -> labelled model inputs (+ optional raw audio). The CPU reference path.
+
+    `capture`, if given, receives the intermediate results (audio, its parts, the feature stream):
+    scripts/check_gpu_parity.py compares them with the GPU path.
+    """
+    j = unpack_job(job)
+    core, (tx, pre, n) = _setup(j["profile"])
+    hw_profile = Profile(band_hz=core.band, swap_mics=j["swap_mics"], swap_speakers=j["swap_speakers"])
+    rng = np.random.default_rng(j["seed"])
+    use_real = bool(j["backgrounds"]) and rng.random() < j["bg_share"]
+    for attempt in range(MAX_ATTEMPTS):
+        scene, hw, excerpt, measured = draw_world(rng, core, j, hw_profile, use_real, n)
+        parts = None
+        if use_real:
+            rx, info = bg.inject(excerpt, core, scene, rng, measured=measured, hw=hw)
+            snr = info["echo_snr_db"]
+        else:
+            out = render(tx, hw, scene, n, rng, pre=pre, band=core.band)
+            rx, snr, parts = out.rx, out.echo_snr_db, out.parts
+        if j["mics"]:  # the real laptop has fewer microphones (a MacBook records one channel): keep the left one
+            rx = rx[:, :j["mics"]]
+        if accept(j["scene"], snr, j["min_snr"]):
+            break
+    meta = clip_meta(j, scene, hw, snr, use_real, rx.shape[1])
+    result = {"meta": meta, "examples": [], "audio": rx if j["keep_audio"] else None, "error": None}
+    stream = None
     if core.available and (core.module("pipeline") is not None or core.module("gestures") is not None):
         try:
             stream = ad.stream_features(core, rx)
@@ -197,6 +237,8 @@ def make_clip(job: tuple) -> dict:
                     result["examples"].append(idle)
         except Exception as exc:  # the core API is still changing: report it, keep the audio usable
             result["error"] = f"{type(exc).__name__}: {exc}"
+    if capture is not None:
+        capture.update(rx=rx, parts=parts, snr=snr, attempts=attempt + 1, stream=stream, hw=hw, scene=scene)
     return result
 
 
@@ -233,6 +275,14 @@ def main() -> None:
     ap.add_argument("--swap-mics", action="store_true", help="the real laptop's microphone channels are swapped (left = channel 1)")
     ap.add_argument("--swap-speakers", action="store_true", help="the real laptop's speaker channels are swapped")
     ap.add_argument("--mics", type=int, default=None, help="microphone channels of the real laptop (default: the simulator's 2)")
+    ap.add_argument("--gen-device", default="cpu", choices=["cpu", "cuda", "mps", "torch-cpu"],
+                    help="where the clips are computed: cpu = the numpy reference on every core (default); cuda / mps = "
+                         "the same clips on the GPU (gpu_pipeline.py); torch-cpu = the GPU code on the CPU (tests)")
+    ap.add_argument("--gen-precision", default="auto", choices=["auto", "fast", "ref", "single"],
+                    help="GPU number format: ref = float64 where the CPU code uses it (default), fast = float32 FFTs, "
+                         "single = all float32 (always on MPS)")
+    ap.add_argument("--gen-batch", type=int, default=0, help="clips per GPU batch (default: fills the GPU's memory)")
+    ap.add_argument("--gen-gpus", type=int, default=0, help="with --gen-device cuda: how many GPUs to use (default: all of them)")
     args = ap.parse_args()
     backgrounds = tuple(p for p in args.background.split(",") if p)
 
@@ -258,11 +308,23 @@ def main() -> None:
                      backgrounds, args.background_share, args.swap_mics, args.swap_speakers, args.mics))
 
     t0 = time.time()
-    print(f"{len(jobs)} clips on {args.workers} worker processes")
     xs, ys, groups, peaks, n_clips, n_missed, errors = [], [], [], [], 0, 0, 0
     mic_counts: set = set()
-    with ProcessPoolExecutor(args.workers) as pool, open(out_dir / "manifest.jsonl", "w") as manifest:
-        for res in pool.map(make_clip, jobs, chunksize=4):
+    gpu_stats: dict = {}
+    pool = None
+    if args.gen_device == "cpu":
+        print(f"{len(jobs)} clips on {args.workers} worker processes")
+        pool = ProcessPoolExecutor(args.workers)
+        results = pool.map(make_clip, jobs, chunksize=4)
+    else:  # the same clips, computed on the GPU (see gpu_pipeline.py)
+        from .gpu_pipeline import generate_gpu
+
+        device = "cpu" if args.gen_device == "torch-cpu" else args.gen_device
+        print(f"{len(jobs)} clips on {device} (PyTorch), {args.workers} worker processes for the random draws and the labels")
+        results = generate_gpu(jobs, args.profile, device, args.workers, precision=args.gen_precision, batch=args.gen_batch,
+                               stats=gpu_stats, gpus=args.gen_gpus)
+    with open(out_dir / "manifest.jsonl", "w") as manifest:
+        for res in results:
             n_clips += 1
             meta = res["meta"]
             mic_counts.add(meta["n_mics"])
@@ -291,6 +353,13 @@ def main() -> None:
             if n_clips % 200 == 0:
                 print(f"  {n_clips}/{len(jobs)} clips, {len(xs)} examples, {time.time() - t0:.0f} s")
 
+    if pool is not None:
+        pool.shutdown()
+    if gpu_stats:
+        print(f"  GPU path on {gpu_stats['device']}: batch {gpu_stats['batch']}, precision {gpu_stats['precision']}, {gpu_stats['batches']} batches, "
+              f"render {gpu_stats['render_s']:.1f} s, features {gpu_stats['features_s']:.1f} s, {gpu_stats['redraws']} redraws"
+              + (f"; {gpu_stats['oom_splits']} batch(es) did not fit in GPU memory and were split: use --gen-batch "
+                 f"{max(8, gpu_stats['batch'] // 2)}" if gpu_stats.get("oom_splits") else ""))
     y = np.array(ys, dtype=np.int64)
     cfg = core.cfg.to_dict() if core.cfg is not None and hasattr(core.cfg, "to_dict") else {"tones": core.tones}
     if len(mic_counts) > 1:

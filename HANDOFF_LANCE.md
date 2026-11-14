@@ -62,6 +62,19 @@ scripts/train_4090.sh --device mps --size small --release models-release-mac --p
 `--device cpu` if MPS fails. Or zip `data/` and train on the RTX 4090 (TRAINING.md 9.5, `--data mac
 --release models-release-mac`). Read the "Honest score" and "Verdict" lines; if POOR, record more people.
 
+### New on Nov 14: the training data can be made on the GPU
+`TRAINING.md` section 11 has the details. In short:
+- **On the RTX 4090** (`--device cuda`, the default there) the synthetic clips and the pictures of the recordings are now
+  computed on the GPU instead of on every CPU core. The first run checks, on 1,000 fixed clips, that the GPU makes the same
+  pictures as the old CPU code (1-2 minutes, then remembered) and refuses to train if not. If that check fails or anything
+  looks odd, add `--gen-device cpu`: that is the old pipeline unchanged. Useful one-offs on the 4090:
+  `python scripts/check_gpu_parity.py` (the check alone) and `python scripts/bench_gpu.py` (speed of every step; please send
+  its output back, nothing was timed on a 4090 yet).
+- **On this MacBook** (`--device mps` or `cpu`) nothing changes by default: the data is still made on the CPU cores.
+  `--gen-device mps` moves it to the Apple GPU, but that path has **not been run on a real Apple GPU yet**; it runs the same
+  check first and only goes on if the pictures match. If it stops there, drop the flag.
+- The model files, the folders and every other option are the same as before.
+
 ## Step 5. Demo
 ```bash
 .venv/bin/python -m sonar.engine --in-device MacBook --out-device MacBook --profile <recommended>

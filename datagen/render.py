@@ -336,6 +336,7 @@ def render(
             snr_db = 10.0 * np.log10(p_key / (n0 * SNR_REF_HZ) + 1e-30)
         rx = rx + noise
         rx = rx * _gain_track(hw, n_out, rng)[None, :]
+    parts["converter_in"] = rx  # before clipping and rounding: where the GPU parity check compares the two paths
     rx = np.clip(rx, -1.0, 1.0)
     if hw.adc_bits:
         q = float(2 ** (hw.adc_bits - 1))

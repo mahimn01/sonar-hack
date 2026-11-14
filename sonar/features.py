@@ -4,6 +4,7 @@ Plain words: three functions for anything that works on recorded or simulated
 audio instead of a live stream (the dataset builder, `datagen/`, notebooks):
 
     stream_features(rx, cfg)        whole recording -> feature columns + movement bursts
+    stream_from_columns(cfg, ...)   the same from ready-made Doppler columns (the GPU path, features_torch.py)
     window_from_stream(stream, ...) cut the model input picture for one burst
     clip_to_window(rx, cfg)         one short clip with one gesture -> its model input
 
@@ -23,7 +24,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .config import SonarConfig
-from .gestures import Segment
+from .gestures import DopplerNormalizer, GestureSegmenter, Segment
 from .pipeline import Pipeline
 
 
@@ -76,6 +77,37 @@ def stream_features(rx: np.ndarray, cfg: SonarConfig, block: int = 9600) -> Stre
         out.feat = np.stack(feats)
         out.ready = np.asarray(ready)
         out.activity_db = np.asarray(act)
+    return out
+
+
+def stream_from_columns(cfg: SonarConfig, doppler_db: np.ndarray, lateral: np.ndarray | None) -> StreamFeatures:
+    """Doppler columns of one clip -> what features.stream_features returns for it (gesture fields only).
+
+    Runs the engine's own DopplerNormalizer and GestureSegmenter frame by frame, in the order
+    Pipeline.process calls them. `cfg.n_mics` must be the clip's microphone count.
+    presence / breathing stay empty: nothing in training reads them.
+    """
+    norm, seg = DopplerNormalizer(cfg), GestureSegmenter(cfg)
+    n = len(doppler_db)
+    feat = np.zeros((n, cfg.n_feat_channels, cfg.doppler_bins), np.float32)
+    ready = np.zeros(n, bool)
+    act = np.zeros(n)
+    out = StreamFeatures(cfg, feat, ready, act)
+    out.presence = [""] * n
+    prev_end: int | None = None
+    for i in range(n):
+        col = doppler_db[i]
+        feats = norm.features(col, None if lateral is None else lateral[i])
+        if feats is None:
+            continue
+        f, excess = feats
+        segment = seg.push(i + 1, f, excess)                    # frame indices count from 1, as in Frontend
+        norm.track(col, idle=seg.idle, stuck=seg.stuck)
+        feat[i], ready[i], act[i] = f, True, seg.activity_db
+        if segment is not None:
+            out.segments.append(segment)
+            out.not_before.append(prev_end)
+            prev_end = segment.end + 1
     return out
 
 

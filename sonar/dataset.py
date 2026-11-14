@@ -93,9 +93,18 @@ def session_examples(
     n_idle: int = 8,
     seed: int = 0,
     stream: StreamFeatures | None = None,
+    device: str = "cpu",
 ) -> tuple[list[Example], dict[str, Any]]:
-    """Cut one session into labelled examples. Returns (examples, a small report)."""
+    """Cut one session into labelled examples. Returns (examples, a small report).
+
+    device "cuda" / "mps": the Doppler columns are computed on the GPU (features_torch.py); the
+    noise floor, the bursts and the labels come from the same code as on the CPU.
+    """
     meta, audio, cfg = load_session(folder)
+    if stream is None and device != "cpu":
+        from .features_torch import stream_features_torch
+
+        stream = stream_features_torch(audio, cfg, "cpu" if device == "torch-cpu" else device)
     stream = stream_features(audio, cfg) if stream is None else stream
     group = meta.get("session_id", Path(folder).name)
     person = meta.get("person", "unknown")
@@ -149,7 +158,7 @@ def session_examples(
 
 
 def build_dataset(
-    roots: list[str | Path], aux_as_none: bool = False, n_idle: int = 8, verbose: bool = True
+    roots: list[str | Path], aux_as_none: bool = False, n_idle: int = 8, verbose: bool = True, device: str = "cpu"
 ) -> dict[str, np.ndarray]:
     """All sessions under `roots` -> the dataset arrays described at the top of this file.
 
@@ -172,7 +181,7 @@ def build_dataset(
                 raise ValueError(f"{folder} was recorded with a different signal profile than the other sessions")
             cfg_json = this
             try:
-                ex, rep = session_examples(folder, aux_as_none=aux_as_none, n_idle=n_idle)
+                ex, rep = session_examples(folder, aux_as_none=aux_as_none, n_idle=n_idle, device=device)
             except (OSError, RuntimeError, ValueError, KeyError, IndexError) as exc:
                 print(f"WARNING: skipped session {folder}: {type(exc).__name__}: {exc}", file=sys.stderr)
                 skipped.append(str(folder))
@@ -365,21 +374,34 @@ def center_crop(x: np.ndarray, cfg: SonarConfig, pad: int = PAD) -> np.ndarray:
 # ---------------------------------------------------------------------------
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m sonar.dataset", description="Build a training dataset from recorded sessions")
-    ap.add_argument("roots", nargs="+", help="session folders or folders containing sessions")
+    ap.add_argument("roots", nargs="*", help="session folders or folders containing sessions")
     ap.add_argument("--out", default="dataset.npz")
+    ap.add_argument("--device", default="cpu",
+                    help="cpu (default: the engine's own code) | cuda | mps | torch-cpu: where the Doppler columns are computed")
+    ap.add_argument("--pairs", nargs="*", default=[], metavar="FOLDER::OUT.npz",
+                    help="cut several sessions in one go, one output file each (used by scripts/train_4090.py on a GPU)")
     ap.add_argument("--aux-none", action="store_true", help="also use wind-up / hand-return bursts of gesture trials as 'none'")
     ap.add_argument("--idle", type=int, default=8, help="quiet 'nothing happens' examples per session")
     args = ap.parse_args(argv)
-    try:
-        data = build_dataset(args.roots, aux_as_none=args.aux_none, n_idle=args.idle)
-    except (ValueError, FileNotFoundError) as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 2
-    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(args.out, **data)
-    counts = {str(name): int(np.sum(data["y"] == i)) for i, name in enumerate(data["labels"])}
-    print(f"wrote {args.out}: {len(data['y'])} examples {counts}, picture shape {data['X'].shape[1:]}")
-    return 0
+    if not args.roots and not args.pairs:
+        ap.error("give session folders (or --pairs)")
+    todo = [(p.split("::", 1)[0], p.split("::", 1)[1]) for p in args.pairs] or [(None, args.out)]
+    failed = 0
+    for folder, out in todo:
+        try:
+            data = build_dataset(args.roots if folder is None else [folder], aux_as_none=args.aux_none, n_idle=args.idle,
+                                 device=args.device)
+        except (ValueError, FileNotFoundError) as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            if folder is None:
+                return 2
+            failed += 1
+            continue
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(out, **data)
+        counts = {str(name): int(np.sum(data["y"] == i)) for i, name in enumerate(data["labels"])}
+        print(f"wrote {out}: {len(data['y'])} examples {counts}, picture shape {data['X'].shape[1:]}")
+    return 2 if failed and failed == len(todo) else 0
 
 
 if __name__ == "__main__":

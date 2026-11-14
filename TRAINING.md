@@ -19,8 +19,11 @@ which prints every command before it runs it and keeps a full log in `train_out/
 
 1. Checks Python, PyTorch, the GPU and onnxruntime.
 2. **Synthetic data.** datagen invents 12,000 short clips of virtual hands swiping and pushing in
-   front of random virtual laptops (about 20,000 training pictures, 3x the Mac's set), using every
-   CPU core. The result is cached: later runs reuse it as long as the generator code is unchanged.
+   front of random virtual laptops (about 20,000 training pictures, 3x the Mac's set). With
+   `--device cuda` the clips are computed **on the GPU** (section 11); before the first clip the
+   script checks that the GPU makes the same pictures as the CPU code and stops if it does not.
+   `--gen-device cpu` makes them on every CPU core as before. The result is cached: later runs
+   reuse it as long as the generator code is unchanged.
 3. **Real recordings**, if `data/` has any. Lists every session folder (a recording still in
    progress, half copied or from another device is skipped or stopped with a reason), cuts each
    session into training pictures (in parallel; cached per session, so new recordings only add
@@ -28,11 +31,13 @@ which prints every command before it runs it and keeps a full log in `train_out/
    6,000 more synthetic clips laid over the real "nobody gesturing" recordings (`scene` and
    `breathing` sessions). The held-out people's recordings are left out of the clips the scored
    runs train on, so their score stays honest.
-4. **Pre-training** on the synthetic data.
+4. **Pre-training** on the synthetic data. On CUDA it runs at the same time as the clips of step 3
+   are made (`--no-overlap` for one step at a time).
 5. **Fine-tuning** on the real recordings, starting from the pre-trained weights. It is scored on
    people who are left out of training (`--val-person`, chosen automatically if you do not give
    it), so the score answers "does it work on a stranger?". `--sweep` tries 3 model widths x 3
-   seeds and keeps the run with the best held-out accuracy.
+   seeds and keeps the run with the best held-out accuracy; on CUDA four of those runs share the
+   GPU at a time (`--sweep-jobs`).
 6. Trains that winning setting once more on everyone (held-out people included), then exports
    `models/gesture.onnx` + `gesture.json` + `gesture.pt` and copies them to `models-release/`
    with `TRAINING_RUN.json` (the honest score, the sweep table, the data used).
@@ -186,18 +191,23 @@ Useful options (all: `--help`):
 | `--labels swipe_left,swipe_right,push,pull` | train pull as well (default: the three demo gestures; pull recordings become "none") |
 | `--size small` | a ~15-minute version of everything (fine on a CPU or a Mac: `--device cpu` / `mps`) |
 | `--force-synth` | make the synthetic data again even if a cached copy exists |
+| `--gen-device cpu` | make the clips and session pictures with the original CPU code instead of the GPU (section 11) |
+| `--sweep-jobs 1`, `--no-overlap` | one training run at a time / no pre-training while clips are made (default on CUDA: 4 at a time, overlapping) |
 
-**Run times** (16-core CPU + RTX 4090; GPU times are estimates, nothing on this list was run on a 4090):
+**Run times** (16-core CPU + RTX 4090; GPU times are estimates, nothing on this list was run on a 4090.
+`python scripts/bench_gpu.py` measures them on your machine, section 11):
 
 | step | time | notes |
 |---|---|---|
-| synthetic data, 12,000 clips | 10-13 min (16 cores), ~25 min (8 cores) | each clip costs about 1 CPU-core-second (Mac Studio: 3,900 clips in 7-9 min on 8 cores); cached afterwards |
-| synthetic clips on real backgrounds, 6,000 | about half of that | made twice if a held-out person recorded a scene / breathing session (without them for the honest score, with everyone for the final model); cached |
+| GPU-against-CPU picture check | 1-2 min, once | 1,000 clips through both paths; remembered until the code, PyTorch or the GPU changes |
+| synthetic data, 12,000 clips, on the GPU | 1-2 min (estimate, not measured) | the CPU only draws the random numbers and attaches the labels (about 45 ms of one core per clip, measured on the Mac) |
+| the same with `--gen-device cpu` | 10-13 min (16 cores), ~25 min (8 cores) | each clip costs about 1 CPU-core-second (Mac Studio: 3,900 clips in 7-9 min on 8 cores); cached afterwards |
+| synthetic clips on real backgrounds, 6,000 | about half of the above | made twice if a held-out person recorded a scene / breathing session (without them for the honest score, with everyone for the final model); cached |
 | cutting recordings into pictures | ~2 s per minute of audio, one session per core | Mac Studio, with other jobs running: 6 minutes of audio in 12 s on one core; cached per session |
 | pre-training, 60 epochs | about 1 min (estimate) | cached per width |
 | fine-tuning, per run | under 1 min (estimate) | `--sweep` = 9 runs, plus 1 retrain |
-| first full run | about 20-30 min | ~10 min more with `--sweep` |
-| re-run after new recordings | 3-8 min | synthetic data and pre-training reused |
+| first full run | about 20-30 min with `--gen-device cpu`; a few minutes on the GPU (estimate) | `--sweep` adds 9 runs, 4 at a time on CUDA |
+| re-run after new recordings | 3-8 min with `--gen-device cpu`; 1-3 min on the GPU (estimate) | synthetic data and pre-training reused; the clips on real backgrounds are made again whenever a new scene / breathing session arrives |
 
 ## 7. Read the result
 
@@ -371,7 +381,95 @@ to repeat one step. The script's log shows the exact commands with its cache fol
 ones are skipped with a warning). If the laptop's left/right wiring is reversed, add
 `--swap-mics` and/or `--swap-speakers` to both `datagen.generate` commands.
 
-## 11. Speed: what runs on the GPU
+## 11. GPU pipeline: the data is made on the GPU too
+
+**What changed.** Until now only the model step ran on the GPU. Making the synthetic clips took
+about one CPU-core-second per clip, 93 % of it in one loop of `datagen/render.py` (the echo of
+every body part, added up path by path), and every new background recording meant another 5-12
+minutes of all cores at 100 %. Now, with `--device cuda`:
+
+| step | before | now |
+|---|---|---|
+| synthetic clips (`datagen`) | numpy, one clip per core | the echo paths, the room, the microphone, the rounding: batches of a few hundred clips on the GPU (`datagen/render_torch.py`); the CPU draws the random numbers (the same ones, in the same order) and attaches the labels |
+| Doppler pictures of the clips and of the recordings | the engine's code, one clip per core, including the chirp receiver, presence and breathing that gesture pictures never use (a quarter of that step) | the gesture chain only, batched on the GPU (`sonar/features_torch.py`); where a movement burst starts and ends is still decided by the engine's own code |
+| pre-training | after all the data was made | runs while the clips on real backgrounds are being made |
+| sweep (`--sweep`) | 9 runs one after the other | 4 at a time on the one GPU (`--sweep-jobs`) |
+| the training step itself | already on the GPU (section 12) | unchanged |
+
+The files are the same as before: same `dataset.npz` layout, shapes, number formats, labels,
+manifest, cache folders, `gesture.onnx / .json / .pt`, `TRAINING_RUN.json` (which now also says
+where the data was made and what the picture check found). For the same seed the GPU makes the
+same clips as the CPU code, so a model trained on either sees the same data.
+
+**The picture check (`scripts/check_gpu_parity.py`).** A second implementation can drift from
+the first without anyone noticing. So before any data is made on a GPU, `train_4090.py` makes a
+fixed set of 1,000 clips with both codes and compares them: every gesture, every kind of
+non-gesture, clips on a recording, one-microphone clips, swapped channels, and hard cases (fastest
+strokes, clipping, +-120 ppm clock mismatch, loudest and quietest rooms). If `data/` has
+recordings, their audio goes through both feature codes too. It refuses to train if they differ.
+A pass is remembered for this exact code, PyTorch and GPU; `--recheck-parity` repeats it,
+`--skip-parity` skips it (not recommended). What it measured here (CPU reference against the same
+GPU code run on a CPU; the 4090 repeats this on its own hardware in its first run):
+
+| compared | limit | worst of 1,000 clips |
+|---|---|---|
+| moving echoes, before rounding (difference / signal) | 0.00002 | 0.00000066 |
+| direct sound and room, before rounding | 0.00000001 | 0.0000000004 |
+| audio right before the 16/24-bit converter | 0.0001 | 0.0000024 |
+| final audio | never more than one converter step apart, and no more samples one step apart than rounding predicts | held on every clip (quiet 16-bit clips: about 2 samples in a million flip; a deliberately clipped clip: 2.7 %) |
+| feature code, fed identical audio: largest picture difference (pictures are 0..1) | 0.0001 | 0.00000024 |
+| ... and the bursts it finds | identical | identical on all 1,000 |
+| end to end: clips with a burst boundary or label that differs | 2 % | 0.2 % (2 clips) |
+| end to end: pictures, average difference | 0.004 | 0.0010 (typical clip: 0.000001) |
+| end to end: pictures, largest single pixel | 0.12 | 0.026 |
+
+Why the end-to-end pictures are not bit-identical: the echo sum is added up in float32 (in the
+CPU code too) and the order of the additions differs, so the audio differs by a few parts in ten
+million before the converter. The converter then rounds to 16 or 24 bits; a sample that sits
+almost exactly between two steps can round the other way. Such a sample is a click 100 dB below
+full scale: it moves a few noise-floor pixels by up to 0.03 and nothing else, and in about 2
+clips in 1,000 it moves a burst boundary by one frame. The limits sit far above that and far
+below what a real mistake (wrong delay, channel, filter) produces. The limits and the reasoning
+are at the top of `datagen/parity.py`. `tests/fixtures/gpu_parity_reference.npz` stores a small
+summary of the CPU results, so a later change to either code is noticed.
+
+**Commands on the 4090** (Windows shown; Linux: `.venv/bin/python`):
+```powershell
+.venv\Scripts\python scripts\check_gpu_parity.py          # the picture check alone (1-2 min); exit code 0 = same pictures
+.venv\Scripts\python scripts\bench_gpu.py                 # clips per second for every stage, GPU load and memory (3-5 min)
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1            # the full run; data on the GPU, check included
+powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --sweep    # + 9 fine-tuning runs, 4 at a time
+```
+Please send back the output of `bench_gpu.py` (and its JSON file under `train_out/bench/`): nothing
+here was timed on a 4090, and its numbers decide what to speed up next.
+
+**Speed, honestly.** Measured on the Mac Studio (shared with other jobs): the CPU code needs
+0.92 s of one core per clip; the GPU path needs about 45 ms of CPU per clip (33 ms for the random
+draws, 11 ms for the bursts and labels), so the CPU work drops about 20-fold. The GPU code run on that Mac's CPU is no faster
+than the old code (3.4 clips a second against 3.7 with 4 worker processes; 86 % of its time is the echo loop): the gain comes only from a GPU. For the 4090 the GPU part is an estimate from
+counting operations (about 5 GB of memory traffic per clip, mostly the echo loop, against roughly
+1,000 GB/s of memory speed): 5-10 ms per clip, i.e. the 12,000 clips in 1-2 minutes instead of
+10-13 (6-10x). It could be 2x better or worse; `bench_gpu.py` gives the real figure. The echo
+loop is plain PyTorch (300 small operations per batch); a hand-written CUDA kernel for it would
+be the next step if the bench shows it dominates, and was not written blind (this Mac has no CUDA).
+
+**Options.**
+
+| option | what it does |
+|---|---|
+| `--gen-device cpu` | the original CPU code for clips and session pictures (the reference; no picture check needed) |
+| `--gen-precision fast` | float32 for the three big FFT steps instead of float64. Possibly faster (see `bench_gpu.py`); about 1 clip in 25 then gets a burst boundary moved by a frame, so the default is the exact `ref` |
+| `--gen-batch N` | clips per GPU batch (default: fills the card's free memory; a batch that does not fit is split in two automatically and the log says so) |
+| `--skip-parity`, `--recheck-parity` | skip / repeat the picture check |
+| `--sweep-jobs N`, `--no-overlap` | training runs sharing the GPU (default 4) / make all data first, then train |
+| `--gen-device mps` | Apple GPU. Written but **not verified on a real Apple GPU** (it has no float64, so it is less exact); the picture check runs first and decides |
+
+**Falling back.** If the picture check fails, or the GPU path misbehaves in any way: add
+`--gen-device cpu`. That is the old pipeline, byte for byte (checked: the same `dataset.npz` and
+`manifest.jsonl` as before this change, for three kinds of data set). Send the report the check
+names (`train_out/parity/last_*.json`) and the log.
+
+## 12. Speed: the training step on the GPU
 
 `sonar.train` keeps the whole dataset on the GPU (float16, about 1.2 GB for 20,000 pictures), and
 draws every batch, applies all the augmentation (time shift, mirror, faster/slower, louder/quieter,
@@ -401,7 +499,7 @@ there are no GPU timings yet):
   one run on a small subset, so CUDA's 256 is a reasonable default to confirm on the 4090, not a
   proven match; `--batch 64` gives the exact recipe the Mac's numbers were made with.
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 | problem | fix |
 |---|---|
@@ -409,8 +507,9 @@ there are no GPU timings yet):
 | `running scripts is disabled on this system` | use `powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 ...` |
 | `No Python environment at .venv` | steps 2 and 3, in the repo folder |
 | `the recordings come from more than one device` | HP and MacBook sessions are mixed: give each laptop its own folder and use `--data` (section 9.5) |
-| `CUDA out of memory` | nothing else should hold the GPU memory; or `--batch 128` |
-| the computer becomes sluggish while generating | `--workers 8` (default: every core) |
+| `CUDA out of memory` | while training: `--batch 128` or `--sweep-jobs 2`; while making data: `--gen-batch 128` (normally the generator halves its batch by itself and says so) |
+| `the GPU does NOT make the same training pictures as the CPU code` | add `--gen-device cpu` to train with the CPU generator, and send `train_out/parity/last_*.json` with the log (section 11) |
+| the computer becomes sluggish while generating | `--workers 8` (default: every core; on the GPU path the workers only draw random numbers and attach labels) |
 | `no usable recordings` although data/ has folders | read the session table: each skipped folder says why (profile, too short, unreadable, simulator) |
 | a session "only N s of audio" | it was copied while still recording: copy it again once the recorder has finished |
 | `--init ... was trained for the classes ...` | pre-training and fine-tuning need the same `--labels` and `--width` (the script does this for you) |

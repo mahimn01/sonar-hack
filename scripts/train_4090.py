@@ -3,8 +3,10 @@
 
 What it does, in order (every step prints the exact command it runs, so any step can be re-run by hand):
   1. checks the machine: Python, PyTorch, the GPU (CUDA), onnxruntime;
-  2. makes the synthetic training set with datagen on every CPU core
-     (reused on the next run if the generator code and settings did not change);
+  2. makes the synthetic training set with datagen (reused on the next run if the generator code
+     and settings did not change). On a CUDA GPU the clips are computed on the GPU (--gen-device,
+     default: the training device when it is CUDA) after scripts/check_gpu_parity.py has shown
+     that the GPU makes the same pictures as the CPU code; --gen-device cpu is the old path;
   3. if real recordings exist under --data (default data/): lists every session folder,
      skips broken or simulator ones, cuts each session into training pictures once
      (in parallel, cached per session), measures which way round the laptop's left/right
@@ -23,6 +25,7 @@ How to run (from the repo root; scripts/train_4090.sh and .ps1 do exactly this):
     python scripts/train_4090.py                            # full run on the GPU (CUDA)
     python scripts/train_4090.py --sweep                    # + widths 16,24,32 x seeds 0,1,2
     python scripts/train_4090.py --device cpu --size tiny   # few-minute smoke test, no GPU needed
+    python scripts/train_4090.py --gen-device cpu           # make the data on the CPU cores as before
 
 What it changes: writes train_out/ (intermediate files, caches and a log of every run),
 models/ and models-release/. It only reads data/ and never opens an audio device.
@@ -63,6 +66,9 @@ FEATURE_CODE = ["sonar/config.py", "sonar/tx.py", "sonar/dsp.py", "sonar/fronten
 GENERATOR_CODE = ["datagen/adapter.py", "datagen/background.py", "datagen/generate.py", "datagen/hardware.py",
                   "datagen/kinematics.py", "datagen/physics.py", "datagen/quicklook.py", "datagen/render.py",
                   "datagen/scenes.py"]
+# The GPU versions of the two lists above (only part of a cache key when the GPU path is used).
+GPU_CODE = ["datagen/plan.py", "datagen/render_torch.py", "datagen/gpu_pipeline.py", "sonar/features_torch.py"]
+PARITY_CODE = ["datagen/parity.py", "scripts/check_gpu_parity.py"]
 TRAIN_CODE = ["sonar/train.py", "sonar/model.py", "sonar/batch_augment.py"]
 
 
@@ -119,6 +125,61 @@ def run(cmd: list[str], log: Log, env: dict[str, str] | None = None) -> float:
     return time.time() - t0
 
 
+class Job:
+    """One command running in the background. Its output goes to a file and is copied into the log when it ends,
+    so several jobs can run at once without their lines mixing."""
+
+    def __init__(self, cmd: list[str], out_file: Path, env: dict[str, str] | None = None) -> None:
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        self.cmd, self.out_file, self.t0 = cmd, out_file, time.time()
+        self._fh = open(out_file, "w", encoding="utf-8", errors="replace")
+        self.proc = subprocess.Popen(cmd, cwd=REPO, stdout=self._fh, stderr=subprocess.STDOUT, env=env or child_env())
+
+    def finish(self, log: Log) -> float:
+        """Wait for it, copy its output into the log, raise StepFailed if it failed. Returns its seconds."""
+        code = self.proc.wait()
+        seconds = time.time() - self.t0
+        self._fh.close()
+        log(f"\n$ {show(self.cmd)}")
+        log.raw(self.out_file.read_text(encoding="utf-8", errors="replace"))
+        if code != 0:
+            raise StepFailed(f"this step failed with exit code {code}: {show(self.cmd)}")
+        return seconds
+
+
+def gpu_env(k: int, n_gpus: int) -> dict[str, str] | None:
+    """With several GPUs, training run number k sees only GPU k modulo their number."""
+    if n_gpus <= 1:
+        return None
+    return dict(child_env(), CUDA_VISIBLE_DEVICES=str(k % n_gpus))
+
+
+def run_many(cmds: list[tuple[list[str], Path]], log: Log, at_once: int, n_gpus: int = 1) -> list[float]:
+    """Run commands `at_once` at a time (several small models share a GPU; with several GPUs they are dealt
+    out in turn). Output appears in order."""
+    if at_once <= 1:
+        return [run(cmd, log) for cmd, _ in cmds]
+    seconds: list[float] = []
+    running: list[Job] = []
+    failed: StepFailed | None = None
+    pending = list(cmds)
+    started = 0
+    while pending or running:
+        while pending and len(running) < at_once:
+            cmd, out_file = pending.pop(0)
+            running.append(Job(cmd, out_file, env=gpu_env(started, n_gpus)))
+            started += 1
+        job = running.pop(0)                                  # finish them in the order they were started
+        try:
+            seconds.append(job.finish(log))
+        except StepFailed as exc:
+            failed = failed or exc
+            pending = []                                      # let the running ones end, start no more
+    if failed is not None:
+        raise failed
+    return seconds
+
+
 def code_hash(files: list[str]) -> str:
     h = hashlib.sha256()
     for name in sorted(files):
@@ -165,7 +226,7 @@ try:
     if out["cuda"]:
         p = torch.cuda.get_device_properties(0)
         out.update(gpu=p.name, gpu_gb=round(p.total_memory / 2**30, 1), bf16=torch.cuda.is_bf16_supported(),
-                   capability=f"{p.major}.{p.minor}")
+                   capability=f"{p.major}.{p.minor}", gpu_count=torch.cuda.device_count())
     out["mps"] = bool(getattr(torch.backends, "mps", None) and torch.backends.mps.is_available())
 except Exception as exc:
     out["torch_error"] = f"{type(exc).__name__}: {exc}"
@@ -193,7 +254,8 @@ def check_machine(device: str, log: Log) -> dict[str, Any]:
         raise StepFailed(f"missing Python packages {missing}: run the install steps in TRAINING.md (step 2-3)")
     log(f"PyTorch {info['torch']} (CUDA build {info['torch_cuda']}), onnxruntime {info['onnxruntime']}")
     if info.get("cuda"):
-        log(f"GPU: {info['gpu']}, {info['gpu_gb']} GB, compute {info['capability']}, bf16 {'yes' if info['bf16'] else 'no'}")
+        log(f"GPU: {info['gpu']}, {info['gpu_gb']} GB, compute {info['capability']}, bf16 {'yes' if info['bf16'] else 'no'}"
+            + (f"; {info['gpu_count']} GPUs" if info.get("gpu_count", 1) > 1 else ""))
     if device == "cuda" and not info.get("cuda"):
         raise StepFailed(
             "--device cuda, but PyTorch cannot see a CUDA GPU (torch.cuda.is_available() is False).\n"
@@ -209,10 +271,12 @@ def check_machine(device: str, log: Log) -> dict[str, Any]:
 # 2. Synthetic data
 # ---------------------------------------------------------------------------
 def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespace, log: Log, swap: tuple[bool, bool],
-             mics: int, backgrounds: list[str] | None = None, seed: int = 0) -> tuple[Path, float]:
+             mics: int, backgrounds: list[str] | None = None, seed: int = 0, gen_batch: int = 0) -> tuple[Path, float]:
     """datagen.generate into a cached folder named after everything that shapes the data."""
     bg_ids = [(p, os.path.getsize(p), int(os.path.getmtime(p))) for p in backgrounds or []]
-    key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE), per_class, negatives, args.profile, seed, swap, mics, bg_ids)
+    on_gpu = args.gen_device != "cpu"
+    how = [code_hash(GPU_CODE), args.gen_device.split(":")[0], args.gen_precision] if on_gpu else []   # CPU keys are as before
+    key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE), per_class, negatives, args.profile, seed, swap, mics, bg_ids, *how)
     folder = out / key
     if cached(folder) and not args.force_synth:
         n = json.loads((folder / "done.json").read_text()).get("examples")
@@ -230,6 +294,12 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
         cmd.append("--swap-speakers")
     if mics != 2:
         cmd += ["--mics", str(mics)]
+    if on_gpu:
+        cmd += ["--gen-device", args.gen_device, "--gen-precision", args.gen_precision]
+        if gen_batch or args.gen_batch:
+            cmd += ["--gen-batch", str(gen_batch or args.gen_batch)]
+        if args.gen_gpus:
+            cmd += ["--gen-gpus", str(args.gen_gpus)]
     seconds = run(cmd, log, env=child_env(single_thread_math=True))
     if not (folder / "dataset.npz").exists():
         raise StepFailed(f"datagen wrote no dataset.npz into {folder}")
@@ -239,6 +309,40 @@ def generate(out: Path, per_class: int, negatives: float, args: argparse.Namespa
         n = int(len(z["y"]))
     mark_done(folder, {"examples": n, "seconds": round(seconds, 1)})
     return folder / "dataset.npz", seconds
+
+
+def parity_gate(args: argparse.Namespace, info: dict[str, Any], work: Path, log: Log) -> dict[str, Any]:
+    """Refuse to make training data on a GPU that does not reproduce the CPU code's pictures.
+
+    Runs scripts/check_gpu_parity.py (1,000 fixed clips through both paths; 100 for a tiny smoke test).
+    A pass is remembered for this exact code, PyTorch, GPU and number format, so later runs do not repeat it.
+    """
+    clips = 100 if args.size == "tiny" else 1000
+    key = key_of(code_hash(GENERATOR_CODE + FEATURE_CODE + GPU_CODE + PARITY_CODE), info.get("torch"), info.get("gpu"),
+                 args.gen_device, args.gen_precision, args.profile, clips)
+    marker = work / "parity" / f"passed_{key}.json"
+    if marker.exists() and not args.recheck_parity:
+        old = json.loads(marker.read_text())
+        log(f"\nGPU parity check: passed earlier for this code on this GPU ({old.get('clips')} clips, "
+            f"{rel(marker)}); --recheck-parity runs it again")
+        return {"status": "passed earlier", "clips": old.get("clips"), "report": rel(marker)}
+    log(f"\n=== GPU parity check: {clips} fixed clips through the CPU code and the GPU code (--skip-parity to skip)")
+    report = work / "parity" / f"last_{key}.json"
+    cmd = [PY, "scripts/check_gpu_parity.py", "--device", args.gen_device, "--precision", args.gen_precision,
+           "--clips", str(clips), "--workers", str(args.workers), "--work", str(work / "parity"), "--data", args.data,
+           "--json", str(report)]
+    if args.profile != "default":
+        cmd += ["--profile", args.profile]
+    try:
+        seconds = run(cmd, log, env=child_env(single_thread_math=True))
+    except StepFailed:
+        raise StepFailed(
+            "the GPU does NOT make the same training pictures as the CPU code (see the table above), so nothing was trained.\n"
+            "  * to train anyway with the CPU generator (slow, but the reference): add  --gen-device cpu\n"
+            f"  * the full report: {rel(report)}; please send it with the log\n"
+            "  * --skip-parity goes on with the GPU data regardless (not recommended)") from None
+    report.replace(marker)
+    return {"status": "passed", "clips": clips, "seconds": round(seconds, 1), "report": rel(marker)}
 
 
 # ---------------------------------------------------------------------------
@@ -309,15 +413,35 @@ def one_device(usable: list[dict[str, Any]], mixed_ok: bool, log: Log) -> int:
     return next(iter(devices))[1]
 
 
-def cut_sessions(rows: list[dict[str, Any]], out: Path, workers: int, log: Log) -> list[Path]:
-    """One .npz of training pictures per session (python -m sonar.dataset), in parallel, cached per session."""
+def cut_sessions(rows: list[dict[str, Any]], out: Path, workers: int, log: Log, device: str = "cpu") -> list[Path]:
+    """One .npz of training pictures per session (python -m sonar.dataset), in parallel, cached per session.
+
+    device "cuda": one process cuts every session with the Doppler columns computed on the GPU.
+    """
     out.mkdir(parents=True, exist_ok=True)
-    code = code_hash(FEATURE_CODE)
+    code = code_hash(FEATURE_CODE) if device == "cpu" else key_of(code_hash(FEATURE_CODE + GPU_CODE), device.split(":")[0])
     jobs = []
     for r in rows:
         target = out / f"{r['session']}__{key_of(code, r['size'], r['mtime'], r['meta_id'])}.npz"
         jobs.append((r, target))
     todo = [(r, t) for r, t in jobs if not t.exists()]
+    if device != "cpu":
+        log(f"\ncutting {len(todo)} session(s) into training pictures on {device} ({len(jobs) - len(todo)} already done)")
+        for a in range(0, len(todo), 30):                     # 30 per command keeps the command line short
+            part = todo[a:a + 30]
+            cmd = [PY, "-m", "sonar.dataset", "--device", device, "--pairs",
+                   *[f"{r['folder']}::{t.with_suffix('.tmp.npz')}" for r, t in part]]
+            try:
+                run(cmd, log)
+            except StepFailed:
+                pass                                          # every session of this part failed: reported below
+            for r, t in part:
+                if t.with_suffix(".tmp.npz").exists():
+                    t.with_suffix(".tmp.npz").replace(t)
+        missing = [r["session"] for r, t in todo if not t.exists()]
+        if missing:
+            log(f"WARNING: could not cut {missing}; training goes on without them")
+        return [t for r, t in jobs if t.exists()]
     log(f"\ncutting {len(todo)} session(s) into training pictures ({len(jobs) - len(todo)} already done), "
         f"{min(workers, max(len(todo), 1))} at a time")
 
@@ -535,6 +659,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--mics", type=int, help="microphone channels of the target laptop when there are no recordings yet "
                                              "(default: taken from the recordings, else 2 = the HP)")
     ap.add_argument("--force-synth", action="store_true", help="make the synthetic data again even if a cached copy exists")
+    ap.add_argument("--gen-device", default="auto", choices=["auto", "cpu", "cuda", "mps", "torch-cpu"],
+                    help="where the synthetic clips and session pictures are computed: auto = cuda when training on cuda, "
+                         "else cpu; cpu = the original numpy code on every core (the reference); torch-cpu = the GPU code "
+                         "run on the CPU (for tests)")
+    ap.add_argument("--gen-precision", default="auto", choices=["auto", "ref", "fast", "single"],
+                    help="GPU number format (default ref: float64 where the CPU code uses it; fast: float32 FFTs)")
+    ap.add_argument("--gen-batch", type=int, default=0, help="clips per GPU batch (default: fills the GPU's memory)")
+    ap.add_argument("--gen-gpus", type=int, default=0, help="GPUs used for making data and for the training runs (default: all)")
+    ap.add_argument("--skip-parity", action="store_true", help="do not run the GPU-against-CPU picture check before making data on a GPU")
+    ap.add_argument("--recheck-parity", action="store_true", help="run that check again even if it already passed for this code")
+    ap.add_argument("--sweep-jobs", type=int, default=0,
+                    help="training runs sharing the GPU at the same time (default: 4 on CUDA, 1 otherwise)")
+    ap.add_argument("--no-overlap", action="store_true",
+                    help="CUDA: do not pre-train while the clips on real backgrounds are still being made")
     ap.add_argument("--out", default="train_out", help="working folder (caches, logs, every run)")
     ap.add_argument("--models", help="where the engine looks for the model (default models/; tiny: train_out/tiny/models)")
     ap.add_argument("--release", help="folder committed to hand the model back (default models-release/; tiny: train_out/tiny/...)")
@@ -562,7 +700,27 @@ def main(argv: list[str] | None = None) -> int:
                                "labels": args.labels, "widths": widths, "seeds": seeds, "git": git_state()}
     try:
         log(f"=== gesture training run {stamp} ({args.size}, device {args.device}); log: {rel(run_dir / 'log.txt')}")
-        summary["machine"] = check_machine(args.device, log)
+        summary["machine"] = info = check_machine(args.device, log)
+        if args.gen_device == "auto":
+            args.gen_device = "cuda" if args.device == "cuda" else "cpu"
+        if args.gen_device == "cuda" and not info.get("cuda"):
+            raise StepFailed("--gen-device cuda, but PyTorch cannot see a CUDA GPU; use --gen-device cpu")
+        if args.gen_device == "mps" and not info.get("mps"):
+            raise StepFailed("--gen-device mps, but Apple MPS is not available here; use --gen-device cpu")
+        on_cuda = args.device == "cuda"
+        n_gpus = max(1, min(int(info.get("gpu_count", 1)), args.gen_gpus or 10**6)) if on_cuda else 1
+        sweep_jobs = args.sweep_jobs or (4 * n_gpus if on_cuda else 1)
+        summary["generation"] = {"device": args.gen_device, "precision": args.gen_precision if args.gen_device != "cpu" else None}
+        log(f"synthetic clips and session pictures are computed on: {args.gen_device}"
+            + ("" if args.gen_device != "cpu" else " (numpy, every core)"))
+        if args.gen_device != "cpu":
+            if args.skip_parity:
+                log("GPU parity check: SKIPPED (--skip-parity)")
+                summary["parity"] = {"status": "skipped"}
+            else:
+                t0 = time.time()
+                summary["parity"] = parity_gate(args, info, work, log)
+                times["GPU parity check"] = time.time() - t0
 
         # 3a. real recordings: inventory, cut into pictures, wiring
         data_root = (REPO / args.data).resolve()
@@ -578,7 +736,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.mics and args.mics != mics:
                 raise StepFailed(f"--mics {args.mics}, but the recordings have {mics} microphone channel(s)")
             t0 = time.time()
-            real_files = cut_sessions(usable, work / "sessions", args.workers, log)
+            real_files = cut_sessions(usable, work / "sessions", args.workers, log, device=args.gen_device)
             times["cut sessions"] = time.time() - t0
         if real_files:
             real = load_real(real_files)
@@ -611,38 +769,80 @@ def main(argv: list[str] | None = None) -> int:
         bg_scored = [r["audio"] for r in usable if r["script"] in BACKGROUND_SCRIPTS and r["person"] not in val_people]
         refit = bool(val_people) and not args.no_refit
         synth_bg = synth_bg_all = None
-        if real_files and bg_scored:
-            log(f"\n=== synthetic gestures on {len(bg_scored)} real background recording(s)"
-                + (f" (not {', '.join(val_people)}'s: they are held out)" if len(bg_scored) < len(bg_all) else ""))
-            synth_bg, sec = generate(work / "synth_bg", preset["bg_per_class"], preset["negatives"], args, log, swap, mics,
-                                     backgrounds=bg_scored, seed=1)
-            times["generate on real backgrounds"] = sec
-        synth_bg_all = synth_bg
-        if real_files and refit and len(bg_all) > len(bg_scored):
-            log(f"\n=== synthetic gestures on all {len(bg_all)} real background recording(s), for the final retrain")
-            synth_bg_all, sec = generate(work / "synth_bg", preset["bg_per_class"], preset["negatives"], args, log, swap,
-                                         mics, backgrounds=bg_all, seed=1)
-            times["generate on all backgrounds"] = sec
-        if real_files and not bg_all:
-            log("\nno scene / breathing recordings: no synthetic gestures on real backgrounds (record a `--script scene` session)")
 
-        # 4. pre-training, one per width (cached)
-        log("\n=== pre-training on synthetic data")
+        # 4. pre-training, one per width (cached). On CUDA it starts NOW and runs while the GPU also makes the
+        #    clips on real backgrounds below: the model is tiny, so both fit side by side.
         pre_code = code_hash(TRAIN_CODE)
         pretrained: dict[int, Path] = {}
-        pre_rows = []
-        t0 = time.time()
+        pre_todo: list[tuple[list[str], Path]] = []
+        pre_folders: dict[int, Path] = {}
+        fresh: set[int] = set()                               # widths pre-trained in this run (the others are cached)
         for w in widths:
             folder = work / "pretrain" / key_of(synth.parent.name, synth.stat().st_size, int(synth.stat().st_mtime), args.labels,
                                                 w, preset["pretrain_epochs"], args.device, args.batch, args.compile, pre_code)
-            if cached(folder):
-                log(f"\nreusing pre-trained width {w}: {rel(folder)}")
-            else:
-                run(train_cmd([synth], folder, args, w, 0, preset["pretrain_epochs"]), log)
-                mark_done(folder, {"width": w})
+            pre_folders[w] = folder
             pretrained[w] = folder / "gesture.pt"
-            pre_rows.append({"width": w, "seed": 0, **read_metrics(folder)})
-        times["pre-train"] = time.time() - t0
+            if not cached(folder):
+                fresh.add(w)
+                pre_todo.append((train_cmd([synth], folder, args, w, 0, preset["pretrain_epochs"]), run_dir / "pretrain" / f"w{w}.txt"))
+        will_make_bg = bool(real_files and bg_scored)
+        overlap = on_cuda and not args.no_overlap and bool(pre_todo) and will_make_bg
+        pre_jobs: list[Job] = []
+        t_pre = time.time()                                   # overlapping: the clock runs from the start of the jobs
+        if overlap:
+            log(f"\n=== pre-training {len(pre_todo)} model(s) in the background while the next clips are made "
+                f"(their output follows below; --no-overlap for one step at a time)")
+            pre_jobs = [Job(cmd, out_file, env=gpu_env(k, n_gpus)) for k, (cmd, out_file) in enumerate(pre_todo)]
+        # while training shares the GPU, the generator leaves room for it (about 3 GB per training run)
+        gen_batch = 0
+        if overlap and args.gen_device == "cuda" and not args.gen_batch:
+            sys.path.insert(0, str(REPO))
+            from datagen.gpu_pipeline import batch_for_memory
+
+            precision = "fast" if args.gen_precision == "fast" else "ref"
+            gen_batch = batch_for_memory(float(info.get("gpu_gb", 24.0)) - 1.5 - 3.0 * len(pre_jobs), precision)
+
+        try:
+            if will_make_bg:
+                log(f"\n=== synthetic gestures on {len(bg_scored)} real background recording(s)"
+                    + (f" (not {', '.join(val_people)}'s: they are held out)" if len(bg_scored) < len(bg_all) else ""))
+                synth_bg, sec = generate(work / "synth_bg", preset["bg_per_class"], preset["negatives"], args, log, swap, mics,
+                                         backgrounds=bg_scored, seed=1, gen_batch=gen_batch)
+                times["generate on real backgrounds"] = sec
+            synth_bg_all = synth_bg
+            if real_files and refit and len(bg_all) > len(bg_scored):
+                log(f"\n=== synthetic gestures on all {len(bg_all)} real background recording(s), for the final retrain")
+                synth_bg_all, sec = generate(work / "synth_bg", preset["bg_per_class"], preset["negatives"], args, log, swap,
+                                             mics, backgrounds=bg_all, seed=1, gen_batch=gen_batch)
+                times["generate on all backgrounds"] = sec
+        except BaseException:
+            for job in pre_jobs:                              # do not leave training running after a failed step
+                job.proc.kill()
+            raise
+        if real_files and not bg_all:
+            log("\nno scene / breathing recordings: no synthetic gestures on real backgrounds (record a `--script scene` session)")
+
+        log("\n=== pre-training on synthetic data")
+        if pre_jobs:
+            failed: StepFailed | None = None
+            for job in pre_jobs:
+                try:
+                    job.finish(log)
+                except StepFailed as exc:
+                    failed = failed or exc
+            if failed is not None:
+                raise failed
+        elif pre_todo:
+            t_pre = time.time()
+            run_many(pre_todo, log, sweep_jobs, n_gpus)
+        pre_rows = []
+        for w in widths:
+            if w in fresh:
+                mark_done(pre_folders[w], {"width": w})
+            else:
+                log(f"\nreusing pre-trained width {w}: {rel(pre_folders[w])}")
+            pre_rows.append({"width": w, "seed": 0, **read_metrics(pre_folders[w])})
+        times["pre-train"] = time.time() - t_pre
         table(pre_rows, log, "pre-training, scored on held-out SYNTHETIC clips:")
         summary["pretrain"] = pre_rows
 
@@ -653,11 +853,14 @@ def main(argv: list[str] | None = None) -> int:
             log(f"\n=== fine-tuning on {len(real_files)} recorded session(s) + {rel(Path(tune_sets[-1]).parent)}")
             sweep_rows = []
             t0 = time.time()
-            for w in widths:
-                for s in seeds:
-                    folder = run_dir / "sweep" / f"w{w}_s{s}"
-                    run(train_cmd(tune_sets, folder, args, w, s, preset["finetune_epochs"], init=pretrained[w], val_person=val), log)
-                    sweep_rows.append({"width": w, "seed": s, **read_metrics(folder)})
+            grid = [(w, s, run_dir / "sweep" / f"w{w}_s{s}") for w in widths for s in seeds]
+            if sweep_jobs > 1 and len(grid) > 1:
+                log(f"{len(grid)} runs, {min(sweep_jobs, len(grid))} at a time on {n_gpus} GPU(s) (--sweep-jobs 1 for one at a time; "
+                    "the seconds per run below include the sharing)")
+            run_many([(train_cmd(tune_sets, folder, args, w, s, preset["finetune_epochs"], init=pretrained[w], val_person=val),
+                       folder / "output.txt") for w, s, folder in grid], log, sweep_jobs, n_gpus)
+            for w, s, folder in grid:
+                sweep_rows.append({"width": w, "seed": s, **read_metrics(folder)})
             times["fine-tune sweep"] = time.time() - t0
             score_on = f"held-out {'people' if len(val_people) > 1 else 'person'} {val}" if val_people else "held-out sessions"
             table(sweep_rows, log, f"fine-tuning, scored on {score_on} (never seen in training):")

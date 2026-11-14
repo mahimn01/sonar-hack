@@ -1,0 +1,175 @@
+"""The GPU clip maker (PyTorch) must make what the CPU reference (numpy) makes.
+
+These tests run the GPU code on the CPU (and on Apple MPS when it is safe to), on a small
+sample of the fixture that scripts/check_gpu_parity.py uses in full on the 4090.
+"""
+
+import os
+import subprocess
+
+import numpy as np
+import pytest
+
+torch = pytest.importorskip("torch")
+
+from datagen import generate as g  # noqa: E402
+from datagen import parity  # noqa: E402
+from sonar.features import stream_features, stream_from_columns  # noqa: E402
+from sonar.features_torch import TorchFrontend, frames_for  # noqa: E402
+from sonar.frontend import run_frontend  # noqa: E402
+
+
+def _job(seed: int, kind: str, **over) -> tuple:
+    base = dict(profile=None, min_snr=6.0, keep_audio=False, backgrounds=(), bg_share=0.0, swap_mics=False,
+                swap_speakers=False, mics=None, tweak=None)
+    base.update(over)
+    return (seed, kind, *base.values())
+
+
+@pytest.fixture(scope="module")
+def clips():
+    """Three CPU reference clips with everything captured: a swipe, a push with clock mismatch, a fidget."""
+    out = []
+    for job in (_job(9000003, "swipe_left"), _job(9000210, "push", tweak={"hw": {"clock_ppm": 30.0, "hum_hz": 60.0}}),
+                _job(9000407, "none")):
+        cap: dict = {}
+        g.make_clip(job, capture=cap)
+        out.append((job, cap))
+    return out
+
+
+def test_torch_frontend_equals_engine_frontend(cfg, clips):
+    """Doppler columns from features_torch == the columns dsp.Frontend emits, for 2 microphones and for 1."""
+    for mics in (2, 1):
+        fe = TorchFrontend(cfg, mics, "cpu")
+        x = np.stack([cap["rx"][:, :mics] for _, cap in clips])
+        db, lat = fe.columns(torch.from_numpy(x))
+        assert db.shape == (len(clips), frames_for(fe.cfg, x.shape[1]), cfg.n_tones * mics, cfg.doppler_bins)
+        for i in range(len(clips)):
+            frames = run_frontend(fe.cfg, x[i])
+            ref_db = np.stack([f.doppler_db for f in frames])
+            np.testing.assert_allclose(db[i].numpy(), ref_db, atol=2e-5)          # dB values stored as float32
+            if mics == 2:
+                ref_lat = np.stack([f.lateral for f in frames])
+                np.testing.assert_allclose(lat[i].numpy(), ref_lat, atol=1e-9 * np.abs(ref_lat).max() + 1e-30)
+            else:
+                assert lat is None
+            # ... and the engine's own burst code then finds the same bursts and the same pictures
+            ref = stream_features(x[i], cfg)
+            got = stream_from_columns(fe.cfg, db[i].numpy(), None if lat is None else lat[i].numpy())
+            assert [(s.start, s.end, s.decided) for s in got.segments] == [(s.start, s.end, s.decided) for s in ref.segments]
+            assert got.not_before == ref.not_before and np.array_equal(got.ready, ref.ready)
+            np.testing.assert_allclose(got.feat, ref.feat, atol=1e-5)
+
+
+def test_torch_renderer_equals_numpy_renderer(clips):
+    """Audio before rounding agrees to parts in a million; after rounding at most one converter step apart."""
+    from datagen.gpu_pipeline import GpuRenderer, plan_clip
+
+    gpu = GpuRenderer(None, "cpu")
+    assert gpu.precision == "ref"
+    plans = [plan_clip((job, 0, None, True))["plan"] for job, _ in clips]
+    out = gpu.render(plans, want_parts=True)
+    for i, (_, cap) in enumerate(clips):
+        if cap["attempts"] != 1:                                  # the capture holds the last attempt; plans the first
+            continue
+        dyn_ref, sta_ref = cap["parts"]["dynamic"], cap["parts"]["static"]
+        dyn, sta = out["dynamic"][i].numpy(), out["static"][i].numpy()
+        assert np.sqrt(np.mean((dyn - dyn_ref) ** 2)) < 2e-5 * np.sqrt(np.mean(dyn_ref ** 2))
+        assert np.sqrt(np.mean((sta - sta_ref) ** 2)) < 1e-9 * np.sqrt(np.mean(sta_ref ** 2))
+        # right before the converter: parts in a million (float32 echo noise, amplified by the virtual microphone)
+        conv_ref = cap["parts"]["converter_in"]
+        d = np.abs(out["converter_in"][i].numpy() - conv_ref)
+        assert np.sqrt(np.mean(d ** 2)) < parity.LIMITS["ref"]["conv_rel"] * np.sqrt(np.mean(conv_ref ** 2))
+        # after rounding: never more than one step (plus that difference), and only as many flipped samples as it predicts
+        rx = out["rx"][i].numpy()
+        step = 2.0 ** -(cap["hw"].adc_bits - 1)
+        assert np.abs(rx - cap["rx"]).max() <= step * 1.0001 + d.max()
+        assert np.mean(rx != cap["rx"]) <= 1.5 * d.mean() / step + 2e-5
+        assert abs(float(out["snr_db"][i]) - cap["snr"]) < 1e-3
+
+
+def test_render_does_not_depend_on_the_batch(clips):
+    """A clip is the same whether it is rendered alone or next to other clips (bit for bit on the CPU)."""
+    from datagen.gpu_pipeline import GpuRenderer, plan_clip
+
+    gpu = GpuRenderer(None, "cpu")
+    plans = [plan_clip((job, 0, None, True))["plan"] for job, _ in clips]
+    together = gpu.render(plans)["rx"].numpy()
+    for i, plan in enumerate(plans):
+        alone = gpu.render([plan])["rx"].numpy()[0]
+        assert np.array_equal(alone, together[i])
+
+
+def test_plan_makes_the_same_random_draws_as_render(clips):
+    """After planning, a clip's random generator is where render() would have left it."""
+    from datagen.hardware import Profile
+    from datagen.plan import make_plan
+    from datagen.render import render
+
+    core, (tx, pre, n) = g._setup(None)
+    job = clips[0][0]
+    j = g.unpack_job(job)
+    states = []
+    for use_plan in (False, True):
+        rng = np.random.default_rng(j["seed"])
+        scene, hw, _, _ = g.draw_world(rng, core, j, Profile(band_hz=core.band), False, n)
+        if use_plan:
+            make_plan(tx, hw, scene, n, rng, pre, core.band)
+        else:
+            render(tx, hw, scene, n, rng, pre=pre, band=core.band)
+        states.append(rng.bit_generator.state)
+    assert states[0] == states[1]
+
+
+def test_stored_reference_matches_the_fixture():
+    """tests/fixtures/gpu_parity_reference.npz belongs to today's fixture (regenerate it when the fixture changes)."""
+    assert parity.REFERENCE_FILE.exists(), "run: python scripts/check_gpu_parity.py --device torch-cpu --write-reference"
+    with np.load(parity.REFERENCE_FILE, allow_pickle=False) as z:
+        stored = {k: z[k] for k in z.files}
+    jobs = parity.fixture_jobs(1000, "background.npy")
+    assert len(jobs) == 1000 and int(stored["version"]) == parity.FIXTURE_VERSION
+    assert [parity.clip_key(name, job) for name, job in jobs] == stored["seeds"].tolist()
+    assert len(str(stored["sha256"])) == 64 and stored["thumb"].shape[0] == 1000
+    kinds = {job[1] for _, job in jobs}
+    assert {"swipe_left", "swipe_right", "push", "pull", "none", "wave", "entering", "leaving", "present", "empty"} <= kinds
+    names = " | ".join(name for name, _ in jobs)
+    for needle in ("on a recording", "one microphone", "swapped", "clipping", "ppm", "fastest"):
+        assert needle in names
+
+
+@pytest.mark.slow
+def test_gpu_pipeline_matches_cpu_reference(tmp_path):
+    """The whole check on a small sample of the fixture: CPU reference against the GPU code run on the CPU."""
+    report = parity.run(24, "cpu", workers=2, batch=6, work=tmp_path)
+    parity.print_report(report)
+    assert report["passed"], report["failures"]
+    assert report["precision"] == "ref" and report["pictures_compared"] >= 20
+
+
+def _mps_is_safe() -> tuple[bool, str]:
+    """Apple MPS only when asked for or when plenty of memory is free (another job on this Mac needs the rest)."""
+    if not (getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()):
+        return False, "no Apple MPS here"
+    if os.environ.get("SONAR_TEST_MPS") == "1":
+        return True, ""
+    if os.environ.get("SONAR_TEST_MPS") == "0":
+        return False, "SONAR_TEST_MPS=0"
+    try:
+        text = subprocess.run(["memory_pressure"], capture_output=True, text=True, timeout=20).stdout
+        free = int(text.rsplit("free percentage:", 1)[1].strip().rstrip("%"))
+    except Exception:
+        return False, "could not read the free memory"
+    return free >= 40, f"only {free} % of memory free (SONAR_TEST_MPS=1 forces the test)"
+
+
+@pytest.mark.slow
+def test_gpu_pipeline_on_mps(tmp_path):
+    """The same check on Apple's GPU. MPS has no float64, so the limits are the looser 'single' ones."""
+    ok, why = _mps_is_safe()
+    if not ok:
+        pytest.skip(why)
+    report = parity.run(12, "mps", workers=2, batch=4, work=tmp_path)
+    parity.print_report(report)
+    assert report["precision"] == "single"
+    assert report["passed"], report["failures"]
