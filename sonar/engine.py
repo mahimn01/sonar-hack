@@ -183,7 +183,12 @@ class Engine:
         self._running = False
         self._want_recalibrate = False
         self._entering_until = -1
+        self._entering_since = -1                      # frame at which the current "entering" spell began
         self.gate_entering = True                      # ignore bursts while somebody is walking in
+        # ... but only for this many seconds after they appeared (None = for as long as the presence detector
+        # says "entering"). A restless person can keep that state for a long time: in one recorded session it
+        # lasted 41 s and swallowed the first 8 prompted gestures.
+        self.entering_gate_s: float | None = None
         self.gate_range = True                         # ignore bursts whose movement is beyond the hand zone
         self._zones: deque[tuple[int, float, float]] = deque(maxlen=200)
         self._far_until = -1
@@ -308,7 +313,12 @@ class Engine:
             # Somebody walking up to the laptop is not a gesture: ignore bursts while the
             # presence state is "entering" and for half a second after.
             if p is not None and p.state == "entering":
-                self._entering_until = fr.index + fps // 2
+                if self._entering_since < 0:
+                    self._entering_since = fr.index
+                if self.entering_gate_s is None or fr.index - self._entering_since <= self.entering_gate_s * fps:
+                    self._entering_until = fr.index + fps // 2
+            elif p is not None:
+                self._entering_since = -1
             if p is not None:
                 self._zones.append((fr.index, p.near_db, p.far_db))
             if fr.segment is not None and fr.window is not None:
@@ -475,6 +485,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-range-gate", action="store_true", help="do not veto bursts whose movement is beyond the hand zone")
+    ap.add_argument("--no-entering-gate", action="store_true", help="do not veto bursts while somebody is walking in")
+    ap.add_argument("--entering-gate-s", type=float,
+                    help="veto bursts only for this many seconds after somebody appears (default: as long as they are 'entering')")
     ap.add_argument("--min-peak-db", type=float, help="ignore bursts weaker than this (default: from the model, else 3 dB)")
     ap.add_argument("--no-ws", action="store_true", help="do not start the WebSocket server (console only)")
     ap.add_argument("--no-spectrogram", action="store_true", help="do not send spectrogram events")
@@ -513,6 +526,8 @@ def main(argv: list[str] | None = None) -> int:
             emit_spectrogram=not args.no_spectrogram, profile=args.profile,
         )
         engine.gate_range = not args.no_range_gate
+        engine.gate_entering = not args.no_entering_gate
+        engine.entering_gate_s = args.entering_gate_s
         engine.set_classifier(load_classifier(args.model, engine.cfg, force_physics=args.physics))
         if args.min_peak_db is not None:
             engine.min_peak_db = args.min_peak_db

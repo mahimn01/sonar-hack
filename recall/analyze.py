@@ -26,7 +26,7 @@ from typing import Any
 
 import numpy as np
 
-from .common import REPO, STREAMS
+from .common import REPO, STREAMS, fixed_meta
 from .trainlib import CFG, score, softmax, wilson
 
 LABELS = ("none", "swipe_left", "swipe_right", "push")
@@ -38,7 +38,7 @@ class Run:
         self.dir = Path(folder)
         self.man = json.loads((self.dir / "manifest.json").read_text())
         with np.load(self.dir / "table.npz", allow_pickle=False) as z:
-            self.r = {k: z[k] for k in z.files if k != "X"}
+            self.r = {k: z[k] for k in z.files if k not in ("X", "X_wide")}
         lut = {n: i for i, n in enumerate(LABELS)}
         self.y = np.array([lut.get(str(v), 0) for v in self.r["label"]], dtype=np.int64)
         self.humans, self.seeds, self.arms = self.man["humans"], self.man["seeds"], self.man["arms"]
@@ -170,7 +170,7 @@ def event_scores(run: Run, arm: str, points: dict[str, Any], gate_range: bool = 
                 elif i is not None:
                     out.setdefault("warnings", []).append(f"{name}: burst {k} has other frames in the run's table")
             fired, _ = replay(trace, probs, LABELS, CFG, min_peak_db=gate, gate_range=gate_range)
-            meta = json.loads((STREAMS / f"{name}.json").read_text())["meta"]
+            meta = fixed_meta(json.loads((STREAMS / f"{name}.json").read_text())["meta"], str(name), run.man.get("flip", []))
             tabs.append(trial_table(meta, fired, LABELS, len(trace["state"])))
         out[h] = summarise(tabs, LABELS)
         out[h]["weak_gate_db"] = gate

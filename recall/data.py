@@ -22,17 +22,22 @@ T = 80
 LABELS = ("none", "swipe_left", "swipe_right", "push")          # what the released model recognises; pull -> none
 
 
-def cut(s: Sess, end_frame: int, not_before: int | None = None, pad: int = PAD, n: int = T) -> np.ndarray:
-    """Picture [C, 64, n + 2*pad] whose un-padded part ends at frame `end_frame` (same rule as features.window_from_stream)."""
+def cut_feat(feat: np.ndarray, end_frame: int, not_before: int | None = None, pad: int = PAD, n: int = T) -> np.ndarray:
+    """Picture [C, F, n + 2*pad] from feature columns feat [T, C, F] (row i = frame i + 1), un-padded part ending at
+    frame `end_frame`; frames before `not_before` blanked (same rule as features.window_from_stream)."""
     first = end_frame - n + 1 - pad
     last = end_frame + pad
-    img = np.zeros((s.feat.shape[1], s.feat.shape[2], last - first + 1), np.float32)
-    lo, hi = max(first, 1), min(last, len(s.feat))
+    img = np.zeros((feat.shape[1], feat.shape[2], last - first + 1), np.float32)
+    lo, hi = max(first, 1), min(last, len(feat))
     if hi >= lo:
-        img[:, :, lo - first:hi - first + 1] = s.feat[lo - 1:hi].transpose(1, 2, 0)
+        img[:, :, lo - first:hi - first + 1] = feat[lo - 1:hi].transpose(1, 2, 0)
     if not_before is not None and not_before > first:
         img[:, :, :min(not_before - first, img.shape[-1])] = 0.0
     return img
+
+
+def cut(s: Sess, end_frame: int, not_before: int | None = None, pad: int = PAD, n: int = T) -> np.ndarray:
+    return cut_feat(s.feat, end_frame, not_before, pad, n)
 
 
 @dataclass
@@ -172,7 +177,26 @@ def full(s: Sess, n_idle: int = 8, seed: int = 0) -> Table:
         for j, i in enumerate(rows):
             prompt[i] = reps.get(rep, "none")
             order[i], n_in[i] = j, len(rows)
-    base.extra = {"prompt": prompt.astype(str), "order": order, "n_in_trial": n_in, "start": start, "end": end, "decided": decided}
+    # where each picture was cut: its last frame and the frame before which it is blanked (-1 = not blanked)
+    end_frame = decided.copy()
+    not_before = np.full(len(base), -1)
+    for i in range(len(base)):
+        k = int(base.seg[i])
+        if k >= 0:
+            not_before[i] = int(s.not_before[k])
+    idle = np.nonzero(base.seg < 0)[0]
+    if len(idle):                                   # the idle pictures: the same random quiet frames official() drew
+        rng = np.random.default_rng(seed)
+        guard = 50
+        windows = [(s.frame(ev["start"]) - guard, s.frame(ev["end"]) + 2 * guard) for ev in trials_ev]
+        quiet = np.where(s.ready & (s.act < 1.0))[0] + 1
+        quiet = quiet[(quiet > T + PAD) & (quiet < len(s.feat) - PAD)]
+        quiet = np.array([q for q in quiet if not any(a <= q <= b for a, b in windows)], dtype=int)
+        picks = rng.choice(quiet, size=min(n_idle, len(quiet)), replace=False)
+        assert len(picks) == len(idle), (s.name, len(picks), len(idle))
+        end_frame[idle] = picks
+    base.extra = {"prompt": prompt.astype(str), "order": order, "n_in_trial": n_in, "start": start, "end": end, "decided": decided,
+                  "end_frame": end_frame, "not_before": not_before}
     return base
 
 

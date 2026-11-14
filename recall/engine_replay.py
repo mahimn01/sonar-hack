@@ -27,7 +27,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from .common import REPO, STREAMS
+from .common import REPO, STREAMS, fixed_meta
 
 sys.path.insert(0, str(REPO))
 
@@ -48,6 +48,11 @@ def build_trace(name: str, data_root: Path | None = None) -> Path:
     from sonar.pipeline import Pipeline
 
     root = data_root or (REPO / "mac" / "data")
+    if not (root / name).exists():
+        for alt in (REPO / "mac" / "excluded", REPO / "train_out" / "recall" / "excluded", REPO / "train_out" / "recall" / "data13"):
+            if (alt / name).exists():
+                root = alt
+                break
     meta, audio, cfg = load_session(root / name)
     pipe = Pipeline(cfg, n_mics=audio.shape[1])
     state, near, far, active, segs, windows = [], [], [], [], [], []
@@ -92,9 +97,12 @@ class _Lookup:
 
 def replay(trace: dict[str, np.ndarray], probs: np.ndarray, labels: tuple[str, ...], cfg: SonarConfig,
            min_confidence: float = 0.6, min_peak_db: float | None = None, swipe_hold_s: float = 0.3,
-           gate_entering: bool = True, gate_range: bool = True) -> tuple[list[Fired], list[str]]:
+           gate_entering: bool = True, gate_range: bool = True, entering_cap_s: float | None = None) -> tuple[list[Fired], list[str]]:
     """Engine.step's gesture logic for one session. probs [n_bursts, n_classes] are the model's calibrated answers.
 
+    entering_cap_s is NOT in the engine today: a what-if in which the "somebody is walking in" gate only blocks
+    for that many seconds after the presence detector left "empty" (None = the engine as it is: as long as
+    the state stays "entering").
     Returns (events fired, per-burst verdict: "weak" / "entering" / "far" / "none" / "low" / "seen").
     """
     fps = int(round(cfg.frame_rate))
@@ -105,6 +113,7 @@ def replay(trace: dict[str, np.ndarray], probs: np.ndarray, labels: tuple[str, .
     by_frame = {int(s[0]): k for k, s in enumerate(segs)}
     state, near, far, active = trace["state"], trace["near"], trace["far"], trace["active"]
     entering_until, far_until = -1, -1
+    entering_since = -1                                   # frame at which the current "entering" spell began
     zones: list[tuple[int, float, float]] = []
     fired: list[Fired] = []
     verdict = ["" for _ in range(len(segs))]
@@ -113,7 +122,12 @@ def replay(trace: dict[str, np.ndarray], probs: np.ndarray, labels: tuple[str, .
         index = i + 1
         has_p = state[i] != 0
         if has_p and STATES[state[i]] == "entering":
-            entering_until = index + fps // 2
+            if entering_since < 0:
+                entering_since = index
+            if entering_cap_s is None or index - entering_since <= entering_cap_s * fps:
+                entering_until = index + fps // 2
+        elif has_p:
+            entering_since = -1
         if has_p:
             zones.append((index, float(near[i]), float(far[i])))
             if len(zones) > 200:
@@ -270,7 +284,7 @@ def main() -> None:
         probs, labels, m = onnx_probs(model, trace["windows"])
         min_peak = max(cfg.seg_min_peak_db, float(m.get("gesture_peak_db_p10", 9.0)) - 6.0)
         fired, verdict = replay(trace, probs, labels, cfg, min_peak_db=min_peak)
-        meta = json.loads((STREAMS / f"{n}.json").read_text())["meta"]
+        meta = fixed_meta(json.loads((STREAMS / f"{n}.json").read_text())["meta"], n)
         tables[n] = trial_table(meta, fired, labels, len(trace["state"]))
         s = summarise([tables[n]], labels)
         v = {k: verdict.count(k) for k in sorted(set(verdict))}

@@ -18,6 +18,19 @@ GESTURES = ("swipe_left", "swipe_right", "push", "pull")
 # lance and lance2 are the same human on the same MacBook, 24 minutes apart (session.json: same device,
 # lance2 notes "25cm"). For "unseen person" scores they must be held out together.
 HUMAN = {"lance": "lance", "lance2": "lance", "aarsh": "aarsh", "mahimn": "mahimn"}
+# Sessions in which the person swept the OPPOSITE way to the prompts (measured on the audio: left-speaker tone minus
+# right-speaker tone is -63 Hz on "swipe_left" prompts and +91 Hz on "swipe_right" prompts; label-audit t = -7.1).
+FLIPPED = ("20261114-001248_mahimn_gestures",)
+_SWAP = {"swipe_left": "swipe_right", "swipe_right": "swipe_left"}
+
+
+def fixed_meta(meta: dict, name: str, flip: tuple[str, ...] | list[str] = FLIPPED) -> dict:
+    """session.json contents with the swipe prompts exchanged if the session is one of the flipped ones."""
+    if name not in flip:
+        return meta
+    out = dict(meta)
+    out["events"] = [{**e, "label": _SWAP.get(e.get("label"), e.get("label"))} for e in meta.get("events", [])]
+    return out
 
 
 @dataclass

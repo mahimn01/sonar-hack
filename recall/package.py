@@ -25,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .common import REPO, STREAMS
+from .common import REPO, STREAMS, fixed_meta
 
 sys.path.insert(0, str(REPO))
 LABELS = ("none", "swipe_left", "swipe_right", "push")
@@ -108,7 +108,7 @@ def main() -> int:
         probs, labels, m = onnx_probs(out / "gesture.onnx", trace["windows"])
         gate = max(cfg.seg_min_peak_db, float(m.get("gesture_peak_db_p10", 9.0)) - 6.0)
         fired, _ = replay(trace, probs, labels, cfg, min_peak_db=gate, gate_range=not args.no_range_gate)
-        tabs[n] = trial_table(json.loads((STREAMS / f"{n}.json").read_text())["meta"], fired, labels, len(trace["state"]))
+        tabs[n] = trial_table(fixed_meta(json.loads((STREAMS / f"{n}.json").read_text())["meta"], n), fired, labels, len(trace["state"]))
     lines = []
     for person in sorted({n.split("_")[1] for n in names}):
         s = summarise([v for n, v in tabs.items() if n.split("_")[1] == person], LABELS)

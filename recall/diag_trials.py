@@ -13,7 +13,7 @@ import json
 
 import numpy as np
 
-from .common import REPO, STREAMS
+from .common import REPO, STREAMS, fixed_meta
 from .engine_replay import load_trace, onnx_probs, replay, trial_table
 from .trainlib import CFG
 
@@ -29,7 +29,7 @@ def main() -> None:
     probs, labels, m = onnx_probs((REPO / args.model).resolve(), trace["windows"])
     min_peak = max(CFG.seg_min_peak_db, float(m.get("gesture_peak_db_p10", 9.0)) - 6.0)
     fired, verdict = replay(trace, probs, labels, CFG, min_peak_db=min_peak)
-    meta = json.loads((STREAMS / f"{name}.json").read_text())["meta"]
+    meta = fixed_meta(json.loads((STREAMS / f"{name}.json").read_text())["meta"], name)
     table = trial_table(meta, fired, labels, len(trace["state"]))
     evs = [e for e in meta["events"] if e.get("kind") == "gesture"]
     segs = trace["segs"]

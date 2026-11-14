@@ -175,3 +175,40 @@ def test_engine_thread_and_callback_api(cfg):
     finally:
         engine.stop()
     assert "status" in seen and engine.error is None
+
+
+def test_entering_gate_can_be_capped(cfg):
+    """A person who never sits still keeps the presence detector in "entering"; with a cap the gate lets go."""
+    from types import SimpleNamespace
+
+    from sonar.pipeline import PipelineFrame
+    from sonar.presence import PresenceState
+
+    class Push:
+        source, meta = "model", {}
+
+        def predict(self, window):
+            return "push", 0.95, {"push": 0.95, "none": 0.05}
+
+    def frames(n, burst_at):
+        out = []
+        for i in range(1, n + 1):
+            pres = PresenceState("entering", 0.9, True, 0.0, 0.5, 20.0, 0.0, 20.0, i == 1)
+            seg = Segment(i - 20, i - 10, i, 30.0, 300.0, False) if i in burst_at else None
+            win = np.zeros((cfg.n_feat_channels, cfg.doppler_bins, cfg.gesture_frames), np.float32) if seg else None
+            out.append(PipelineFrame(i, i / 50, False, None, 0.0, False, seg, win, pres, None, None, 1.0, 0.0, False))
+        return out
+
+    def run(cap):
+        engine = Engine(cfg, SimAudio(cfg, scene="idle", realtime=False), profile="default")
+        engine.set_classifier(Push())
+        engine.gate_range = False
+        engine.entering_gate_s = cap
+        stream = frames(600, {100, 500})                         # bursts 2 s and 10 s after the person appeared
+        engine.pipeline = SimpleNamespace(
+            process=lambda rx: stream, segmenter=SimpleNamespace(active=False, activity_db=0.0), snr_db=lambda: 50.0,
+            calibrating=False, frontend=SimpleNamespace(locked=True, n_resync=0, _chirp=SimpleNamespace(drift_ppm=0.0)))
+        return [e["label"] for e in engine.step(np.zeros((960, cfg.n_mics), np.float32)) if e["type"] == "gesture"]
+
+    assert run(None) == []                                       # as before: everything is vetoed while "entering"
+    assert run(3.0) == ["push"]                                  # capped at 3 s: the burst at 2 s is vetoed, the one at 10 s fires

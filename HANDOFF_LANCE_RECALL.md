@@ -4,63 +4,63 @@ For Lance (and Lance's bot). Run the steps in order, from the repo folder on the
 (`C:\Users\lance\sonar-hack`). Commit as yourself, no AI attribution lines. Every step says how long it takes
 and exactly what to push back.
 
-Why: the model scored 0.30 "gestures recognised" on the held-out person. The recordings in the repo do not
-reproduce that number (the same recipe scores about 0.78 on them). The one session that was in the 4090 run but
-is not in the repo, `mac/data/20261114-001248_mahimn_gestures`, was half of that test. The two "left/right wiring"
-numbers your runs printed (-2.52 with it, +9.4 without it) only fit if the swipes in that session go the
-opposite way to their prompts. Step A sends that session back so this can be checked directly.
+Why: the model scored 0.30 "gestures recognised" on the held-out person. Half of that test was mahimn's first
+gesture session, and its swipes go the opposite way to their prompts (27 of 30, measured on the audio), so 30 of
+the 81 test gestures could never count. The round-2 runs (0.31 / 0.32) were scored on the same 81. Step B scores
+every recipe again with that session's labels fixed, holding out each person in turn.
 
 ---
 
-## Step A — send back the missing session and the held-out run (about 1 minute, no GPU)
+## Step A — send back the held-out run's files (about 1 minute, no GPU)
+
+The missing session is already back (Lance committed it as `mac/excluded/20261114-001248_mahimn_gestures` on
+`model-sat-am`; checked here on the audio: its swipes do go the opposite way to their prompts, 27 of 30).
+What is still useful: the held-out models of the earlier runs, so they can be re-scored with the labels fixed.
 
 ```powershell
 cd C:\Users\lance\sonar-hack
-git status --short | Select-Object -First 30
 git fetch origin
 git switch model-sat-am
 git switch -c recall-data-1
-
-# 1. the recording that was used in the 03:02 run but never committed (about 32 MB)
-dir mac\data
-git add -f mac/data/20261114-001248_mahimn_gestures
-
-# 2. the held-out model of that run (the one that scored 0.296) and its log: small files
-New-Item -ItemType Directory -Force recall_handoff\run_20261114-030255 | Out-Null
-Copy-Item train_out\runs\20261114-030255\log.txt recall_handoff\run_20261114-030255\ -ErrorAction Continue
-Copy-Item train_out\runs\20261114-030255\summary.json recall_handoff\run_20261114-030255\ -ErrorAction Continue
-Copy-Item train_out\runs\20261114-030255\sweep\w24_s0 recall_handoff\run_20261114-030255\w24_s0 -Recurse -ErrorAction Continue
-dir train_out\runs | Out-File recall_handoff\runs_listing.txt
-dir train_out\synth, train_out\synth_bg, train_out\pretrain, train_out\sessions -ErrorAction Continue | Out-File recall_handoff\cache_listing.txt
+New-Item -ItemType Directory -Force recall_handoff | Out-Null
+foreach ($d in "train_out", "train_out_formula") {
+  Get-ChildItem $d\runs -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+    $dst = "recall_handoff\$d" + "_" + $_.Name
+    New-Item -ItemType Directory -Force $dst | Out-Null
+    Copy-Item "$($_.FullName)\log.txt", "$($_.FullName)\summary.json" $dst -ErrorAction SilentlyContinue
+    Copy-Item "$($_.FullName)\sweep" $dst -Recurse -ErrorAction SilentlyContinue
+  }
+}
 git add -f recall_handoff
-
-git commit -m "Add mahimn's first gesture session and the held-out run files"
+git commit -m "Held-out run files of the earlier training runs"
 git push -u origin recall-data-1
 ```
 
-Push back: branch **`recall-data-1`**. It must contain
-`mac/data/20261114-001248_mahimn_gestures/audio.wav` + `session.json` and the folder `recall_handoff/`.
+Push back: branch **`recall-data-1`** with the folder `recall_handoff/` (each run's `log.txt`, `summary.json`
+and `sweep\w24_s0\gesture.onnx` + `gesture.json` + `metrics.json` + `confusion.txt`). A few MB.
 
-If `mac\data\20261114-001248_mahimn_gestures` does not exist on the box: say so, and look for it on the MacBook
-that recorded it (`data/20261114-001248_mahimn_gestures` in the repo folder there); send it any way you can.
-If any other session folders exist under `mac\data` or `data` that are not in the repo, add them the same way
-(`git add -f <folder>`).
-
-One question for Mahimn while this runs: in your FIRST gesture session (about 00:12), did you sweep the opposite
-way to the prompt (for example "swipe left" done as a hand moving towards your right, or the picture mirrored)?
+**Important for every other training command on this box:** `--data mac` still finds the flipped session,
+because `mac\excluded\` is inside `mac\`. Until it is fixed, train with `--data mac\data` (or use the suite
+below, which exchanges that session's left/right labels itself).
 
 ---
 
-## Step B — the leave-one-person-out experiment suite (GPU, about 40 minutes)
+## Step B — the leave-one-person-out experiment suite (GPU, about 55 minutes)
 
-What it does: trains 15 recipes ("arms"), each one three times over with a different person held out
-(lance+lance2 count as one person), 3 seeds each, and scores every one the same honest way. It also checks
-every session's left/right labels against the others, and exports the best recipes as engine-ready models.
-It is one command; everything lands in `train_out\recall\suite\<time>\`. Nothing in `models\` or
-`models-release*\` is touched. The synthetic data is made on the GPU with the unchanged generator (the picture
-check that already passed on this box is reused, so it should not run again).
+What it does: trains 26 recipes ("arms"), each one three times over with a different person held out
+(lance+lance2 count as one person), 3 seeds each, and scores every one the same honest way. It checks every
+session's left/right labels against the others, exchanges the left/right labels of mahimn's first session
+(`--flip`, on by default: that session's swipes go the opposite way to its prompts, measured on the audio), and
+exports the best recipes as engine-ready models. It is one command; everything lands in
+`train_out\recall\suite\<time>\`. Nothing in `models\` or `models-release*\` is touched. The synthetic data
+is made on the GPU with the unchanged generator (the picture check that already passed on this box is reused,
+so it should not run again).
 
-Needs branch `recall` (Mahimn pushes it). Do Step A first.
+Nine more recipes use the simulator fitted to this MacBook. They run by themselves if
+`train_out\synth_cal\macbook_v*\` already exists (the simulator handoff, `HANDOFF_LANCE_CALIBRATION.md`,
+makes it) and are skipped otherwise; Step C adds them later.
+
+Needs branch `recall` (Mahimn pushes it).
 
 ```powershell
 cd C:\Users\lance\sonar-hack
@@ -69,21 +69,20 @@ git switch recall
 git pull
 
 # The recordings are not part of this branch. Put them into the working folder (they stay uncommitted here):
-git restore --source origin/model-sat-am --worktree -- mac/data
-git restore --source origin/recall-data-1 --worktree -- mac/data/20261114-001248_mahimn_gestures
-dir mac\data                       # expect 13 session folders (12 if Step A found no 001248 session: still run)
+git restore --source origin/model-sat-am --worktree -- mac/data mac/excluded
+dir mac\data, mac\excluded        # expect 12 session folders + 1 (20261114-001248_mahimn_gestures)
 
 # 2-minute self-test on the CPU first (its numbers mean nothing; it must end with "DONE")
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --device cpu --smoke
 
-# the real run (about 40 minutes: ~10 min making data, ~25 min training 240 small models 4 at a time, ~2 min export)
+# the real run (about 55 minutes: ~10 min making data, ~40 min training 400 small models 4 at a time, ~2 min export)
 powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1
 ```
 
-If it stops with an error: run the same last command again (it continues where it stopped). If it stops
-again, push what exists anyway (below) so the log comes back.
+If it stops with an error: run it again with the same folder, `--stamp <time>` (the folder name it printed); it
+continues where it stopped. If it stops again, push what exists anyway (below) so the log comes back.
 
-Push back (branch **`recall-results-1`**), about 30 MB:
+Push back (branch **`recall-results-1`**), about 45 MB:
 
 ```powershell
 $run = (Get-ChildItem train_out\recall\suite -Directory | Where-Object { $_.Name -notlike "smoke_*" } | Sort-Object Name | Select-Object -Last 1).FullName
@@ -102,6 +101,39 @@ folder `final\` (three or four sub-folders, each with `gesture.onnx`, `gesture.j
 
 Also paste into the chat: the first table of `report.md` and the "label audit" block near the top of `log.txt`.
 
-Run time measured here: the self-test takes 1 minute on a Mac CPU. The 40 minutes for the full run is an
+Run time measured here: the self-test takes 2 minutes on a Mac CPU. The 55 minutes for the full run is an
 estimate from the earlier 4090 timings (12,000 clips in 5.7 min, one fine-tuning run in 19 s); it has not been
 run on a 4090.
+
+---
+
+## Step C — add the calibrated-simulator recipes (GPU, about 15 minutes; only after the calibrated sets exist)
+
+Do this after `HANDOFF_LANCE_CALIBRATION.md` (the simulator session's handoff) has written
+`train_out\synth_cal\macbook_v*\...\dataset.npz`, and only if Step B ran before those files existed (its log
+then says "arm cal50: skipped"). It adds nine recipes to the SAME run folder and rebuilds the report with all of
+them.
+
+```powershell
+cd C:\Users\lance\sonar-hack
+git switch recall
+git pull
+dir train_out\synth_cal           # expect macbook_v1 or macbook_v2, plus _motion and _bg, each with all / no_lance / no_aarsh / no_mahimn
+$stamp = (Get-ChildItem train_out\recall\suite -Directory | Where-Object { $_.Name -notlike "smoke_*" } | Sort-Object Name | Select-Object -Last 1).Name
+powershell -ExecutionPolicy Bypass -File scripts\recall_suite.ps1 --stamp $stamp --arms cal50,cal25,cal50_aux,cal_pre_real,calm50,calm50_aux,calbg50,calbg50_aux,calbg25_aux
+```
+
+Push back (branch **`recall-results-2`**): the same folder again, same commands as in Step B with the branch
+name changed:
+
+```powershell
+$run = (Get-ChildItem train_out\recall\suite -Directory | Where-Object { $_.Name -notlike "smoke_*" } | Sort-Object Name | Select-Object -Last 1).FullName
+Remove-Item recall_results -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force recall_results | Out-Null
+Copy-Item $run recall_results\ -Recurse -Force
+git switch -c recall-results-2
+git add -f recall_results
+git commit -m "Recall suite results with the calibrated-simulator recipes"
+git push -u origin recall-results-2
+git switch recall
+```
