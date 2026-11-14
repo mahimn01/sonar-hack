@@ -141,7 +141,12 @@ def replay_session(folder: str | Path, model: str | Path | None, min_confidence:
 
 
 def _why(label: str, seen: list[tuple[float, str, float, float]], min_confidence: float) -> str:
-    """Why the engine reported nothing for this trial, from the verdicts it reached on the bursts in the window."""
+    """Why the engine reported nothing for this trial, from the verdicts it reached on the bursts in the window.
+
+    A prompt usually produces several bursts (wind-up, stroke, the hand going back). If any of them was read as
+    the right gesture, that is the answer (too unsure, or dropped by the debounce). Otherwise the verdict on the
+    STRONGEST burst counts: that one is the gesture; a faint side burst being gated says nothing about it.
+    """
     if not seen:
         return REASONS[0]
     names = [d[1] for d in seen]
@@ -149,11 +154,12 @@ def _why(label: str, seen: list[tuple[float, str, float, float]], min_confidence
         return REASONS[6]
     if any(n == label for n in names):
         return REASONS[3]
-    if "blocked:weak" in names:
+    top = max(seen, key=lambda d: d[3])[1]
+    if top == "blocked:weak":
         return REASONS[1]
-    if any(n in ("blocked:entering", "blocked:far") for n in names):
+    if top in ("blocked:entering", "blocked:far"):
         return REASONS[2]
-    if any(n not in ("none", label) and not n.startswith("blocked") for n in names):
+    if top != "none":
         return REASONS[4]
     return REASONS[5]
 

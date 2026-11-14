@@ -1,157 +1,155 @@
 # Handoff for Lance: data-engine run on the RTX 4090
 
-Written 2026-11-14 by the data-engine session. One command. It finds out why the model recognises only
-30 % of Mahimn's gestures (he was the held-out person in your 03:02 run), measures three possible fixes,
-and puts everything worth sending back into one folder that you push to the branch `dataeng-results`.
+**Version 2, written 2026-11-14 about 05:45 EST by the data-engine session. It replaces version 1
+(commit 48e2518).**
 
-Nothing here has run on a CUDA GPU or on the real recordings before: your output is the first real check.
-The script writes down a failed step and carries on, so let it finish and push whatever it produced.
-Background: `DATA_ENGINE.md`.
+**Short form: do not run the data-engine step. The 4090 is free for the recall session's Step B
+(`HANDOFF_LANCE_RECALL.md`).**
 
-## 0. Get the code (1 minute)
+## 1. What changed since version 1
 
-Run in PowerShell, in the repo folder on the 4090 box (where the MacBook recordings are in `mac\`):
+Version 1 asked for `.venv\Scripts\python scripts\dataeng_4090.py --data mac` (about 40 minutes). Please
+skip it:
 
-```powershell
-git fetch origin
-git switch main
-git pull
-.venv\Scripts\python -c "import sonar.gesture_replay, sonar.labelqa, sonar.adapt, sonar.weaklabel; print('data engine ok')"
-```
-Expected: `data engine ok`. (If Mahimn names another branch, switch to that one instead of `main`.)
-No new packages are needed on this box.
+- **It is already measured.** The 13 MacBook recordings and the held-out model of your 03:02 run came back
+  on the branches `model-sat-am` and `recall-data-1`, so the same script ran on the Mac Studio (1.5 minutes,
+  CPU). The results are in `handoff_results/dataeng/` and summed up in `DATA_ENGINE.md`, section 1.
+- **Its two training runs are covered better elsewhere.** The recall session's suite trains the other burst
+  cutting as six recipes and scores every recipe with each person held out in turn, three seeds each.
+- **Version 1 would have scored on wrong labels.** `--data mac` also reads
+  `mac\excluded\20261114-001248_mahimn_gestures` as it was recorded. In that session Mahimn's swipes go the
+  opposite way to the prompts (27 of 30). So 30 of his 81 test gestures carried the wrong label, and every
+  score for him in that run would have been too low. The new script exchanges those labels first.
 
-## 1. The run
+## 2. If version 1 already ran, or is running
 
-```powershell
-.venv\Scripts\python scripts\dataeng_4090.py --data mac
-```
+| situation | do |
+|---|---|
+| not started | skip it |
+| running | Ctrl+C is fine |
+| finished | push `handoff_results\dataeng` anyway (commands below). Still useful: `06_parity.txt`, the first check of the fast code on a CUDA GPU, and the timing lines. Not usable: every score for Mahimn (`01_replay`, `02_replay_gate8`, `05_adapt_eval`, "Honest score on mahimn"), because of the labels above |
 
-Nothing else may use the GPU meanwhile (close games, Medal, Discord overlays, as for the benchmark).
-
-| what it does | runs on | expected time |
-|---|---|---|
-| picks the model of your newest run that left somebody out (`train_out\runs\20261114-030255\sweep\w24_s0`) and that person (mahimn) | | seconds |
-| replays Mahimn's recordings through the real engine, twice (the model's own strength gate, then a low gate) | CPU, parallel | under 1 min |
-| checks labels and burst cutting of all 13 sessions; draws 3 pictures of one of Mahimn's gesture sessions | verdicts on the GPU | 1-2 min |
-| measures what an "each gesture 3 times" table calibration would give Mahimn | GPU | about 1 min |
-| checks the fast batched code against the original code (`PARITY OK`) | GPU + CPU | under 1 min |
-| trains once more with the extra weighted examples (`--weak`). The code changed since your last run, so this run also repeats the GPU-against-CPU picture check and remakes the synthetic data | GPU | about 16-20 min |
-| ONLY if the label check found long, loud bursts: trains once more with the other burst cutting, in its own folder | GPU | about 12-16 min |
-
-**Total: about 25 minutes, or about 40 if the last row runs.** `--skip-heavy` does only the first five rows
-(about 5 minutes) if the box is needed for something else; the two training runs can follow later with the
-same command.
-
-It never writes to `models\` or `models-release*\`, and it does not change the caches of your earlier runs
-(the second training run uses `train_out\rel12\`).
-
-### What you should see at the end
-
-```
-==============================================================================
-data-engine run 2026-11-14 HH:MM on <computer> (Windows 11)
-python 3.12.10 | torch 2.15.0+cu132 | cuda True | NVIDIA GeForce RTX 4090
-code: <commit>
-model: C:\Users\lance\sonar-hack\train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx   held-out: mahimn
-[01_replay]
-replayed through the engine (confidence >= 0.6, strength gate NN.N dB):
-  mahimn         recognised  NN/93  ( NN.N%)   wrong  N   missed  NN   false triggers N (N.NN/min)   [push .., swipe_left .., swipe_right ..]
-why the missed ones were missed:
-    NN  blocked: too faint for the engine's gate
-    NN  model said none
-    ...
-[02_replay_gate8]
-  ... the same with strength gate 8.0 dB ...
-[03_labelqa]
-=== 13 session(s): ... labelled gestures ...
-  physics vs prompt labels: same  NN%, ...
-  model   vs prompt labels: same  NN%, ...
-  burst cutting (... gesture bursts): typical length N.NN s, NN% cut off at the length limit, ...
-gesture bursts cut off at the length limit: NN %, typical strength NN dB -> long loud bursts: True/False
-[05_adapt_eval]
-                                            base                        bn                     proto                  bn+proto
-mahimn                       0.NNN  0.NNN  0.NNN       0.NNN  0.NNN  0.NNN  ...
-[06_parity]
-parity on 6 session(s), ... step 1 by: gpu front end; judge: physics rules batched on cuda; model: PyTorch on cuda
-PARITY OK
-[07_train_weak]
-Honest score on mahimn: accuracy 0.NNN, macro-F1 0.NNN; at the engine's 0.6 threshold 0.NNN of gestures recognised, 0.NNN of non-gestures would trigger
-[08_train_relcut, SONAR_SEG_REL_OFF_DB=12]          (only if long loud bursts were found)
-Honest score on mahimn: ...
-total: NN.N minutes
-==============================================================================
-Everything to send back is in handoff_results\dataeng (about 20 files). Push it:
-```
-
-If `[06_parity]` says `PARITY FAILED`, the script does not start the training runs. Push the folder anyway.
-
-## 2. Send the results back (1 minute)
+It wrote only under `train_out\` and `handoff_results\dataeng`, never to `models\` or `models-release*\`.
+If its training run finished, `train_out\runs\` holds one more run folder (the newest). It was scored on the
+labels as recorded: take no number from it.
 
 ```powershell
 git switch -c dataeng-results
 git add handoff_results\dataeng
-git commit -m "Data-engine results from the 4090: replay, label check, calibration, burst cutting"
+git commit -m "Data-engine results from the 4090 (version 1 of the handoff: scores for mahimn are on unfixed labels)"
 git push -u origin dataeng-results
-git switch main
+git switch recall
 ```
 
-The folder holds only text, JSON and 3 PNG pictures (about 1-2 MB): the printed output of every step,
-`SUMMARY.txt`, the replay and label-check reports, the calibration table, and the `TRAINING_RUN.json` of
-each training run. No audio and no model files. Commit as yourself, no AI attribution lines.
+## 3. Optional, only when the GPU has nothing else to do (about 5 minutes)
 
-Optional and useful: one real recording for Mahimn to look at on the Mac Studio (34 MB, by Drive or AirDrop,
-not through git):
-```powershell
-Compress-Archive -Path mac\20261114-025724_mahimn_gestures -DestinationPath mahimn_gestures.zip -Force
-```
+Not needed for any decision. It would confirm two things on the 4090: the fast batched code gives what the
+original code gives on CUDA (`PARITY OK`), and the box reproduces the Mac Studio's numbers.
 
-## What the numbers will decide
-
-| in `SUMMARY.txt` | then |
-|---|---|
-| `[01_replay]`: most misses "blocked: too faint", and `[02_replay_gate8]` recognises many more | the engine's strength gate is the problem: run the demo engine with `--min-peak-db 8`. No retraining needed |
-| `[01_replay]`: most misses "model said none" or "confidence too low" | the model itself: the next three rows matter |
-| `long loud bursts: True`, and `[08_train_relcut]` recognises clearly more than 0.296 | the burst cutting was part of it: Mahimn switches the new cutting on for good and you retrain once |
-| `[05_adapt_eval]`: `bn` recall clearly above `base` | "each gesture 3 times" + `sonar.adapt fit` goes into the demo set-up |
-| `[03_labelqa]`: `WRONG BURST CHOSEN?` or low agreement with the prompt labels | the labels are the problem: record the next sessions with the camera (below) |
-| `[07_train_weak]`: fewer non-gestures trigger than 0.055 at the same recall | `--weak` stays on for the final training |
-
-For comparison, your 03:02 run: accuracy 0.726, 0.296 of gestures recognised, 0.055 of non-gestures trigger.
-
-## If something goes wrong
-
-| what you see | do |
-|---|---|
-| `STOPPED: no model that left people out` | give them by hand: `--model train_out\runs\<run>\sweep\w24_s0\gesture.onnx --people mahimn` |
-| a step ends with `!!! step ... ended with exit code` | let it finish; the error text is in `handoff_results\dataeng\<step>.txt`, push it |
-| `CUDA out of memory` in a training step | another program holds the GPU; close it and run the command again (finished steps are quick the second time) |
-| it must stop early | Ctrl+C; run again later, `--skip-heavy` first if time is short |
-
-## The same steps by hand (only if you need one of them alone)
+Needs the data-engine branch with Mahimn's next push (the script is newer than 48e2518).
 
 ```powershell
-$M = "train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx"
-.venv\Scripts\python -m sonar.gesture_replay mac --model $M --people mahimn
-.venv\Scripts\python -m sonar.gesture_replay mac --model $M --people mahimn --min-peak-db 8
-.venv\Scripts\python -m sonar.labelqa mac --model $M --no-plot --out train_out\dataeng\qa
-.venv\Scripts\python -m sonar.labelqa mac\20261114-025724_mahimn_gestures --model $M --out train_out\dataeng\qa
-.venv\Scripts\python -m sonar.adapt eval --model $M --data mac --people mahimn
-.venv\Scripts\python -m sonar.weaklabel mac --model $M --parity
-powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person mahimn --weak --models train_out\weak_models --release train_out\weak_release
-$env:SONAR_SEG_REL_OFF_DB = "12"
-powershell -ExecutionPolicy Bypass -File scripts\train_4090.ps1 --data mac --val-person mahimn --skip-parity --out train_out\rel12 --models train_out\rel12\models --release train_out\rel12\release
-Remove-Item Env:SONAR_SEG_REL_OFF_DB
+git fetch origin
+git switch data-engine
+git pull
+git restore --source origin/model-sat-am --worktree -- mac/data mac/excluded
+dir mac\data, mac\excluded        # expect 12 session folders + 1 (20261114-001248_mahimn_gestures)
+.venv\Scripts\python scripts\dataeng_4090.py --data mac
 ```
-`--skip-parity` belongs to the last training command only: the picture check compares with a stored
-reference made with the usual burst cutting, so with the variable set it would report a difference that is
-intended. A model trained that way must not be copied into `models\`: it only works where the same variable
-is set.
 
-## On the MacBook: recording with the camera timing the gestures (you and Mahimn only, optional)
+It trains nothing. It first writes a corrected copy of the label files (the audio is not copied, no
+recording is changed), then reads only that copy. If it stops with `STOPPED: no model that left people out`,
+add `--model train_out\runs\20261114-030255\sweep\w24_s0\gesture.onnx --people mahimn`.
 
-Never tried on a real webcam yet. It records like `scripts/mac_record_all.sh`, but the webcam works out when
-each gesture really happened, so the labels are exact instead of "somewhere in 2.5 seconds".
+Expected at the end (these are the Mac Studio's numbers for the same recordings and the same model; the
+4090 should print the same counts):
+
+```
+[00_view]
+  20261114-001248_mahimn_gestures          mahimn     LEFT/RIGHT EXCHANGED in 30 swipe labels
+view of 13 session(s) -> ...
+[01_replay]
+replayed through the engine (confidence >= 0.6, strength gate 30.6 dB):
+  mahimn         recognised  36/81  ( 44.4%)   wrong  5   missed  40   false triggers 1 (0.15/min)   [push 7/27, swipe_left 18/27, swipe_right 11/27]
+why the missed ones were missed:
+     2  blocked: too faint for the engine's gate
+    11  blocked: taken for somebody walking in or past
+    16  right gesture, confidence too low
+    10  another gesture, below the threshold
+     1  model said none
+[02_replay_conf05]                  recognised  47/81   wrong  8   false triggers 1
+[02_replay_conf04]                  recognised  50/81   wrong 11   false triggers 1
+[02_replay_nogates]                 recognised  43/81   wrong  8   false triggers 5
+[02_replay_nogates_conf05]          recognised  58/81   wrong  9   false triggers 7
+[02_replay_relcut]                  recognised  44/81   wrong  6   false triggers 0
+[02_replay_relcut_nogates_conf05]   recognised  61/81   wrong  8   false triggers 7
+[03_labelqa]
+  20261113-233122_lance_gestures: TOO FAST: 28 of 35 gestures run off the edge of the picture (it shows hand speeds up to about 2.3 m/s)
+  ... (5 LONG BURSTS lines, 3 TOO FAST lines)
+=== 13 session(s): 218 labelled gestures (0 camera-timed, 218 prompt windows), 1 with no sonar movement, 0 for review, 11 to check
+  model   vs prompt labels: same   76%, saw no gesture   19%, other gesture    5%   (n=218)
+  burst cutting (218 gesture bursts): typical length 1.10 s, 51% cut off at the length limit, 2.1 bursts per gesture, ...
+  too fast for the picture (the stroke runs off the edge of the speed range): 91 of 218 gestures
+[05_adapt_eval]
+mahimn                       0.837  0.556  0.050       0.855  0.514  0.010       0.831  0.542  0.060       0.855  0.556  0.010
+[06_parity]
+parity on 6 session(s), 375 bursts; step 1 by: cpu; judge: physics rules batched on cuda; model: PyTorch on cuda
+PARITY OK
+training runs: none asked for (--train-weak / --train-relcut)
+total: about 2 minutes
+```
+
+Send back (branch `dataeng-results`, text, JSON and 3 pictures, about 1 MB, no audio and no model files):
+
+```powershell
+git switch -c dataeng-results
+git add handoff_results\dataeng
+git commit -m "Data-engine diagnostics from the 4090: replay, label check, calibration, parity on CUDA"
+git push -u origin dataeng-results
+git switch recall
+```
+
+Commit as yourself, no AI attribution lines. If `[06_parity]` says `PARITY FAILED`, push the folder all the
+same: that file is the one thing this step is for.
+
+## 4. On the MacBook: one check after every new recording (10 seconds, no GPU)
+
+This is the useful part for today. One session was recorded with nearly every swipe going the wrong way,
+and it was only found hours later, from a training score that made no sense. This line notices while the
+person is still at the table:
+
+```bash
+cd ~/sonar-hack && .venv/bin/python -m sonar.labelqa data/<the new session folder> --no-plot
+```
+
+Needs the data-engine code on the MacBook with Mahimn's next push (`git fetch origin && git switch
+data-engine && git pull`, or `main` once it is merged). No new packages, no model file.
+
+| it prints | meaning | do |
+|---|---|---|
+| `!! LEFT/RIGHT LOOKS FLIPPED for the prompt labels (N of M swipes)` | the swipes went the opposite way to the prompts | record that person again: "swipe_left = the hand travels to YOUR left" |
+| `!! TOO FAST: N of M gestures run off the edge of the picture` | the hand was faster than about 2.3 m/s, the most the sonar picture can show | record again at a calm pace: about half a second across the screen, not a flick |
+| `N with no sonar movement` for more than 2 or 3 prompts | gestures too far from the laptop, or the volume changed | check the volume, gesture above the keyboard |
+| none of these | the session is fine | carry on |
+
+Measured on the 5 real gesture sessions with the labels as recorded:
+
+| session | `FLIPPED` (swipes against the direction cue) | `TOO FAST` (gestures off the edge) |
+|---|---|---|
+| lance | no (5 of 19) | **yes** (28 of 35) |
+| lance2 | no (7 of 17) | **yes** (37 of 45) |
+| mahimn, first (the reversed one) | **yes** (27 of 30) | **yes** (25 of 45) |
+| aarsh | no (0 of 29) | no (1 of 45) |
+| mahimn, second | no (2 of 23) | no (0 of 48) |
+
+So your own next session is the one to watch: both of yours were too fast. The limit for "too fast" was
+set on these 5 sessions, so read it as a first guess. `--model <a gesture.onnx>` adds a line "model agrees
+with the prompt label N/M".
+
+## 5. Recording with the camera timing the gestures (you and Mahimn only, optional)
+
+Never tried on a real webcam yet. It records like `sonar.record`, but the webcam works out when each
+gesture really happened and which way it went, so a reversed session cannot happen.
 
 ```bash
 cd ~/sonar-hack && uv pip install --python .venv/bin/python -r requirements-camera.txt
@@ -166,12 +164,7 @@ cd ~/sonar-hack && .venv/bin/python -m sonar.camrecord --person lance --in-devic
   a sonar movement burst`.
 - Send back those three lines, and whether the counter followed your gestures. The session lands in `data/`
   like every other and trains with no extra step.
+- If the camera part fails, the same command still records the plain prompted session.
 
-Calibration at the demo table (once the run above says it helps). It needs `gesture.pt` next to
-`gesture.onnx`; the model branch does not carry it yet, so add `models-release-mac\gesture.pt` to the next
-model commit on the 4090 box.
-```bash
-cd ~/sonar-hack && .venv/bin/python -m sonar.camrecord --person lance --script calibrate --in-device MacBook --out-device MacBook --consent yes
-cd ~/sonar-hack && .venv/bin/python -m sonar.adapt fit --model models/gesture.onnx --calib data/<the calibrate session> --out models/room
-cd ~/sonar-hack && .venv/bin/python -m sonar.engine --model models/room/gesture.onnx --in-device MacBook --out-device MacBook
-```
+Try it yourself once before using it with another person. For the new people today, `sonar.record` plus the
+check in section 4 is the safe choice.

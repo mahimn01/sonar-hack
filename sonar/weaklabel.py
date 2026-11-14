@@ -135,8 +135,8 @@ def code_key() -> str:
     return h.hexdigest()[:12]
 
 
-def cache_path(cache: Path, folder: Path, session: str) -> Path:
-    audio = folder / "audio.wav"
+def cache_path(cache: Path, folder: Path, session: str, audio_name: str = "audio.wav") -> Path:
+    audio = folder / audio_name                    # a full path in session.json (a view made by dataview.py) wins over the folder
     stat = audio.stat() if audio.exists() else None
     key = hashlib.sha256(json.dumps([code_key(), stat.st_size if stat else 0, int(stat.st_mtime) if stat else 0,
                                      os.environ.get("SONAR_SEG_REL_OFF_DB", "")]).encode()).hexdigest()[:12]
@@ -208,11 +208,13 @@ def all_bursts(folders: list[Path], device: Any = None, cache: Path | None = Non
     for i, folder in enumerate(folders):
         files[i] = None
         if cache is not None and not keep_stream:
+            session, audio_name = folder.name, "audio.wav"
             try:
-                session = json.loads((folder / SESSION_FILE).read_text()).get("session_id", folder.name)
+                meta = json.loads((folder / SESSION_FILE).read_text())
+                session, audio_name = meta.get("session_id", folder.name), str(meta.get("audio", "audio.wav"))
             except (OSError, ValueError):
-                session = folder.name
-            path = cache_path(cache, folder, str(session))
+                pass
+            path = cache_path(cache, folder, str(session), audio_name)
             files[i] = str(path)
             if path.exists():
                 try:

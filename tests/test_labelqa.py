@@ -3,11 +3,12 @@
 import json
 import shutil
 
+import numpy as np
 import pytest
 
 from sonar import labelqa
 from sonar.dataset import find_sessions
-from sonar.labelqa import one_line, review_session, totals
+from sonar.labelqa import edge_shares, one_line, review_session, totals
 from sonar.weaklabel import session_table
 
 from .engine_helpers import camera_sessions, prompted_sessions, scripted_audio, small_model, span, write_session
@@ -153,3 +154,25 @@ def test_burst_cutting_audit_and_the_peak_relative_option(cfg, tmp_path, monkeyp
     audio, _ = scripted_audio(cfg, [(3.0, "swipe_right", 1.0), (6.5, "push", 1.0), (10.0, "swipe_left", 1.1)], 13.5, seed=2, hand_db=-24.0)
     plain = [(s.start, s.end, s.decided) for s in stream_features(audio, cfg).segments]
     assert plain and plain == [(s.start, s.end, s.decided) for s in stream_features(audio, cfg.with_(seg_rel_off_db=24.0)).segments]
+
+
+@pytest.mark.slow
+def test_too_fast_strokes_are_called_out(cfg, sessions, model, monkeypatch):
+    """A hand faster than the picture's speed range leaves its energy in the outermost rows of the picture."""
+    calm = np.zeros((2, 2, cfg.doppler_bins, 40), np.float32)
+    calm[:, :, 24:40, 10:30] = 0.9                                   # a trace in the middle of the speed range
+    fast = calm.copy()
+    fast[1, :, :4, 10:30] = fast[1, :, -4:, 10:30] = 0.9             # the second picture also runs along both edges
+    shares = edge_shares(fast, cfg.doppler_bins)
+    assert shares[0] == 0.0 and shares[1] == pytest.approx(8 / 24, abs=1e-3) and edge_shares(calm * 0.3, cfg.doppler_bins).max() == 0.0
+    # a calmly performed session: no warning. (The simulator cannot make the real thing: its too-fast strokes
+    # leave the picture altogether. The limit was set on the MacBook recordings, see EDGE_SHARE_FAST.)
+    table = session_table(find_sessions(sessions)[0], model, "cpu")
+    rep = review_session(table)
+    assert rep["cutting"]["off_the_speed_range"] == 0 and rep["cutting"]["edge_share_median"] < 0.05
+    assert not any("TOO FAST" in v for v in rep["verdicts"]) and totals([rep])["all"]["cutting"]["too_fast"] == 0
+    monkeypatch.setattr(labelqa, "EDGE_SHARE_FAST", -1.0)             # now every gesture counts as too fast: is the warning worded right?
+    rep = review_session(table)
+    n = rep["cutting"]["gestures"]
+    assert any(v.startswith(f"TOO FAST: {n} of {n} gestures") and "2.3 m/s" in v and "calm pace" in v for v in rep["verdicts"])
+    assert totals([rep])["all"]["cutting"]["too_fast"] == n

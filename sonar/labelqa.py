@@ -42,6 +42,12 @@ from .weaklabel import OPPOSITE, Burst, SessionTable, build_tables, fires, table
 COLORS = {"swipe_left": "tab:red", "swipe_right": "tab:blue", "push": "tab:green", "pull": "tab:orange", "none": "0.6",
           "review": "tab:purple", "return": "0.45", "other": "0.45"}
 SWIPES = ("swipe_left", "swipe_right")
+# "Too fast" = the bright part of a gesture's picture sits in the outermost rows (the top and bottom 6 of 64:
+# tone shifts beyond about 200 of the 250 Hz the picture shows). Set on the MacBook recordings of 2026-11-14:
+# sessions with flicked strokes have a typical edge share of 0.16-0.21, sessions at a calm pace 0.05.
+EDGE_PART = 6 / 64
+EDGE_FLOOR = 0.35           # picture brightness that counts as "stands out of the background"
+EDGE_SHARE_FAST = 0.15
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +58,17 @@ def _vote(b: Burst, witness: str, threshold: float) -> str:
     if witness == "physics":
         return b.physics if b.physics != "none" and b.physics_conf >= 0.5 else "none"
     return b.model if b.model not in ("", "none") and b.model_conf >= threshold else "none"
+
+
+def edge_shares(power: np.ndarray, doppler_bins: int) -> np.ndarray:
+    """For each picture [n, channels, speed rows, frames]: the share of its bright part that lies in the outermost rows.
+
+    Near 0 for a stroke the picture can show; large when the hand was faster than the picture's speed range.
+    """
+    n_edge = max(1, round(EDGE_PART * doppler_bins))
+    bright = np.clip(power - EDGE_FLOOR, 0.0, None)
+    at_edge = bright[:, :, :n_edge].sum(axis=(1, 2, 3)) + bright[:, :, -n_edge:].sum(axis=(1, 2, 3))
+    return at_edge / (bright.sum(axis=(1, 2, 3)) + 1e-9)
 
 
 def cutting_report(table: SessionTable, min_confidence: float = 0.6) -> dict[str, Any]:
@@ -83,6 +100,7 @@ def cutting_report(table: SessionTable, min_confidence: float = 0.6) -> dict[str
     events = table.meta.get("events", [])
     delay = [(b.start - bs.frame_of_sample(events[b.event]["start"])) / rate for b in gestures
              if b.event is not None and not events[b.event].get("tight")]
+    edge_share = edge_shares(power, cfg.doppler_bins)
     better = trial_hit = 0
     for b in gestures:
         mates = [o for o in table.bursts if o.trial == b.trial]
@@ -96,6 +114,7 @@ def cutting_report(table: SessionTable, min_confidence: float = 0.6) -> dict[str
         bursts_per_gesture=round(float(np.mean(list(per_trial.values()))), 2) if per_trial else None,
         gesture_peak_db={"p10": round(float(np.percentile(bs.peak_db[idx], 10)), 1), "median": round(float(np.median(bs.peak_db[idx])), 1)},
         saturated_share=round(float((power >= 0.999).mean()), 4),
+        edge_share_median=round(float(np.median(edge_share)), 3), off_the_speed_range=int((edge_share > EDGE_SHARE_FAST).sum()),
         another_burst_fits_better=int(better), recognised_in_some_burst=int(trial_hit),
         witness="model" if use_model else "physics",
     )
@@ -189,8 +208,10 @@ def review_session(table: SessionTable, min_confidence: float = 0.6) -> dict[str
                 f"LEFT/RIGHT LOOKS FLIPPED for the {src} labels ({bad} of {n} swipes): "
                 + ("the camera picture is mirrored the wrong way (key M on the consent screen, or --camera-mirrored), "
                    "or the microphone / speaker channels are swapped" if src == "camera"
-                   else "the microphone / speaker channels are swapped on this laptop (training measures and handles that), "
-                        "or the performer swiped the other way"))
+                   else "if the OTHER sessions of this laptop do not show this, this session's swipes went the opposite way to "
+                        f"their prompts: exchange its labels with `python -m sonar.dataview <data> --out <view> --flip-swipes {table.session}` "
+                        "and use the view. If every session shows it, the microphone / speaker channels are swapped "
+                        "(training measures and handles that)"))
     n_cam = sum(1 for b in gestures if b.label_source == "camera")
     missed_cam = sum(1 for ev in table.missed if ev.get("source") == "camera")
     if n_cam + missed_cam >= 4 and missed_cam >= 0.5 * (n_cam + missed_cam):
@@ -202,6 +223,13 @@ def review_session(table: SessionTable, min_confidence: float = 0.6) -> dict[str
             f"LONG BURSTS: {100 * cutting['gesture_cut_at_limit_share']:.0f}% of the gesture bursts run into the {cutting['limit_s']} s limit "
             f"(typical strength {cutting['gesture_peak_db']['median']:.0f} dB). The stroke then sits at a different place in every picture "
             "or is cut in two. Try the peak-relative cutting (SONAR_SEG_REL_OFF_DB=12, see DATA_ENGINE.md) and compare")
+    if cutting.get("gestures", 0) >= 6 and cutting["off_the_speed_range"] >= 0.3 * cutting["gestures"]:
+        cfg = table.cfg
+        top_speed = cfg.doppler_bins / 2 * cfg.bb_fs / cfg.stft_fft * 343.0 / (2 * float(np.mean(cfg.tone_hz)))
+        verdicts.append(
+            f"TOO FAST: {cutting['off_the_speed_range']} of {cutting['gestures']} gestures run off the edge of the picture "
+            f"(it shows hand speeds up to about {top_speed:.1f} m/s). A stroke that fast can lose its direction, and a fast push can look like a swipe. "
+            "Record again at a calm pace: about half a second across the screen, not a flick")
     if cutting.get("gestures", 0) >= 6 and cutting["another_burst_fits_better"] >= 0.2 * cutting["gestures"]:
         verdicts.append(
             f"WRONG BURST CHOSEN? In {cutting['another_burst_fits_better']} of {cutting['gestures']} prompts the loudest burst is not read as the "
@@ -262,7 +290,7 @@ def totals(reports: list[dict[str, Any]]) -> dict[str, Any]:
         c = rep.get("cutting", {})
         if c.get("gestures"):
             cut = acc.setdefault("cutting", {"gestures": 0, "cut_at_limit": 0.0, "seconds": [], "per_gesture": [], "peak_db": [],
-                                             "saturated": [], "fits_better": 0, "in_some_burst": 0, "start_spread": []})
+                                             "saturated": [], "fits_better": 0, "in_some_burst": 0, "start_spread": [], "too_fast": 0})
             cut["gestures"] += c["gestures"]
             cut["cut_at_limit"] += c["gesture_cut_at_limit_share"] * c["gestures"]
             cut["seconds"].append(c["gesture_seconds_median"])
@@ -270,6 +298,7 @@ def totals(reports: list[dict[str, Any]]) -> dict[str, Any]:
             cut["peak_db"].append(c["gesture_peak_db"]["median"])
             cut["saturated"].append(c["saturated_share"])
             cut["fits_better"] += c["another_burst_fits_better"]
+            cut["too_fast"] += c["off_the_speed_range"]
             cut["in_some_burst"] += c["recognised_in_some_burst"]
             if "burst_start_after_prompt_s" in c:
                 cut["start_spread"].append(c["burst_start_after_prompt_s"]["spread_p10_p90"])
@@ -308,6 +337,7 @@ def print_totals(tot: dict[str, Any]) -> None:
               f"typical strength {np.median(c['peak_db']):.0f} dB, {100 * np.mean(c['saturated']):.1f}% of the picture saturated{spread}")
         print(f"  recognised in SOME burst of its prompt: {c['in_some_burst']} of {c['gestures']}; "
               f"another burst fits the prompt better than the chosen one: {c['fits_better']}")
+        print(f"  too fast for the picture (the stroke runs off the edge of the speed range): {c['too_fast']} of {c['gestures']} gestures")
     if len(tot["by_person"]) > 1:
         print("  per person (physics agreement with the labels / to check):")
         for person, p in sorted(tot["by_person"].items()):

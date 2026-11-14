@@ -2,31 +2,36 @@
 """dataeng_4090.py — one command on the training box: why does the model miss the held-out person, and what helps?
 
 What it does, in order (every step prints the exact command it runs, so any step can be re-run by hand):
+  0. makes a corrected VIEW of the recordings (sonar.dataview: labels only, the audio is not copied):
+     a session found twice is taken once, and the one session whose swipes went the opposite way
+     to their prompts (20261114-001248_mahimn_gestures) gets its left/right labels exchanged.
+     Everything below reads that view, so `--data mac` is safe although mac\\excluded\\ lies inside it;
   1. finds the model of the newest training run that left people out, and who they were
      (or takes --model / --people);
   2. replays those people's recordings through the real engine and counts recognised / wrong /
-     missed gestures and the reason for every miss, once with the model's own strength gate
-     and once with a low gate (sonar.gesture_replay);
+     missed gestures and the reason for every miss, at confidence thresholds 0.6, 0.5 and 0.4,
+     with the engine's gates on and off, and with the other burst cutting (sonar.gesture_replay);
   3. checks the labels and the burst cutting of ALL recordings (sonar.labelqa), and draws
      two pictures of one gesture session of a held-out person;
   4. measures what a "each gesture 3 times" table calibration would give those people
      (sonar.adapt eval);
   5. checks that the fast batched code gives what the original code gives (sonar.weaklabel --parity);
-  6. heavy, each about 12-20 minutes on the RTX 4090, each in its own folders:
-       * if step 3 found long, loud bursts chopped at the length limit (or with --relcut always):
-         trains once more with the peak-relative burst cutting (SONAR_SEG_REL_OFF_DB=12);
-       * unless --no-weak: trains once more with the extra weighted examples (--weak);
+  6. ONLY when asked for (the recall session's suite scores training recipes more thoroughly):
+       * --train-weak     trains once more with the extra weighted examples (--weak);
+       * --train-relcut   trains once more with the peak-relative burst cutting (SONAR_SEG_REL_OFF_DB=12);
+     each about 12-20 minutes on the RTX 4090, each in its own folders;
   7. collects every printed block, report file and picture into handoff_results/dataeng/ and
      writes SUMMARY.txt with the handful of numbers that matter. That folder is what goes back.
 
 How to run (from the repo root, on the 4090 box):
-    .venv\\Scripts\\python scripts\\dataeng_4090.py --data mac
-    .venv\\Scripts\\python scripts\\dataeng_4090.py --data mac --skip-heavy          # steps 1-5 only, about 5 minutes
+    .venv\\Scripts\\python scripts\\dataeng_4090.py --data mac                       # about 5 minutes
+    .venv\\Scripts\\python scripts\\dataeng_4090.py --data mac --train-relcut        # + one training run
 A step that fails is written down and the others still run.
 
-What it changes: writes handoff_results/dataeng/, train_out/dataeng/ (reports), and for the two
-training runs train_out/rel12/ and train_out/weak_models, train_out/weak_release plus caches under
-train_out/. It never writes to models/ or models-release*/ and never opens an audio device.
+What it changes: writes handoff_results/dataeng/ and train_out/dataeng/ (reports and the view), and for
+the optional training runs train_out/rel12/ and train_out/weak_models, train_out/weak_release plus caches
+under train_out/. It never writes to models/ or models-release*/, never changes a recording and never
+opens an audio device.
 """
 
 from __future__ import annotations
@@ -118,14 +123,15 @@ def honest(text: str) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="dataeng_4090", description="Diagnose the recall on held-out people and measure the fixes")
-    ap.add_argument("--data", default="mac", help="folder with the recorded sessions (default mac)")
+    ap.add_argument("--data", nargs="+", default=["mac"], help="folder(s) with the recorded sessions (default mac)")
     ap.add_argument("--model", default="auto", help="model that did NOT train on --people (default: the sweep model of the newest run)")
     ap.add_argument("--people", default="", help="the held-out people (default: those of that run)")
     ap.add_argument("--out", default="train_out", help="the training working folder (default train_out)")
-    ap.add_argument("--skip-heavy", action="store_true", help="diagnostics only (about 5 minutes), no training runs")
-    ap.add_argument("--relcut", default="auto", choices=["auto", "always", "never"],
-                    help="train once with the peak-relative burst cutting: auto = only if the label check found long loud bursts")
-    ap.add_argument("--no-weak", action="store_true", help="skip the training run with the extra weighted examples")
+    ap.add_argument("--train-weak", action="store_true", help="also train once with the extra weighted examples (--weak)")
+    ap.add_argument("--train-relcut", action="store_true", help="also train once with the peak-relative burst cutting")
+    ap.add_argument("--flip-swipes", default="20261114-001248_mahimn_gestures",
+                    help="sessions whose swipe_left / swipe_right labels are exchanged in the view (\"\" for none)")
+    ap.add_argument("--drop", default="", help="sessions to leave out of the view")
     ap.add_argument("--train-args", default="", help="extra options for both training runs, e.g. \"--size small\" for a rehearsal")
     args = ap.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
@@ -146,7 +152,9 @@ def main(argv: list[str] | None = None) -> int:
         "print('python', sys.version.split()[0], '| torch', torch.__version__, '| cuda', ok, '|', torch.cuda.get_device_name(0) if ok else 'no CUDA GPU')")])
     summary.append(text.strip().splitlines()[-1] if text.strip() else "machine: unknown")
     git = subprocess.run(["git", "log", "-1", "--format=%h %s"], cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    summary.append(f"code: {git.stdout.strip() or 'unknown commit'}")
+    dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=REPO, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace").stdout.strip()
+    summary.append(f"code: {git.stdout.strip() or 'unknown commit'}" + (" + uncommitted changes" if dirty else ""))
 
     # 1. which model, which people
     model = Path(args.model) if args.model != "auto" else None
@@ -164,19 +172,41 @@ def main(argv: list[str] | None = None) -> int:
     who = ",".join(people)
     summary.append(f"model: {model}   held-out: {who}")
     print(f"\nmodel that did not train on {who}: {model}")
-    data = str((REPO / args.data).resolve())
 
-    # 2. replay through the engine, with the model's own gate and with a low one
-    for name, extra in (("01_replay", []), ("02_replay_gate8", ["--min-peak-db", "8"])):
+    # 1b. a corrected view of the recordings: duplicates once, the known flipped session with its labels exchanged
+    view = reports / "view"
+    code, text = run("00_view", [PY, "-m", "sonar.dataview", *(str((REPO / d).resolve()) for d in args.data), "--out", str(view),
+                                 "--flip-swipes", args.flip_swipes, "--drop", args.drop])
+    if code != 0:
+        print("\nSTOPPED: no usable session in the view (see 00_view.txt)")
+        (RESULTS / "SUMMARY.txt").write_text("\n".join(summary + ["STOPPED: the view of the recordings is empty"]), encoding="utf-8")
+        return 2
+    summary += ["[00_view]"] + [r for r in text.splitlines() if "EXCHANGED" in r or "skipped" in r or r.startswith("view of")]
+    data = str(view)
+
+    # 2. replay through the engine: the shipped settings, then lower confidence thresholds, with and without the gates
+    #    The last two cut the bursts the other way (peak-relative) with the SAME model: no retraining, so only a hint.
+    rel_env = {"SONAR_SEG_REL_OFF_DB": REL_DB}
+    for name, extra, env in (("01_replay", [], None), ("02_replay_conf05", ["--min-confidence", "0.5"], None),
+                             ("02_replay_conf04", ["--min-confidence", "0.4"], None), ("02_replay_nogates", ["--no-gates"], None),
+                             ("02_replay_nogates_conf05", ["--no-gates", "--min-confidence", "0.5"], None),
+                             ("02_replay_relcut", [], rel_env), ("02_replay_relcut_nogates_conf05", ["--no-gates", "--min-confidence", "0.5"], rel_env)):
         code, text = run(name, [PY, "-m", "sonar.gesture_replay", data, "--model", str(model), "--people", who, *extra,
-                                "--json", str(reports / f"{name}.json")])
+                                "--json", str(reports / f"{name}.json")], env)
         copy_if(reports / f"{name}.json", f"{name}.json")
-        summary += [f"[{name}]"] + grab(text, "replayed through the engine", 14)
+        summary += [f"[{name}]" + (f"   (bursts cut with SONAR_SEG_REL_OFF_DB={REL_DB}, same model)" if env else "")] \
+            + grab(text, "replayed through the engine", 14 if name == "01_replay" else 1 + len(people))
 
     # 3. labels and burst cutting of every recording; two pictures of a held-out gesture session
     code, text = run("03_labelqa", [PY, "-m", "sonar.labelqa", data, "--model", str(model), "--no-plot", "--out", str(reports / "qa")])
     copy_if(reports / "qa" / "labelqa_summary.json", "03_labelqa_summary.json")
-    summary += ["[03_labelqa]"] + [r for r in text.splitlines() if r.strip().startswith("!!")][:8] + grab(text, "===", 14)
+    warned, session_row = [], ""
+    for r in text.splitlines():
+        if r[:1].isdigit():
+            session_row = r.split(":")[0]
+        elif r.strip().startswith("!!"):
+            warned.append(f"  {session_row}: {r.strip()[3:].split('. ')[0]}")
+    summary += ["[03_labelqa]"] + warned[:16] + grab(text, "===", 14)
     long_bursts = False
     try:
         cut = json.loads((reports / "qa" / "labelqa_summary.json").read_text(encoding="utf-8"))["totals"]["all"].get("cutting", {})
@@ -219,36 +249,34 @@ def main(argv: list[str] | None = None) -> int:
 
     # 6. the heavy runs
     extra = shlex.split(args.train_args, posix=os.name != "nt")
-    trainer = [PY, "scripts/train_4090.py", "--data", args.data, "--val-person", who, *extra]
-    if args.skip_heavy:
-        summary.append("training runs: skipped (--skip-heavy)")
+    trainer = [PY, "scripts/train_4090.py", "--data", data, "--val-person", who, *extra]
+    if not (args.train_weak or args.train_relcut):
+        summary.append("training runs: none asked for (--train-weak / --train-relcut)")
     elif not parity_ok:
         summary.append("training runs: NOT started, the parity check did not pass")
     else:
-        if not args.no_weak:
+        if args.train_weak:
             code, text = run("07_train_weak", [*trainer, "--weak", "--out", args.out, "--models", f"{args.out}/weak_models",
                                                "--release", f"{args.out}/weak_release"], timeout_min=90)
             copy_if(work / "weak_release" / "TRAINING_RUN.json", "07_weak_TRAINING_RUN.json")
             copy_if(work / "weak" / "weak.json", "07_weak_report.json")
             summary += ["[07_train_weak]"] + [r for r in text.splitlines() if r.startswith(("time:", "wrote ")) and "weak" in r][:3] + honest(text)
-        if args.relcut == "always" or (args.relcut == "auto" and long_bursts):
+        if args.train_relcut:
             has_parity_flag = "--skip-parity" in subprocess.run([PY, "scripts/train_4090.py", "--help"], cwd=REPO, capture_output=True,
                                                                text=True, encoding="utf-8", errors="replace").stdout
             rel_dir = f"{args.out}/rel{REL_DB}"                 # its own working folder: the caches do not know about the switch
             rel = [*trainer, "--out", rel_dir, "--models", f"{rel_dir}/models", "--release", f"{rel_dir}/release"]
             # the GPU-against-CPU check compares with a reference made with the usual cutting: skip it for this one run
-            code, text = run("08_train_relcut", rel + (["--skip-parity"] if has_parity_flag else []), {"SONAR_SEG_REL_OFF_DB": REL_DB}, timeout_min=90)
+            code, text = run("08_train_relcut", rel + (["--skip-parity"] if has_parity_flag else []), rel_env, timeout_min=90)
             rel_work = work / f"rel{REL_DB}"
             copy_if(rel_work / "release" / "TRAINING_RUN.json", "08_relcut_TRAINING_RUN.json")
             summary += [f"[08_train_relcut, SONAR_SEG_REL_OFF_DB={REL_DB}]"] + honest(text)
             new_model = rel_work / "models" / "gesture.onnx"
             if new_model.exists():
                 code, text = run("09_labelqa_relcut", [PY, "-m", "sonar.labelqa", data, "--model", str(new_model), "--no-plot",
-                                                       "--out", str(rel_work / "qa")], {"SONAR_SEG_REL_OFF_DB": REL_DB})
+                                                       "--out", str(rel_work / "qa")], rel_env)
                 copy_if(rel_work / "qa" / "labelqa_summary.json", "09_relcut_labelqa_summary.json")
                 summary += ["[09_labelqa_relcut]"] + [r for r in text.splitlines() if "burst cutting" in r or "recognised in SOME" in r]
-        else:
-            summary.append(f"training with the peak-relative cutting: not run (--relcut {args.relcut}; long loud bursts found: {long_bursts})")
 
     summary.append(f"total: {(time.time() - t_start) / 60:.1f} minutes")
     (RESULTS / "SUMMARY.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
