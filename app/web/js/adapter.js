@@ -4,12 +4,14 @@
  * The sonar engine publishes JSON over a WebSocket. This module turns whatever
  * it sends into a small set of normalised events that the rest of the UI uses:
  *
- *   {kind:'gesture',     label, rawLabel, confidence, t, tLocal}
- *   {kind:'presence',    state, rawState, confidence, t, tLocal}
- *   {kind:'breathing',   bpm, confidence, waveform, fs, t0, t, apnea, breathState, amplitude, rangeM, windowS, tLocal}
- *   {kind:'status',      snrDb, snrList, carrierHz, carriersHz, bandHz, fps, calibrating, source, device, latencyMs, t, tLocal}
+ *   {kind:'gesture',     label, rawLabel, confidence, durationS, peakDb, source, t, tLocal}
+ *   {kind:'presence',    state, rawState, confidence, rangeM, moving, motionlessS, changed, t, tLocal}
+ *   {kind:'breathing',   bpm, confidence, waveform, fs, t0, t, apnea, breathState, amplitude, rangeM, windowS,
+ *                        held, stoppedS, motionlessS, tLocal}
+ *   {kind:'status',      snrDb, snrList, carrierHz, carriersHz, bandHz, fps, calibrating, source, device, latencyMs,
+ *                        locked, clipped, dropped, activityDb, noiseDb, classifier, lastDecision, t, tLocal}
  *   {kind:'spectrogram', rows, binsHz, axisLabel, autoscaled, t, tLocal}
- *   {kind:'hello',       source, version, schema, t, tLocal}
+ *   {kind:'hello',       source, version, schema, labels, classifier, t, tLocal}
  *   {kind:'unknown',     raw, reason}
  *
  * When INTERFACES.md changes, edit the alias tables and pickers below. Nothing
@@ -98,6 +100,9 @@
     return null;
   }
 
+  function boolOrNull(v) { return v == null ? null : bool(v); }
+  function strOrNull(v) { return v == null ? null : String(v); }
+
   // Confidence as 0..1. Accepts 0..1 or 0..100 (percent).
   function conf(v) {
     var n = num(v);
@@ -145,6 +150,9 @@
     return {
       kind: 'gesture', label: label, rawLabel: raw == null ? null : String(raw),
       confidence: conf(pick(m, ['confidence', 'conf', 'p', 'prob', 'probability', 'score'])),
+      durationS: num(pick(m, ['duration_s', 'duration'])),
+      peakDb: num(pick(m, ['peak_db', 'peak'])),
+      source: strOrNull(pick(m, ['source', 'classifier'])),
       t: ts.t, tLocal: ts.tLocal
     };
   }
@@ -156,6 +164,10 @@
     return {
       kind: 'presence', state: state || 'unknown', rawState: raw == null ? null : String(raw),
       confidence: conf(pick(m, ['confidence', 'conf', 'p', 'prob', 'probability', 'score'])),
+      rangeM: num(pick(m, ['range_m', 'distance_m', 'range', 'distance'])),
+      moving: boolOrNull(pick(m, ['moving', 'is_moving'])),
+      motionlessS: num(pick(m, ['motionless_s', 'still_s', 'motionless'])),
+      changed: boolOrNull(pick(m, ['changed'])),
       t: ts.t, tLocal: ts.tLocal
     };
   }
@@ -186,8 +198,17 @@
       amplitude: num(pick(m, ['amplitude', 'amplitude_mm', 'rms', 'displacement_mm'])),
       rangeM: num(pick(m, ['range_m', 'distance_m', 'range', 'distance'])),
       windowS: num(pick(m, ['window_s', 'window', 'window_sec'])),
+      held: boolOrNull(pick(m, ['held'])),
+      stoppedS: num(pick(m, ['stopped_s'])),
+      motionlessS: num(pick(m, ['motionless_s', 'still_s'])),
       t: ts.t, tLocal: ts.tLocal
     };
+  }
+
+  // The classifier's verdict on the latest movement burst, including rejected ones ("none", "blocked:weak").
+  function lastDecision(v) {
+    if (!isObj(v) || v.label == null) return null;
+    return { label: String(v.label), confidence: conf(v.confidence), peakDb: num(v.peak_db) };
   }
 
   function parseStatus(m, ts) {
@@ -213,6 +234,13 @@
       source: pick(m, ['source', 'mode', 'origin']) != null ? String(pick(m, ['source', 'mode', 'origin'])) : null,
       device: pick(m, ['device', 'mic', 'input_device']) != null ? String(pick(m, ['device', 'mic', 'input_device'])) : null,
       latencyMs: num(pick(m, ['latency_ms', 'lag_ms', 'pipeline_latency_ms'])),
+      locked: boolOrNull(pick(m, ['locked', 'lock'])),
+      clipped: boolOrNull(pick(m, ['clipped', 'clipping'])),
+      dropped: num(pick(m, ['dropped', 'dropouts'])),
+      activityDb: num(pick(m, ['activity_db', 'activity'])),
+      noiseDb: num(pick(m, ['noise_db'])),
+      classifier: strOrNull(pick(m, ['classifier'])),
+      lastDecision: lastDecision(pick(m, ['last_decision'])),
       t: ts.t, tLocal: ts.tLocal
     };
   }
@@ -259,9 +287,13 @@
     var src = pick(m, ['source', 'mode', 'origin', 'engine']);
     var ver = pick(m, ['version', 'engine_version']);
     var sch = pick(m, ['schema', 'schema_version', 'protocol']);
+    var labels = pick(m, ['labels', 'gestures', 'classes']);
     return {
       kind: 'hello', source: src == null ? null : String(src), version: ver == null ? null : String(ver),
-      schema: sch == null ? null : String(sch), t: ts.t, tLocal: ts.tLocal
+      schema: sch == null ? null : String(sch),
+      labels: Array.isArray(labels) ? labels.map(String) : null,
+      classifier: strOrNull(pick(m, ['classifier'])),
+      t: ts.t, tLocal: ts.tLocal
     };
   }
 

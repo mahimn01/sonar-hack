@@ -132,6 +132,9 @@ def _gesture(m: dict, t: float, local: bool) -> dict:
     label = GESTURE_ALIASES.get(_key(raw)) or ("none" if raw is None else "unknown")
     return {"kind": "gesture", "label": label, "rawLabel": _str_or_none(raw),
             "confidence": _conf(_pick(m, ("confidence", "conf", "p", "prob", "probability", "score"))),
+            "durationS": _num(_pick(m, ("duration_s", "duration"))),
+            "peakDb": _num(_pick(m, ("peak_db", "peak"))),
+            "source": _str_or_none(_pick(m, ("source", "classifier"))),
             "t": t, "tLocal": local}
 
 
@@ -142,6 +145,10 @@ def _presence(m: dict, t: float, local: bool) -> dict:
         state = "present" if raw else "empty"
     return {"kind": "presence", "state": state or "unknown", "rawState": _str_or_none(raw),
             "confidence": _conf(_pick(m, ("confidence", "conf", "p", "prob", "probability", "score"))),
+            "rangeM": _num(_pick(m, ("range_m", "distance_m", "range", "distance"))),
+            "moving": _bool(_pick(m, ("moving", "is_moving"))),
+            "motionlessS": _num(_pick(m, ("motionless_s", "still_s", "motionless"))),
+            "changed": _bool(_pick(m, ("changed",))),
             "t": t, "tLocal": local}
 
 
@@ -172,6 +179,9 @@ def _breathing(m: dict, t: float, local: bool) -> dict:
             "amplitude": _num(_pick(m, ("amplitude", "amplitude_mm", "rms", "displacement_mm"))),
             "rangeM": _num(_pick(m, ("range_m", "distance_m", "range", "distance"))),
             "windowS": _num(_pick(m, ("window_s", "window", "window_sec"))),
+            "held": _bool(_pick(m, ("held",))),
+            "stoppedS": _num(_pick(m, ("stopped_s",))),
+            "motionlessS": _num(_pick(m, ("motionless_s", "still_s"))),
             "t": t, "tLocal": local}
 
 
@@ -187,6 +197,13 @@ def _scalar(v: Any) -> tuple[float | None, list[float] | None]:
     if not vals:
         return None, None
     return sorted(vals)[len(vals) // 2], vals
+
+
+def _last_decision(v: Any) -> dict | None:
+    """The classifier's verdict on the latest movement burst, including rejected ones ("none", "blocked:weak")."""
+    if not isinstance(v, dict) or v.get("label") is None:
+        return None
+    return {"label": str(v["label"]), "confidence": _conf(v.get("confidence")), "peakDb": _num(v.get("peak_db"))}
 
 
 def _status(m: dict, t: float, local: bool) -> dict:
@@ -209,6 +226,13 @@ def _status(m: dict, t: float, local: bool) -> dict:
             "source": _str_or_none(_pick(m, ("source", "mode", "origin"))),
             "device": _str_or_none(_pick(m, ("device", "mic", "input_device"))),
             "latencyMs": _num(_pick(m, ("latency_ms", "lag_ms", "pipeline_latency_ms"))),
+            "locked": _bool(_pick(m, ("locked", "lock"))),
+            "clipped": _bool(_pick(m, ("clipped", "clipping"))),
+            "dropped": _num(_pick(m, ("dropped", "dropouts"))),
+            "activityDb": _num(_pick(m, ("activity_db", "activity"))),
+            "noiseDb": _num(_pick(m, ("noise_db",))),
+            "classifier": _str_or_none(_pick(m, ("classifier",))),
+            "lastDecision": _last_decision(_pick(m, ("last_decision",))),
             "t": t, "tLocal": local}
 
 
@@ -241,9 +265,13 @@ def _spectrogram(m: dict, t: float, local: bool) -> dict:
 
 
 def _hello(m: dict, t: float, local: bool) -> dict:
+    labels = _pick(m, ("labels", "gestures", "classes"))
     return {"kind": "hello", "source": _str_or_none(_pick(m, ("source", "mode", "origin", "engine"))),
             "version": _str_or_none(_pick(m, ("version", "engine_version"))),
-            "schema": _str_or_none(_pick(m, ("schema", "schema_version", "protocol"))), "t": t, "tLocal": local}
+            "schema": _str_or_none(_pick(m, ("schema", "schema_version", "protocol"))),
+            "labels": [str(x) for x in labels] if isinstance(labels, list) else None,
+            "classifier": _str_or_none(_pick(m, ("classifier",))),
+            "t": t, "tLocal": local}
 
 
 _PARSERS = {"gesture": _gesture, "presence": _presence, "breathing": _breathing,

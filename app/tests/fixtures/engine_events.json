@@ -1,5 +1,5 @@
 {
- "_about": "Engine messages and the normalised events both adapters (web/js/adapter.js, adapter.py) must produce. Keys ending in _len check a list length; rows_shape checks [rows, bins]; rows_in_01 checks every value is in 0..1.",
+ "_about": "Engine messages and the normalised events both adapters (web/js/adapter.js, adapter.py) must produce. Keys ending in _len check a list length; rows_shape checks [rows, bins]; rows_in_01 checks every value is in 0..1. A nested object or a list of strings is compared exactly.",
  "now": 1794600000.0,
  "cases": [
   {
@@ -637,6 +637,310 @@
       21500
      ],
      "fps": 50
+    }
+   ]
+  },
+  {
+   "name": "engine gesture with duration and peak (schema 1)",
+   "raw": {
+    "type": "gesture",
+    "label": "swipe_right",
+    "confidence": 0.93,
+    "source": "model",
+    "probs": {
+     "none": 0.01,
+     "swipe_left": 0.02,
+     "swipe_right": 0.93,
+     "push": 0.04
+    },
+    "duration_s": 0.44,
+    "peak_db": 16.4,
+    "t": 1794600000.5,
+    "seq": 135
+   },
+   "expect": [
+    {
+     "kind": "gesture",
+     "label": "swipe_right",
+     "confidence": 0.93,
+     "durationS": 0.44,
+     "peakDb": 16.4,
+     "source": "model"
+    }
+   ]
+  },
+  {
+   "name": "engine presence with range, movement flag and stillness counter (schema 1)",
+   "raw": {
+    "type": "presence",
+    "state": "present",
+    "confidence": 0.86,
+    "range_m": 0.71,
+    "moving": false,
+    "motionless_s": 12.5,
+    "changed": true,
+    "t": 1794600000.5,
+    "seq": 87
+   },
+   "expect": [
+    {
+     "kind": "presence",
+     "state": "present",
+     "confidence": 0.86,
+     "rangeM": 0.71,
+     "moving": false,
+     "motionlessS": 12.5,
+     "changed": true
+    }
+   ]
+  },
+  {
+   "name": "engine presence when empty: no range, not moving",
+   "raw": {
+    "type": "presence",
+    "state": "empty",
+    "confidence": 0.9,
+    "range_m": null,
+    "moving": false,
+    "motionless_s": 0.0,
+    "changed": false,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "presence",
+     "state": "empty",
+     "rangeM": null,
+     "moving": false,
+     "motionlessS": 0,
+     "changed": false
+    }
+   ]
+  },
+  {
+   "name": "presence from the mock: no movement fields",
+   "raw": {
+    "type": "presence",
+    "state": "present",
+    "confidence": 0.9,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "presence",
+     "state": "present",
+     "rangeM": null,
+     "moving": null,
+     "motionlessS": null,
+     "changed": null
+    }
+   ]
+  },
+  {
+   "name": "engine breathing with the pause counters (schema 1)",
+   "raw": {
+    "type": "breathing",
+    "bpm": 15.2,
+    "confidence": 0.97,
+    "state": "tracking",
+    "waveform": [
+     -0.4,
+     0.1,
+     1.0
+    ],
+    "fs": 10.0,
+    "range_m": 0.71,
+    "amplitude_mm": 5.3,
+    "window_s": 30.0,
+    "apnea": false,
+    "motionless_s": 0.0,
+    "stopped_s": 0.0,
+    "held": false,
+    "t": 1794600000.5,
+    "seq": 1410
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "bpm": 15.2,
+     "breathState": "breathing",
+     "apnea": false,
+     "held": false,
+     "stoppedS": 0,
+     "motionlessS": 0,
+     "waveform_len": 3
+    }
+   ]
+  },
+  {
+   "name": "engine breathing: nothing moving for 6 s raises the apnea flag",
+   "raw": {
+    "type": "breathing",
+    "bpm": null,
+    "confidence": 0.0,
+    "state": "no_signal",
+    "waveform": [],
+    "fs": 10.0,
+    "apnea": true,
+    "motionless_s": 6.2,
+    "stopped_s": 1.0,
+    "held": false,
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "breathing",
+     "bpm": null,
+     "breathState": "apnea",
+     "apnea": true,
+     "stoppedS": 1,
+     "motionlessS": 6.2,
+     "waveform": null
+    }
+   ]
+  },
+  {
+   "name": "engine status (schema 1) with lock, noise and the last decision",
+   "raw": {
+    "type": "status",
+    "snr_db": 43.5,
+    "carrier_hz": 18500.0,
+    "fps": 50.0,
+    "calibrating": false,
+    "locked": true,
+    "drift_ppm": 0.0,
+    "clipped": false,
+    "dropped": 0,
+    "resyncs": 0,
+    "activity_db": 0.6,
+    "noise_db": 1.2,
+    "classifier": "model",
+    "backend": "live",
+    "source": "live",
+    "device": "MacBook Pro Microphone",
+    "latency_ms": 42.3,
+    "min_peak_db": 30.4,
+    "profile": "default",
+    "tones_hz": [
+     18500.0,
+     19000.0
+    ],
+    "chirp_band_hz": [
+     19500.0,
+     21500.0
+    ],
+    "last_decision": {
+     "label": "blocked:weak",
+     "confidence": 0.0,
+     "peak_db": 10.2
+    },
+    "version": "0.1.0",
+    "t": 1794600000.5,
+    "seq": 201
+   },
+   "expect": [
+    {
+     "kind": "status",
+     "snrDb": 43.5,
+     "carrierHz": 18500,
+     "bandHz": [
+      19500,
+      21500
+     ],
+     "fps": 50,
+     "calibrating": false,
+     "locked": true,
+     "clipped": false,
+     "dropped": 0,
+     "activityDb": 0.6,
+     "noiseDb": 1.2,
+     "classifier": "model",
+     "source": "live",
+     "device": "MacBook Pro Microphone",
+     "latencyMs": 42.3,
+     "lastDecision": {
+      "label": "blocked:weak",
+      "confidence": 0,
+      "peakDb": 10.2
+     }
+    }
+   ]
+  },
+  {
+   "name": "status from an older engine: no noise level, no decision yet",
+   "raw": {
+    "type": "status",
+    "snr_db": 25.2,
+    "carrier_hz": 18500.0,
+    "fps": 50.0,
+    "calibrating": false,
+    "locked": true,
+    "clipped": false,
+    "dropped": 0,
+    "activity_db": 0.4,
+    "source": "live",
+    "last_decision": {
+     "label": null,
+     "confidence": 0.0,
+     "peak_db": 0.0
+    },
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "status",
+     "snrDb": 25.2,
+     "locked": true,
+     "noiseDb": null,
+     "lastDecision": null
+    }
+   ]
+  },
+  {
+   "name": "engine hello (schema 1) lists its labels and classifier",
+   "raw": {
+    "type": "hello",
+    "schema": 1,
+    "version": "0.1.0",
+    "t": 1794600000.5,
+    "labels": [
+     "swipe_left",
+     "swipe_right",
+     "push",
+     "pull"
+    ],
+    "presence_states": [
+     "empty",
+     "entering",
+     "present"
+    ],
+    "frame_rate": 50.0,
+    "tones_hz": [
+     18500.0,
+     19000.0
+    ],
+    "chirp_band_hz": [
+     19500.0,
+     21500.0
+    ],
+    "profile": "default",
+    "backend": "sim",
+    "source": "sim",
+    "classifier": "model"
+   },
+   "expect": [
+    {
+     "kind": "hello",
+     "source": "sim",
+     "version": "0.1.0",
+     "schema": "1",
+     "labels": [
+      "swipe_left",
+      "swipe_right",
+      "push",
+      "pull"
+     ],
+     "classifier": "model"
     }
    ]
   }

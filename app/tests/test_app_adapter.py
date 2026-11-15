@@ -32,7 +32,10 @@ def check(event: dict, expect: dict) -> list[str]:
             got = all(0.0 <= v <= 1.0 for row in event["rows"] for v in row)
         else:
             got = event.get(key, "<missing>")
-        if isinstance(want, float) and isinstance(got, (int, float)) and not isinstance(got, bool):
+        if isinstance(want, dict) or (isinstance(want, list) and any(isinstance(w, str) for w in want)):
+            if got != want:                       # a nested object or a list of names: compared exactly
+                problems.append(f"{key}: got {got!r}, want {want!r}")
+        elif isinstance(want, float) and isinstance(got, (int, float)) and not isinstance(got, bool):
             if not math.isclose(got, want, rel_tol=1e-9, abs_tol=1e-6):
                 problems.append(f"{key}: got {got!r}, want {want!r}")
         elif isinstance(want, list) and isinstance(got, list):
