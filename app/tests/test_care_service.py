@@ -162,7 +162,8 @@ class CareService(unittest.TestCase):
         status, boot = self.http("GET", "/api/boot.js")
         self.assertEqual(status, 200)
         self.assertIn(f'"relay":"ws://127.0.0.1:{self.service.relay_port}"', boot)
-        for page in ("/", "/presenter.html", "/monitor.html", "/js/adapter.js", "/css/tokens.css"):
+        for page in ("/", "/care.html", "/presenter.html", "/monitor.html", "/js/adapter.js", "/js/care.js", "/js/care-dashboard.js",
+                     "/js/care-settings.js", "/js/care-setup.js", "/js/care-api.js", "/css/care.css", "/css/tokens.css"):
             self.assertEqual(self.http("GET", page)[0], 200, page)
         self.assertEqual(self.http("GET", "/api/nope")[0], 404)
 

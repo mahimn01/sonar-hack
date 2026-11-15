@@ -114,7 +114,7 @@
   }
 
   // ---- Breathing ------------------------------------------------------------------------------------------
-  var breathCard = $('breathCard'), breathStatus = $('breathStatus');
+  var breathCard = $('breathCard'), breathStatus = $('breathStatus'), waveCap = $('waveCap');
   function renderBreath() {
     var S = store.state, B = S.breathing, p = S.presence.state, now = Date.now();
     var valid = B.bpm != null && B.lastValidAt && now - B.lastValidAt < 6000, text;
@@ -126,6 +126,9 @@
     else text = ' ';
     setText(breathStatus, text);
     breathCard.setAttribute('data-tone', S.alerts.apnea ? 'alert' : '');
+    // The line is the raw chest movement the sensor sees. It can look clean before the engine trusts a rate.
+    var tEnd = S.wave.lastTime(), hasWave = tEnd != null && store.engineNow() - tEnd < 6 && S.conn.health === 'live' && p !== 'empty';
+    setText(waveCap, !hasWave ? '\u00a0' : valid ? 'Chest movement, last 20 s' : 'Raw chest movement. A rate shows once the engine is confident.');
   }
 
   // ---- Touch-free control -----------------------------------------------------------------------------------
