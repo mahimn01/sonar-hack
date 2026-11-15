@@ -207,7 +207,8 @@ class CareService(unittest.TestCase):
         self.engine(cmd="gesture", label="push", confidence=0.95)
         pending = self.wait(lambda: self.alerts("help", "pending"), "the help countdown")[0]
         self.assertEqual(pending["state"], "pending")
-        self.assertEqual(self.service.snapshot()["alerts"][0]["state"], "pending")
+        # the alert message goes out a moment before the state that carries it: wait for the state, do not race it
+        self.wait(lambda: [x for x in self.service.snapshot()["alerts"] if x["kind"] == "help" and x["state"] == "pending"], "the state to show the countdown", timeout=1.0)
         raised = self.wait(lambda: self.alerts("help", "raised"), "the help alert", timeout=5)[0]
         self.assertEqual((raised["state"], raised["level"], raised["title"]), ("active", "alert", "Help requested"))
         self.assertEqual(self.service.notifier.sent[-1]["kind"], "help")       # the notifier was asked (quiet: nothing shown)

@@ -1,163 +1,143 @@
-# Laptop sonar — gestures, presence and breathing without a camera
+# Laptop sonar and Sonar Care: gestures, presence and breathing without a camera
 
-The laptop speakers play a quiet signal just above hearing (18.5-21.5 kHz), the
-built-in microphones record the echoes, and this package turns them into
+A MacBook's two speakers play a quiet signal just above hearing (18.5 to 21.5 kHz), its one microphone records the
+echoes, and this repo turns them into
 
-- **hand gestures** (swipe left / swipe right / push / pull) to control slides,
-- **presence** (empty / someone entering / someone present),
-- the **breathing rate** of a person sitting still in front of the laptop.
+- **hand gestures** (swipe left, swipe right, push) that press real keys in any app,
+- **presence** (empty, someone arriving, someone present) with a rough distance,
+- an early **breathing-rate** estimate for a person sitting still,
 
-No camera, nothing leaves the machine. Design and reasoning: `DESIGN.md`. Event
-schema for the UI: `INTERFACES.md`. Everything below is run from the repo root.
+and **Sonar Care**, the app built on top: touch-free control, a caregiver's room monitor, a help gesture (two
+pushes) and an experimental fall alert.
 
-## Quick start on the Windows demo laptop
+No camera, nothing leaves the machine. Everything below is run from the repo root.
 
-### 0. Install (once)
+| Read this | For |
+|---|---|
+| `docs/SONAR_CARE.md` | the app: running it, permissions, the 90-second demo, troubleshooting, how it is built |
+| `INTERFACES.md` | the engine's events and commands (what a UI consumes) |
+| `DESIGN.md` | how the sonar works and why |
+| `app/README.md` | the pitch slides, the mock engine, the page code |
+| `HANDOFF_LANCE.md`, `TRAINING.md` | recording new people on the MacBook and training a model |
 
-```powershell
-py -3.12 -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-```
-
-Windows sound settings (once):
-- Close Teams, Discord, Zoom and browser tabs that play sound. They block exclusive mode.
-- Settings > System > Sound > the speaker > Advanced: tick **"Allow applications to take exclusive control"**. Same for the microphone array.
-- Set the speaker volume (start at 60 %) and **do not touch it again**: recordings, training and the demo must use the same volume.
-- Plug in the charger. Fix the screen angle; moving the lid changes the echo picture (re-run calibration if you do).
-
-In the commands below `py` means `.venv\Scripts\python`.
-
-### 1. Self-test (1 minute)
-
-```powershell
-py -m sonar.selftest
-```
-
-It plays test tones through each speaker and prints the signal-to-noise ratio
-(SNR) per frequency, whether the receiver locks, clock drift, clipping, audible
-leakage, whether the left and right speaker channels come from different
-places, and a verdict with a recommended profile. What you want to see:
-
-| line | good | if not |
-|---|---|---|
-| weakest pilot tone SNR / chirp band SNR | 50+ / 45+ dB | raise the volume and re-run; or use the recommended profile |
-| echo headroom (tones) | 40+ dB | same |
-| receiver lock | True, re-locks 0 | close other audio apps; `--blocksize 3840`; `--duplex` |
-| clock drift | about 0 ppm | nothing to do, it is compensated |
-| microphone peak | below -6 dBFS | lower the volume |
-| audible leak | PASS | lower the volume or use `--profile clean` |
-| left/right speaker channels | 60+ microseconds apart | fine either way: the two-microphone cue still gives swipe direction |
-
-Listen once as well: you should hear nothing, or a faint hiss at most. If you
-change profile, use the same `--profile NAME` for every later command.
-
-### 2. Record (about 10 minutes per person)
-
-```powershell
-py -m sonar.record --person alice --script gestures --reps 12   # 48 prompted trials, ~4.5 min
-py -m sonar.record --person alice --script scene                # empty / walk in / sit / type / walk past, ~3.5 min
-py -m sonar.record --person alice --script breathing            # paced breathing 12/15/20 per minute, ~2.5 min
-```
-
-Follow the prompts. After each gesture the recorder says whether it saw a
-movement and what the training-free physics rules think it was. The last line
-(`physics guess agreed with the prompt in X/Y`) is the health check: high
-agreement means the hardware does what the design assumes.
-
-How to gesture: hand open, about 25 cm in front of the screen, start on "GO",
-then let the hand **drop** back to your lap (do not swipe back).
-- swipe left / right: sweep across the screen in about half a second.
-- push: palm quickly towards the screen and straight back.
-- pull: reach out slowly to ~15 cm from the screen, then pull back quickly.
-
-Collect at least 2 people × 2 gesture sessions to start (20 min); 4 people × 3
-gesture sessions plus one scene and one breathing session each for a solid model
-(about 75 minutes of recording). Vary seat distance, speed and hand between
-sessions. Keep one person out of training for the honest score.
-
-Each session is a folder `data/<date-time>_<person>_<script>/` with the raw
-audio and the prompt list. `py -m sonar.plot data\<session>` draws it (needs
-matplotlib) so you can see whether swipes and pushes look different.
-
-### 3. Train (a few minutes; on this laptop's CPU, the Mac Studio or the 4090)
-
-```powershell
-.venv\Scripts\python -m pip install -r requirements-train.txt      # adds PyTorch; once
-py -m sonar.train --data data --out models                         # holds out whole sessions for the score
-py -m sonar.train --data data --out models --val-person bob        # score on a person the model never saw
-```
-
-It prints the confusion matrix, the score "as deployed" (how many gestures are
-recognised and how many non-gestures would trigger at the engine's confidence
-threshold) and writes `models/gesture.onnx` + `gesture.json`. To train
-elsewhere, copy the `data/` folder there and bring `models/` back. Extra
-datasets (for example synthetic data from `datagen/`) are added with
-`--dataset file.npz`. Drop a weak class with `--labels swipe_left,swipe_right,push`.
-
-### 4. Run the engine
-
-```powershell
-py -m sonar.engine                 # uses models\gesture.onnx if present, otherwise the physics rules
-py -m sonar.engine --physics       # physics rules only: works with no training at all
-py -m sonar.engine -v              # also print signal status once per second
-```
-
-Keep hands away for the first 5 seconds (calibration). The engine prints every
-gesture, presence change and breathing rate, and serves the same as JSON events
-on `ws://127.0.0.1:8765` for the UI (`app/`). Stop with Ctrl+C.
-
-For the breathing demo: **sit** (or lean on the table) 0.5-0.8 m from the
-laptop, face it, keep your hands still. The waveform appears after ~4 s, the
-rate after 10-15 s. A person standing free sways in the same rhythm as
-breathing, so a standing reading is less reliable.
-
-### No hardware? (Mac, or the laptop is busy)
+## Quick start on the MacBook
 
 ```bash
-python -m sonar.engine --backend sim                              # scripted simulated visitor, real pipeline
-python -m sonar.engine --backend file --file data/<session>/audio.wav   # replay a recording as if live
-python -m sonar.selftest --backend sim
-python -m sonar.record --person test --backend sim --fast --reps 4
+git pull
+scripts/sonar_care.sh --dry-run     # first look: shows which key each gesture WOULD press, presses nothing
+scripts/sonar_care.sh               # the real thing
 ```
+
+That one command creates `.venv` if it is missing, installs only the packages that are missing, starts the sonar
+engine with the `calm50` model, puts a Sonar Care item in the menu bar and opens the dashboard at
+`http://127.0.0.1:8800/care.html` (the first time: a guided setup). No Xcode, no code signing, no build step. Stop
+with Ctrl+C or **Quit Sonar Care** in the menu; the engine it started stops too.
+
+Before you start:
+
+- Speaker volume where it was when the model's recordings were made, and do not change it afterwards.
+- Nothing else playing sound, headphones and Bluetooth audio disconnected, charger in.
+- In **Audio MIDI Setup** the MacBook microphone and speakers are at 48,000 Hz.
+- Keep the lid angle fixed. Moving it changes the echo picture: press Calibrate if you do.
+- macOS asks once for the **Microphone** (everything needs it) and for **Accessibility** (only for pressing keys)
+  for the terminal app you start it from. `docs/SONAR_CARE.md`, section 2.
+
+How to gesture: open hand, a hand-length (20 to 25 cm) from the screen. *Swipe*: sweep across in about half a
+second, then let the hand drop to your lap; do not swipe back. *Push*: palm quickly toward the screen and straight
+back. *Help*: push, bring the hand back, push again about a second later.
+
+### Only the engine
+
+```bash
+SONAR_MODEL_DIR=models-candidate-mac-calm50 scripts/run_best_mac.sh        # live: the MacBook's speakers and microphone
+SONAR_MODEL_DIR=models-candidate-mac-calm50 scripts/run_best_mac.sh -v     # also print the signal status once a second
+```
+
+The script picks the MacBook's built-in microphone and speakers and passes the flags the model was packaged with
+(`--mics 1 --no-range-gate --entering-gate-s 3`, and how a movement burst is cut). The second line it prints must
+read `classifier: model (gesture.onnx)`. Keep hands away for the first 5 seconds (calibration). The engine prints
+every gesture, presence change and breathing rate, and serves the same as JSON events on `ws://127.0.0.1:8765`.
+Sonar Care uses an engine that is already running on that port instead of starting a second one.
+
+### No sonar at hand
+
+```bash
+scripts/sonar_care.sh --mock                 # scripted fake data on any Mac, marked "Simulated data"
+scripts/sonar_care.sh --backend sim          # the real engine and model with a simulated visitor, no sound
+SONAR_MODEL_DIR=models-candidate-mac-calm50 scripts/run_best_mac.sh --backend sim --min-peak-db 3      # the engine alone, simulated
+.venv/bin/python -m sonar.engine --backend file --file data/<session>/audio.wav --mics 1               # replay a recording as if live
+```
+
+`--min-peak-db 3` is needed with the simulator because `calm50` ignores movements weaker than real hands at this
+laptop, and the simulated hand is weaker. Sonar Care adds it by itself in `--backend sim`.
+
+## The model in the repo
+
+`models-candidate-mac-calm50/` (weights included, so a `git pull` delivers a runnable model). It knows three
+gestures and was trained on recordings of three people made on one MacBook Pro. A model only works on the laptop
+whose recordings trained it.
+
+Honest score, each person held out of training in turn: 133 of 206 gestures recognised (65 %), with 22 of 499 other
+movements triggering (4.4 %). On the best-matched held-out person: 70 of 81 (86 %). Breathing on one microphone is
+experimental. Not a medical device.
+
+## Recording more people and training (on the MacBook)
+
+```bash
+.venv/bin/python -m sonar.selftest --in-device MacBook --out-device MacBook     # 1 minute: signal strength, lock, audible leak
+scripts/mac_record_all.sh                                                       # one person: scene, gestures, breathing (about 10 min)
+scripts/train_4090.sh --device mps --size small --release models-release-mac    # train on the MacBook (needs requirements-train.txt)
+```
+
+The steps, what good output looks like and how to train on the RTX 4090 box instead are in `HANDOFF_LANCE.md` and
+`TRAINING.md` (section 9, "Demo on a MacBook"). More different people beats more repetitions. Keep one person out
+of training for the honest score.
 
 ## Troubleshooting
 
-| symptom | fix |
+For the app (menu bar, dashboard, keys blocked, alerts) see `docs/SONAR_CARE.md`, section 5. For the engine:
+
+| Symptom | Fix |
 |---|---|
-| "could not open the audio devices" | another app holds the speaker or mic; exclusive control not ticked; try `--list-devices`, `--in-device "Microphone Array"`, `--out-device "Speaker"`, `--duplex`, `--blocksize 3840` |
-| self-test SNR near 0, no lock | you are in shared mode or the wrong devices were picked: check the device names it printed |
-| recorder says "NO movement detected" | closer (20-25 cm), bigger, faster; raise the volume and re-run the self-test |
-| gestures fire when nobody gestures | record a `scene` session with those distractions and retrain; raise `--min-confidence 0.7` or `--min-peak-db 8` |
-| swipes mixed up left/right | the model needs more swipe data, or the mic channels are swapped relative to training: retrain on this laptop's own recordings |
-| a swipe triggers the opposite gesture | let the hand drop instead of swiping back; `--swipe-hold 0.4` |
-| breathing stays "acquiring" | sit, 0.5 m, hands on lap, wait 15 s; raise the volume; check `status.snr_db` |
-| someone hears a whine | lower the volume; `--profile clean` |
-| engine prints `status ... locked False` repeatedly | audio is dropping out: close CPU-heavy apps, `--blocksize 3840` |
+| "could not open the audio devices" | Another app holds the microphone, or the terminal has no Microphone permission (System Settings > Privacy & Security > Microphone). List devices with `.venv/bin/python -m sonar.engine --list-devices`; pick them with `SONAR_IN_DEVICE=... SONAR_OUT_DEVICE=...` |
+| The second line says `classifier: physics`, not `model` | The weight file is missing: `git pull` |
+| Status shows a low SNR (under 25 dB) or `locked False` | Volume too low or changed, headphones or Bluetooth audio connected, the devices are not at 48,000 Hz, or a CPU-heavy app is causing dropouts. Then Calibrate |
+| Gestures fire when nobody gestures | Raise the confidence floor (Sonar Care > Settings > Fine tuning, or `--min-confidence 0.7`) |
+| A swipe triggers the opposite gesture | Let the hand drop instead of swiping back |
+| Breathing stays on a dash | Sit 0.5 to 0.8 m away, hands on your lap, wait 15 s. It is an early estimate and often has no confident reading |
+| Someone hears a whine | Lower the volume (then re-record or expect weaker recognition), or record and run with `--profile clean` |
 
 ## Development
 
 ```bash
-uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements-train.txt
-.venv/bin/python -m pytest            # 84 tests, ~2 minutes, no audio hardware needed
-.venv/bin/python -m pytest -m "not slow"    # the fast ones (~30 s)
+.venv/bin/python -m pytest -m "not slow" -q     # the engine, the app and Sonar Care (about 2 minutes, no audio hardware)
+node --test app/tests/                          # the page code: adapters, store, live client (Node 22+)
 ```
 
-The tests run a physics simulator (`sonar/sim.py`) through the real pipeline: a
-reflector moving at a known speed must give the right Doppler shift, a chest
-breathing at 15 per minute must be measured within 1, gestures must be detected
-and named, and the whole record → train → export → classify chain must work.
+The engine tests run a physics simulator (`sonar/sim.py`) through the real pipeline: a reflector moving at a known
+speed must give the right Doppler shift, a chest breathing 15 times a minute must be measured within 1, gestures
+must be detected and named, and the record, train, export, classify chain must work.
 
-| file | what it does |
+| File | What it does |
 |---|---|
 | `sonar/config.py` | every signal and processing parameter; named profiles |
-| `sonar/tx.py` | the transmitted waveform (two pilot tones + one chirp, 20 ms period) |
+| `sonar/tx.py` | the transmitted waveform (two pilot tones, one per speaker, plus one chirp; 20 ms period) |
 | `sonar/dsp.py` | prefilter, tone demodulation, Doppler spectrogram, chirp receiver (sync, drift, echo profile) |
 | `sonar/frontend.py`, `sonar/pipeline.py` | the streaming chain used everywhere |
 | `sonar/gestures.py` | noise floor, burst segmenter, physics-only classifier |
 | `sonar/presence.py`, `sonar/breathing.py` | presence state machine, breathing estimator |
-| `sonar/audio.py` | live (WASAPI exclusive), simulator and file backends |
+| `sonar/audio.py` | live audio, simulator and file backends |
 | `sonar/engine.py`, `sonar/server.py` | realtime engine, WebSocket event stream |
-| `sonar/selftest.py`, `sonar/record.py`, `sonar/plot.py` | hardware check, data collection, session plots |
-| `sonar/features.py`, `sonar/dataset.py`, `sonar/model.py`, `sonar/train.py`, `sonar/classifier.py` | features, dataset + augmentation, CNN, training + ONNX export, inference |
+| `sonar/selftest.py`, `sonar/record.py`, `sonar/plot.py`, `sonar/replay.py` | hardware check, data collection, session plots, scoring a recording |
+| `sonar/features.py`, `sonar/dataset.py`, `sonar/model.py`, `sonar/train.py`, `sonar/classifier.py` | features, dataset and augmentation, the network, training and ONNX export, inference |
 | `sonar/sim.py` | physics echo simulator |
-| `tests/` | pytest suite |
+| `app/care/`, `app/sonar_care.py`, `scripts/sonar_care.sh` | Sonar Care: the service, its entry point, the one-command launcher |
+| `app/web/` | the dashboard, settings and setup pages, the pitch slides |
+| `scripts/run_best_mac.sh`, `scripts/mac_record_all.sh` | start the engine with a packaged model; record one person |
+| `tests/`, `app/tests/` | the test suites |
+
+---
+
+*Legacy.* The project started on a Windows laptop with two microphones (an HP ENVY x360, WASAPI exclusive mode).
+That path is still in the code (`py -m sonar.engine`, `--shared`, the two-microphone profiles) but it is not the
+demo and is no longer documented here. Its instructions are in this file's git history before 15 November 2026.

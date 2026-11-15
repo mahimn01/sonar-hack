@@ -41,7 +41,7 @@
   --line: rgba(12, 35, 40, 0.11);
   --tide: #0b7285;         /* breathing, live data */
   --tide-2: #4fb0bb;
-  --tide-wash: #d2ebec;
+  --tide-wash: #d6eeef;      /* text in --tide on this wash is 4.6:1 (WCAG AA) */
   --ember: #b4561a;        /* gestures, attention */
   --ember-wash: #f5e2d2;
   --alarm: #b42318;        /* care alerts */

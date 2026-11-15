@@ -14,19 +14,27 @@ top of it (the UI in `app/`, the data tools in `datagen/`). Schema version: **1*
 
 ## 1. Running the engine
 
-```powershell
-# Windows demo laptop, from the repo root
-py -3.12 -m sonar.engine                      # live audio; uses models\gesture.onnx if it exists, else physics rules
-py -3.12 -m sonar.engine --physics            # live audio, physics rules only (no trained model needed)
-py -3.12 -m sonar.engine --backend sim        # NO hardware: a scripted simulated visitor, real pipeline
-py -3.12 -m sonar.engine --backend file --file data\<session>\audio.wav     # replay a recording
+```bash
+# On the MacBook, from the repo root
+scripts/sonar_care.sh                                                  # the app: starts the engine, keeps it running, adds its own events
+SONAR_MODEL_DIR=models-candidate-mac-calm50 scripts/run_best_mac.sh    # only the engine: live audio, the calm50 model
+scripts/run_best_mac.sh --physics                                      # live audio, physics rules only (no trained model needed)
+SONAR_MODEL_DIR=models-candidate-mac-calm50 scripts/run_best_mac.sh --backend sim --min-peak-db 3    # NO hardware: a simulated visitor, real pipeline
+.venv/bin/python -m sonar.engine --backend file --file data/<session>/audio.wav --mics 1             # replay a recording
 ```
+
+`scripts/run_best_mac.sh` starts `python -m sonar.engine` with the MacBook's built-in microphone and speakers and
+the flags the model was packaged with: `--mics 1` (a MacBook microphone records one channel), `--no-range-gate`,
+`--entering-gate-s 3`, and how a movement burst is cut (`SONAR_SEG_REL_OFF_DB`, read from the model's
+`gesture.json`). Whatever you add after the script name goes to the engine. The second line it prints must read
+`classifier: model (gesture.onnx)`. `scripts/sonar_care.sh` runs the same script for you and restarts the engine
+if it stops (`docs/SONAR_CARE.md`).
 
 The engine prints gestures, presence changes and breathing to the console and
 serves events on **`ws://127.0.0.1:8765`** (`--host`, `--port` to change; any
 number of clients may connect). Useful flags: `--profile`, `--min-confidence 0.6`,
 `--swipe-hold 0.3`, `--no-spectrogram`, `--in-device`, `--out-device`,
-`--list-devices`, `--min-peak-db`, `--no-range-gate`, `-v` (print status lines).
+`--list-devices`, `--min-peak-db`, `--mics`, `-v` (print status lines).
 
 Start-up: the first ~5 s are calibration (`status.calibrating = true`). Hands
 away from the laptop and nobody walking past during those seconds.
@@ -34,15 +42,22 @@ away from the laptop and nobody walking past during those seconds.
 `--backend sim` loops a 62 s story: a visitor walks in (4-7 s), swipes right
 (~11 s), pushes (~14 s), swipes left (~18 s), sits still breathing at 15/min
 (19-50 s), leaves (50-53 s). Use it to rehearse the UI against the real event
-stream. `--backend sim --scene hall` is the messy version: a seated person
-breathing 15/min who fidgets, people walking past 1.5-3 m behind, a neighbour
-2 m away and bursts of noise, at the noise level measured on the demo laptop
-(`--scene hall_empty`: the same hall with nobody at the laptop).
+stream. With the `calm50` model add `--min-peak-db 3`: that model ignores
+movements weaker than a real hand at the MacBook, and the simulated hand is
+weaker (Sonar Care adds the flag by itself). With the MacBook flags the
+simulator's swipe right is reported as a swipe left, and its room is never
+reported empty. `--backend sim --scene hall` is the messy version: a seated
+person breathing 15/min who fidgets, people walking past 1.5-3 m behind, a
+neighbour 2 m away and bursts of noise (`--scene hall_empty`: the same hall
+with nobody at the laptop).
 
 To score a recording (or those simulated scenes) instead of watching it live:
 `python -m sonar.replay <session folder>` prints presence and breathing second
 by second and, per labelled part of the session, how often "moving" fired, how
 often breathing restarted and the measured rate against the paced rate.
+
+*Legacy.* On the Windows laptop the project started on (two microphones), the same engine runs as
+`py -3.12 -m sonar.engine` in WASAPI exclusive mode (`--shared` switches that off). That path is not the demo.
 
 ---
 
@@ -62,7 +77,7 @@ Unknown fields may be added later; ignore what you do not know.
 
 ```json
 {"type":"hello","schema":1,"version":"0.1.0","t":1794620725.2,
- "labels":["swipe_left","swipe_right","push","pull"],
+ "labels":["swipe_left","swipe_right","push"],
  "presence_states":["empty","entering","present"],
  "breathing_states":["tracking","acquiring","moving","no_signal"],
  "frame_rate":50.0,"tones_hz":[18500.0,19000.0],"chirp_band_hz":[19500.0,21500.0],
@@ -74,13 +89,13 @@ Unknown fields may be added later; ignore what you do not know.
 
 ```json
 {"type":"gesture","label":"swipe_right","confidence":0.93,"source":"model",
- "probs":{"none":0.01,"swipe_left":0.02,"swipe_right":0.93,"push":0.03,"pull":0.01},
+ "probs":{"none":0.01,"swipe_left":0.02,"swipe_right":0.94,"push":0.03},
  "duration_s":0.44,"peak_db":16.4,"t":1794620729.34,"seq":135}
 ```
 
 | field | meaning |
 |---|---|
-| `label` | `swipe_left` \| `swipe_right` \| `push` \| `pull`. Never `none`. `swipe_right` = the hand moved to the user's right. |
+| `label` | `swipe_left` \| `swipe_right` \| `push` with the MacBook model. Never `none`. `swipe_right` = the hand moved to the user's right. The labels come from the loaded model (`hello.labels`): a model trained with a fourth gesture also sends `pull`. |
 | `confidence` | 0..1. Already at least `--min-confidence` (0.6 by default). |
 | `source` | `model` (trained CNN) or `physics` (training-free rules). |
 | `probs` | score of every class. |
@@ -92,7 +107,7 @@ the opposite gesture is ignored for 1.2 s (the hand coming back), swipes are
 held 0.3 s to tell the wind-up from the real stroke, bursts caused by somebody
 walking in or walking past are dropped. A UI can act on every `gesture` event
 directly. Latency: a swipe is reported about 0.5 s after the hand stops
-(0.2 s to be sure the movement ended + 0.3 s hold); push/pull about 0.2 s.
+(0.2 s to be sure the movement ended + 0.3 s hold); a push about 0.2 s.
 
 ### `presence` — on every change, and once per second
 
@@ -168,7 +183,7 @@ less reliable rate.
 | `fps` | frames processed per second (50 when keeping up). |
 | `calibrating` | `true` during start-up and after a `calibrate` command. |
 | `locked` | the chirp receiver is aligned to the speaker signal (needed for presence and breathing). |
-| `drift_ppm` | measured clock offset between speaker and microphone (parts per million; 0 expected on the demo laptop). |
+| `drift_ppm` | measured clock offset between speaker and microphone (parts per million; 0 expected when one device plays and records). |
 | `clipped` | the microphone hit full scale in the last second (lower the volume). |
 | `dropped`, `resyncs` | audio dropouts noticed / times the receiver had to re-align. |
 | `activity_db` | current hand-movement energy above the noise floor (a live "is it seeing me" meter; a gesture needs 3+). Not range-gated: in a busy room it also shows other people. |
