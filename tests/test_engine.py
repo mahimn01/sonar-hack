@@ -207,7 +207,8 @@ def test_entering_gate_can_be_capped(cfg):
         stream = frames(600, {100, 500})                         # bursts 2 s and 10 s after the person appeared
         engine.pipeline = SimpleNamespace(
             process=lambda rx: stream, segmenter=SimpleNamespace(active=False, activity_db=0.0), snr_db=lambda: 50.0,
-            calibrating=False, frontend=SimpleNamespace(locked=True, n_resync=0, _chirp=SimpleNamespace(drift_ppm=0.0)))
+            calibrating=False, frontend=SimpleNamespace(locked=True, n_resync=0, _chirp=SimpleNamespace(drift_ppm=0.0)),
+            presence=SimpleNamespace(_base=1.0))
         return [e["label"] for e in engine.step(np.zeros((960, cfg.n_mics), np.float32)) if e["type"] == "gesture"]
 
     assert run(None) == []                                       # as before: everything is vetoed while "entering"
