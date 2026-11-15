@@ -721,6 +721,14 @@ class CareRules:
         """Somebody pressed Cancel on screen while the request was still pending."""
         return self.alerts.cancel("help", now, "cancelled on screen")
 
+    def send_help_now(self, now: float) -> list[Effect]:
+        """Somebody pressed "Send now" on screen: skip the rest of the cancel time."""
+        a = self.alerts.get("help")
+        out = self.alerts.escalate("help", now)
+        if out:
+            out.append(_timeline("alert", "alert", "help", a["title"], now, detail="sent from the screen", alert_id=a["id"]))
+        return out
+
     def _help_again(self, now: float) -> list[Effect]:
         a = self.alerts.get("help")
         min_gap = float(self.settings["monitoring"]["help"]["min_gap_s"])

@@ -24,7 +24,23 @@
     link: '<path d="M9.5 14.5l5-5"/><path d="M11 7l1.6-1.6a3.8 3.8 0 0 1 5.4 5.4L16.4 12.4"/><path d="M13 17l-1.6 1.6a3.8 3.8 0 0 1-5.4-5.4L7.6 11.6"/>',
     lock: '<rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/>',
     ping: '<circle cx="6.5" cy="12" r="1.8"/><path d="M10.5 8.4a5 5 0 0 1 0 7.2"/><path d="M14 5.4a9.4 9.4 0 0 1 0 13.2"/><path d="M17.5 2.6a13.4 13.4 0 0 1 0 18.8"/>',
-    person: '<circle cx="12" cy="6.5" r="2.8"/><path d="M6.5 20.5v-4.5a5.5 5.5 0 0 1 11 0v4.5"/>'
+    person: '<circle cx="12" cy="6.5" r="2.8"/><path d="M6.5 20.5v-4.5a5.5 5.5 0 0 1 11 0v4.5"/>',
+    // Sonar Care
+    settings: '<path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/>',
+    sun: '<circle cx="12" cy="12" r="3.8"/><path d="M12 2.6v2.4M12 19v2.4M2.6 12H5M19 12h2.4M5.4 5.4l1.7 1.7M16.9 16.9l1.7 1.7M5.4 18.6l1.7-1.7M16.9 7.1l1.7-1.7"/>',
+    moon: '<path d="M19.8 14.2A8.3 8.3 0 1 1 9.8 4.2a6.8 6.8 0 0 0 10 10z"/>',
+    help: '<circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="3.4"/><path d="M5.9 5.9l3.7 3.7M14.4 14.4l3.7 3.7M18.1 5.9l-3.7 3.7M9.6 14.4l-3.7 3.7"/>',
+    still: '<circle cx="12" cy="12" r="8.6"/><path d="M10 8.8v6.4M14 8.8v6.4"/>',
+    engine: '<rect x="6.5" y="6.5" width="11" height="11" rx="2"/><path d="M10 3v3.5M14 3v3.5M10 17.5V21M14 17.5V21M3 10h3.5M3 14h3.5M17.5 10H21M17.5 14H21"/>',
+    test: '<path d="M8 5.2v13.6l10.6-6.8z"/>',
+    keyboard: '<rect x="2.5" y="6.5" width="19" height="11" rx="2.2"/><path d="M6.2 10.2h.01M9.8 10.2h.01M13.4 10.2h.01M17 10.2h.01M7.5 13.8h9"/>',
+    double_push: '<path d="M12 2.6v6.2"/><path d="M8.8 5.8 12 9l3.2-3.2"/><path d="M8.8 10.6 12 13.8l3.2-3.2"/><path d="M6.5 20.5h11"/><path d="M8 20.5V17h8v3.5"/>',
+    close: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    arrow: '<path d="M5 12h13.5"/><path d="M13 6.5l5.5 5.5-5.5 5.5"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>',
+    speaker: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.6a8 8 0 0 1 0 10.8"/>',
+    info: '<circle cx="12" cy="12" r="8.6"/><path d="M12 11v5.2"/><path d="M12 7.8v.2"/>',
+    clock: '<circle cx="12" cy="12" r="8.6"/><path d="M12 7v5.2l3.4 2"/>'
   };
   function icon(name, extraClass) {
     var body = P[name] || P.signal;
@@ -32,7 +48,7 @@
   }
 
   // ---- labels and formatting ----------------------------------------------
-  var GESTURE_TEXT = { swipe_left: 'Swipe left', swipe_right: 'Swipe right', push: 'Push', pull: 'Pull / wave', unknown: 'Unknown' };
+  var GESTURE_TEXT = { swipe_left: 'Swipe left', swipe_right: 'Swipe right', push: 'Push', pull: 'Pull', unknown: 'Unknown' };
   var PRESENCE_TEXT = { empty: 'Room empty', entering: 'Someone entering', present: 'Person present', unknown: 'Waiting for sensor' };
 
   function pct(c) { return c == null ? '' : Math.round(c * 100) + '%'; }
@@ -67,14 +83,18 @@
     if (!(name in themeCache)) themeCache[name] = getComputedStyle(doc.documentElement).getPropertyValue('--' + name).trim();
     return themeCache[name];
   }
-  function setTheme(name) {
+  // setTheme('dark' | 'light'[, {persist: false}]). Without persist:false the choice is remembered for next time.
+  function setTheme(name, opts) {
     var t = name === 'dark' || name === 'night' ? 'night' : 'daylight';
     if (t === 'night') doc.documentElement.setAttribute('data-theme', 'night');
     else doc.documentElement.removeAttribute('data-theme');
     themeCache = null;
-    try { root.localStorage.setItem('sonar.theme', t === 'night' ? 'dark' : 'light'); } catch (e) { /* storage blocked: theme just won't persist */ }
+    if (!opts || opts.persist !== false) {
+      try { root.localStorage.setItem('sonar.theme', t === 'night' ? 'dark' : 'light'); } catch (e) { /* storage blocked: theme just won't persist */ }
+    }
     doc.dispatchEvent(new CustomEvent('sonar:theme', { detail: t }));
   }
+  function isDark() { return doc.documentElement.getAttribute('data-theme') === 'night'; }
   function toggleTheme() { setTheme(doc.documentElement.getAttribute('data-theme') === 'night' ? 'light' : 'dark'); }
 
   // Parse "#rrggbb" into [r, g, b].
@@ -194,7 +214,7 @@
   root.SonarUI = {
     icon: icon, GESTURE_TEXT: GESTURE_TEXT, PRESENCE_TEXT: PRESENCE_TEXT,
     pct: pct, duration: duration, ago: ago, clock: clock, khz: khz, signalSpan: signalSpan, escapeHtml: escapeHtml,
-    themeColor: themeColor, setTheme: setTheme, toggleTheme: toggleTheme, rgb: rgb,
+    themeColor: themeColor, setTheme: setTheme, toggleTheme: toggleTheme, isDark: isDark, rgb: rgb,
     addDrawer: addDrawer, fitCanvas: fitCanvas, visible: visible, reducedMotion: reducedMotion,
     keepAwake: keepAwake, autoHideCursor: autoHideCursor, toggleFullscreen: toggleFullscreen,
     debugPanel: debugPanel

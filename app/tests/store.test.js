@@ -211,3 +211,81 @@ test('a breath-hold longer than the engine window stays flagged and flat (amplit
   const W = store.state.wave, tEnd = W.t[W.t.length - 1];
   assert.ok(W.rms(tEnd - 5, tEnd) < 0.2, 'rescaled line stays flat, rms=' + W.rms(tEnd - 5, tEnd));
 });
+
+// ---- Sonar Care: the page shows what the service decided ------------------------------------------
+
+function careRig() {
+  const clock = { now: 1794600000000 };
+  const sb = loadWeb(['adapter.js', 'store.js'], { clock });
+  const store = sb.SonarStore.createStore({ ...CFG, careAlerts: true });
+  store.setSocket('open', {});
+  const send = (msg) => store.ingestRaw(JSON.stringify({ t: clock.now / 1000, ...msg }));
+  const alert = (over) => ({
+    id: 'help-1', kind: 'help', level: 'alert', state: 'active', title: 'Help requested', detail: 'Two pushes', since: clock.now / 1000 - 4,
+    raised_at: clock.now / 1000 - 3, active_at: clock.now / 1000, ...over
+  });
+  return { clock, store, send, alert };
+}
+
+test('care alerts: raised, replaced by state, dismissed; help sorts first', () => {
+  const { store, send, alert } = careRig();
+  const changes = [];
+  store.on('careAlert', (e) => changes.push(e.change + ':' + e.alert.id));
+  send({ type: 'care_alert', change: 'raised', alert: alert({ id: 'no_movement-1', kind: 'no_movement', level: 'attention', title: 'No movement' }) });
+  send({ type: 'care_alert', change: 'pending', alert: alert({ state: 'pending' }) });
+  assert.deepStrictEqual(Array.from(store.state.care.alerts, (a) => a.id), ['help-1', 'no_movement-1']);
+  send({ type: 'care_alert', change: 'raised', alert: alert() });                    // same id: updated in place
+  assert.strictEqual(store.state.care.alerts.length, 2);
+  assert.strictEqual(store.state.care.alerts[0].state, 'active');
+  send({ type: 'care_alert', change: 'dismissed', alert: alert({ id: 'no_movement-1', kind: 'no_movement' }) });
+  assert.deepStrictEqual(Array.from(store.state.care.alerts, (a) => a.id), ['help-1']);
+  send({ type: 'care_state', alerts: [] });                                           // the state message is the truth
+  assert.strictEqual(store.state.care.alerts.length, 0);
+  assert.deepStrictEqual(changes, ['raised:no_movement-1', 'pending:help-1', 'raised:help-1', 'dismissed:no_movement-1']);
+});
+
+test('care: the breathing orb follows the service alert, and the page decides nothing itself', () => {
+  const { clock, store, send, alert } = careRig();
+  send({ type: 'presence', state: 'present' });
+  // The same breath-hold that makes the old monitor page raise its own alarm ...
+  let phase = 0;
+  const feed = (seconds, amp) => {
+    for (let k = 0; k < seconds * 2; k++) {
+      const chunk = [];
+      for (let i = 0; i < 10; i++) { phase += 2 * Math.PI * (14 / 60) / 20; chunk.push(amp * Math.sin(phase)); }
+      clock.now += 500;
+      send({ type: 'breathing', bpm: 14, confidence: 0.9, waveform: chunk, fs: 20 });
+      store.evaluate();
+    }
+  };
+  feed(14, 1);
+  feed(14, 0.02);
+  assert.strictEqual(store.state.alerts.apnea, null, 'with the service connected the page must not raise the alarm by itself');
+  // ... turns the orb red only when the service says so.
+  send({ type: 'care_alert', change: 'raised', alert: alert({ id: 'no_breathing-3', kind: 'no_breathing', since: clock.now / 1000 - 12 }) });
+  assert.ok(store.state.alerts.apnea);
+  assert.ok(Math.abs(clock.now - store.state.alerts.apnea.since - 12000) < 600);
+  send({ type: 'care_alert', change: 'resolved', alert: alert({ id: 'no_breathing-3', kind: 'no_breathing', state: 'resolved', resolved_at: clock.now / 1000 }) });
+  assert.strictEqual(store.state.alerts.apnea, null);
+});
+
+test('care: timeline from hello then live entries, without duplicates after a reconnect', () => {
+  const { store, send } = careRig();
+  const entry = (id, text) => ({ id, t: 1794600000 + id, kind: 'system', level: 'info', icon: 'ping', text });
+  send({ type: 'care_hello', version: '1.0.0', dry_run: true, mode: 'mock', gestures: ['swipe_left'], timeline: [entry(1, 'Sonar Care started'), entry(2, 'Engine running')] });
+  assert.deepStrictEqual(Array.from(store.state.care.timeline, (e) => e.text), ['Engine running', 'Sonar Care started']);
+  send({ type: 'care_timeline', entry: entry(3, 'Someone is here') });
+  send({ type: 'care_timeline', entry: entry(3, 'Someone is here') });
+  assert.deepStrictEqual(Array.from(store.state.care.timeline, (e) => e.id), [3, 2, 1]);
+  assert.strictEqual(store.state.care.hello.dryRun, true);
+});
+
+test('care: gesture decisions and settings are kept for the views', () => {
+  const { store, send } = careRig();
+  send({ type: 'care_action', gesture: 'push', confidence: 0.9, result: 'held', action: 'space', action_label: 'Space', help_until: 1794600002.5 });
+  send({ type: 'care_action', gesture: 'swipe_right', confidence: 0.95, result: 'dry_run', action: 'right', action_label: 'Right arrow' });
+  assert.deepStrictEqual(Array.from(store.state.care.actions, (a) => a.gesture + ':' + a.result), ['swipe_right:dry_run', 'push:held']);
+  send({ type: 'care_settings', rev: 4, settings: { room: 'Ward 3' } });
+  assert.strictEqual(store.state.care.settings.room, 'Ward 3');
+  assert.strictEqual(store.state.care.rev, 4);
+});

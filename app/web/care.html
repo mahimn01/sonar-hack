@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonar Care</title>
+<meta name="description" content="Sonar Care: touch-free control, a camera-free room monitor and a help gesture, from a laptop's own speakers and microphone.">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/atkinson-next-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/lexend-digits.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/care.css">
+<script>
+  // Theme before first paint: ?theme=, then the saved choice, then the system setting.
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    try { t = t || localStorage.getItem('sonar.theme'); } catch (e) { /* storage blocked */ }
+    if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+    if (t === 'dark' || t === 'night') document.documentElement.setAttribute('data-theme', 'night');
+  })();
+</script>
+</head>
+<body class="care-body">
+<a class="skip" href="#main">Skip to the content</a>
+
+<div class="care" id="app">
+
+  <header class="bar">
+    <a class="brand" href="#/" aria-label="Sonar Care, dashboard"><span data-icon="ping"></span><b>Sonar Care</b></a>
+    <span class="bar__room" id="room"></span>
+    <nav class="tabs" aria-label="Views">
+      <a href="#/" data-view="dashboard">Dashboard</a>
+      <a href="#/settings" data-view="settings">Settings</a>
+      <a href="#/setup" data-view="setup">Setup</a>
+    </nav>
+    <div class="bar__right">
+      <span class="sim-tag" title="These readings come from a simulator, not from a real person">Simulated data</span>
+      <span class="tag tag--caution" id="dryTag" hidden title="Gestures are logged; no key is pressed">Dry run</span>
+      <span class="privacy" title="No camera is used. No audio is stored or leaves this laptop."><span data-icon="cameraOff"></span>No camera</span>
+      <span id="conn"></span>
+      <button class="iconbtn" id="themeBtn" type="button" aria-label="Switch between light and dark"><span data-icon="moon"></span></button>
+      <span class="bar__clock num" id="clock" aria-hidden="true"></span>
+    </div>
+  </header>
+
+  <!-- Banners for alerts that are open (the help request takes the whole screen instead). -->
+  <div class="alerts" id="alerts"></div>
+
+  <main class="views" id="main">
+
+    <!-- ============================== Dashboard ============================== -->
+    <section class="view dash" id="view-dashboard" data-live-scope aria-label="Dashboard">
+
+      <section class="card card--room" id="roomCard" aria-labelledby="t-room">
+        <h2 class="card__title" id="t-room"><span data-icon="person"></span>Room<span class="chip" id="monChip"></span></h2>
+        <p class="room__state" id="roomState" aria-live="polite">Connecting to the sensor</p>
+        <p class="room__sub" id="roomSub">&nbsp;</p>
+        <div class="ruler" id="ruler" data-state="unknown" aria-hidden="true">
+          <svg viewBox="0 0 520 196" preserveAspectRatio="xMidYMax meet">
+            <!-- the laptop -->
+            <path class="ruler__screen" d="M30 150V86a6 6 0 0 1 6-6h50a6 6 0 0 1 6 6v64"/>
+            <path class="ruler__laptop" d="M18 150h86l8 14H10z"/>
+            <!-- sound going out -->
+            <path class="ruler__arc" d="M112 92a30 30 0 0 1 0 44"/>
+            <path class="ruler__arc" d="M128 78a50 50 0 0 1 0 72"/>
+            <path class="ruler__arc" d="M144 64a70 70 0 0 1 0 100"/>
+            <!-- the floor, with distance marks: 0 m at x=96, 1 m = 260 px -->
+            <path class="ruler__floor" d="M96 164h412"/>
+            <path class="ruler__tick" d="M226 159v10M356 159v10M434 154v15"/>
+            <text class="ruler__label" x="226" y="188" text-anchor="middle">0.5 m</text>
+            <text class="ruler__label" x="356" y="188" text-anchor="middle">1 m</text>
+            <text class="ruler__label" x="434" y="188" text-anchor="middle">edge of range</text>
+            <!-- the person, moved along the floor by the measured distance -->
+            <g class="ruler__person" id="rulerPerson">
+              <circle class="ruler__ring" cx="0" cy="104" r="34"/>
+              <circle cx="0" cy="78" r="15"/>
+              <path d="M-23 164v-44a23 23 0 0 1 46 0v44z"/>
+            </g>
+          </svg>
+        </div>
+        <div class="still" id="still" hidden>
+          <div class="still__words num"><span id="stillText"></span><span id="stillLimit"></span></div>
+          <div class="still__track"><i id="stillFill"></i></div>
+        </div>
+      </section>
+
+      <section class="card card--breath" id="breathCard" aria-labelledby="t-breath">
+        <h2 class="card__title" id="t-breath"><span data-icon="breath"></span>Breathing<span class="tag tag--soft" title="Breathing from one microphone is experimental. A dash means the engine is not confident.">Early estimate</span></h2>
+        <div class="breath__orb" id="orb"></div>
+        <p class="breath__status" id="breathStatus">&nbsp;</p>
+        <div class="breath__wave" id="wave"></div>
+      </section>
+
+      <section class="card card--control" id="controlCard" aria-labelledby="t-control">
+        <h2 class="card__title" id="t-control"><span data-icon="keyboard"></span>Touch-free control<span class="chip" id="ctlChip"></span></h2>
+        <p class="ctl__preset"><b id="presetName">&nbsp;</b><a href="#/settings">Change</a></p>
+        <ul class="grows" id="grows" aria-label="What each gesture does"></ul>
+        <p class="ctl__last num" id="ctlLast">&nbsp;</p>
+      </section>
+
+      <section class="card card--timeline" aria-labelledby="t-timeline">
+        <h2 class="card__title" id="t-timeline"><span data-icon="clock"></span>Timeline<small>Prototype · not a medical device</small></h2>
+        <ol class="tl" id="timeline"></ol>
+      </section>
+
+      <section class="card card--sensor" id="sensorCard" aria-labelledby="t-sensor">
+        <h2 class="card__title" id="t-sensor"><span data-icon="signal"></span>Sensor<button class="linkbtn" id="calBtn" type="button">Calibrate</button></h2>
+        <div class="sensor__top">
+          <div class="sensor__snr"><b class="num" id="snrValue">&mdash;</b><span id="snrWord">signal</span></div>
+          <div class="meter" id="snrMeter"><i></i></div>
+        </div>
+        <div class="sensor__strip" id="spectro"></div>
+        <p class="sensor__line" id="engineLine">&nbsp;</p>
+      </section>
+    </section>
+
+    <!-- ============================== Settings (care-settings.js) ============================== -->
+    <section class="view page" id="view-settings" hidden aria-label="Settings"></section>
+
+    <!-- ============================== Setup (care-setup.js) ============================== -->
+    <section class="view page" id="view-setup" hidden aria-label="Setup"></section>
+  </main>
+</div>
+
+<!-- A help request takes the whole screen. -->
+<div class="helpscreen" id="helpScreen" hidden role="alertdialog" aria-modal="true" aria-labelledby="helpTitle" aria-describedby="helpDetail">
+  <div class="helpscreen__inner">
+    <div class="helpscreen__mark" id="helpMark" aria-hidden="true"></div>
+    <h2 class="helpscreen__title" id="helpTitle">Help requested</h2>
+    <p class="helpscreen__detail" id="helpDetail"></p>
+    <p class="helpscreen__time num" id="helpTime"></p>
+    <div class="helpscreen__buttons" id="helpButtons"></div>
+    <p class="helpscreen__foot" id="helpFoot"></p>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Shown only if the page was opened without the Sonar Care service behind it. -->
+<div class="nosvc" id="noService" hidden>
+  <div class="nosvc__box">
+    <h1><span data-icon="ping"></span>Sonar Care is not running</h1>
+    <p>This page needs the Sonar Care service. Start it from the repo folder, then reload:</p>
+    <pre>scripts/sonar_care.sh</pre>
+    <p>No laptop sonar at hand? <code>scripts/sonar_care.sh --mock</code> rehearses every screen with scripted data.</p>
+  </div>
+</div>
+
+<script src="/api/boot.js" onerror="window.SonarCareBoot=null"></script>
+<script src="js/adapter.js"></script>
+<script src="js/config.js"></script>
+<script src="js/connection.js"></script>
+<script src="js/store.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/widgets.js"></script>
+<script src="js/care-api.js"></script>
+<script src="js/care.js"></script>
+<script src="js/care-dashboard.js"></script>
+<script src="js/care-settings.js"></script>
+<script src="js/care-setup.js"></script>
+<script>
+  // Safety net: if a script above failed to load, reload (up to 3 times) instead of showing a half-working page.
+  (function () {
+    var ok = !!window.SonarCare, key = 'sonar.reloads', n = 0;
+    try { n = Number(sessionStorage.getItem(key) || 0); if (ok) sessionStorage.removeItem(key); else sessionStorage.setItem(key, n + 1); } catch (e) { /* storage blocked */ }
+    if (!ok && n < 3) setTimeout(function () { location.reload(); }, 800);
+  })();
+</script>
+</body>
+</html>

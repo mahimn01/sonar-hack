@@ -9,11 +9,13 @@ What it does
       POST /api/settings         change settings; body = a partial JSON object
       POST /api/ack              acknowledge alerts; body = {"id": "help-3"} or {} for all
       POST /api/help/cancel      cancel a help request that is still counting down
+      POST /api/help/send        send a help request that is still counting down, at once
       POST /api/calibrate        ask the engine to recalibrate (about 5 s, keep still)
       POST /api/practice         body = {"active": true|false}: tutorial mode (nothing is pressed or raised)
       POST /api/engine           body = {"action": "start"|"stop"|"restart"}: the engine this app manages
       POST /api/accessibility    open System Settings on the Accessibility page (and ask macOS to list this app)
       POST /api/test-action      body = {"action": "right", "delay_s": 3}: press one key after a delay, to try a mapping
+      POST /api/test-alert       announce a harmless test alert (banner, chime, voice), to check it is noticed
       GET  /api/timeline         recent timeline entries (?limit=100)
 
     Every reply is JSON. Errors come back as {"error": "..."} with a 4xx status.
@@ -48,7 +50,7 @@ from . import settings as S  # noqa: E402
 MAX_BODY = 64 * 1024
 LOOPBACK = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 LOCAL_NAMES = {"127.0.0.1", "localhost", "[::1]", "::1"}
-LAN_POSTS = {"/api/ack", "/api/help/cancel"}          # what another device on the network may do with --lan
+LAN_POSTS = {"/api/ack", "/api/help/cancel", "/api/help/send"}     # what another device on the network may do with --lan
 
 
 class ApiHandler(StaticHandler):
@@ -175,6 +177,8 @@ class ApiHandler(StaticHandler):
                 self._send_json({"acknowledged": svc.acknowledge(str(alert_id) if alert_id is not None else None)})
             elif url.path == "/api/help/cancel":
                 self._send_json({"cancelled": svc.cancel_help()})
+            elif url.path == "/api/help/send":
+                self._send_json({"sent": svc.send_help_now()})
             elif url.path == "/api/calibrate":
                 self._send_json({"sent": svc.calibrate()})
             elif url.path == "/api/practice":
@@ -183,6 +187,8 @@ class ApiHandler(StaticHandler):
                 self._send_json({"engine": svc.engine_command(str(data.get("action")))})
             elif url.path == "/api/accessibility":
                 self._send_json({"opened": svc.open_accessibility(), "keys": svc.actions.status()})
+            elif url.path == "/api/test-alert":
+                self._send_json(svc.test_alert())
             elif url.path == "/api/test-action":
                 delay = data.get("delay_s", 0)
                 if isinstance(delay, bool) or not isinstance(delay, (int, float)) or not 0 <= delay <= 10:

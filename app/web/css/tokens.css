@@ -47,9 +47,11 @@
   --alarm: #b42318;        /* care alerts */
   --alarm-wash: #fbe2de;
   --ok: #217346;
+  --ok-wash: #dcefe3;
   --caution: #9a5a06;
   --caution-wash: #f6ead2;
   --on-alarm: #ffffff;
+  --lift: 0 calc(var(--u) * 0.5) calc(var(--u) * 2.2) rgba(12, 35, 40, 0.10);   /* raised layers: banners, dialogs */
 
   /* Spectrogram colour stops (low to high energy) */
   --cm-0: #eef3f1;
@@ -107,9 +109,11 @@
   --alarm: #ff7466;
   --alarm-wash: #3d1613;
   --ok: #5fd49f;
+  --ok-wash: #11301f;
   --caution: #f0c050;
   --caution-wash: #33290f;
   --on-alarm: #1a0705;
+  --lift: 0 calc(var(--u) * 0.5) calc(var(--u) * 2.4) rgba(0, 0, 0, 0.5);
 
   --cm-0: #0c1a1d;
   --cm-1: #123e44;

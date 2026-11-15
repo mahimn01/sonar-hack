@@ -407,6 +407,16 @@ class HelpGesture(unittest.TestCase):
         self.assertEqual(rig.alert_changes("help", out), [("help", "raised")])
         self.assertEqual(rig.open_alert("help")["state"], "active")
 
+    def test_send_now_on_screen_skips_the_rest_of_the_countdown(self) -> None:
+        rig = Rig()
+        self.assertEqual(rig.rules.send_help_now(rig.now), [], "nothing to send before a request exists")
+        rig.gesture("push"); rig.now += 1.2; rig.gesture("push")
+        rig.now += 0.5
+        out = rig.keep(rig.rules.send_help_now(rig.now))
+        self.assertEqual(rig.alert_changes("help", out), [("help", "raised")])
+        self.assertEqual(rig.open_alert("help")["active_at"], rig.now)
+        self.assertEqual(rig.rules.send_help_now(rig.now), [], "already out")
+
     def test_acknowledge_does_not_touch_a_pending_request(self) -> None:
         rig = Rig()
         rig.gesture("push"); rig.now += 1.2; rig.gesture("push")

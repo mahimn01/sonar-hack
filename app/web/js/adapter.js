@@ -13,6 +13,9 @@
  *   {kind:'spectrogram', rows, binsHz, axisLabel, autoscaled, t, tLocal}
  *   {kind:'hello',       source, version, schema, labels, classifier, t, tLocal}
  *   {kind:'unknown',     raw, reason}
+ * and Sonar Care's own messages (see docs/SONAR_CARE.md):
+ *   {kind:'careState', ...}  {kind:'careAlert', change, alert}  {kind:'careAction', gesture, result, ...}
+ *   {kind:'careTimeline', entry}  {kind:'careSettings', rev, settings}  {kind:'careHello', ...}
  *
  * When INTERFACES.md changes, edit the alias tables and pickers below. Nothing
  * else in web/ reads raw engine fields. The Python twin is app/adapter.py, and
@@ -31,6 +34,9 @@
 
   // Message type names the engine might use, mapped to our kinds.
   var TYPE_ALIASES = {
+    // Sonar Care's own messages (app/care/service.py), on the same stream as the engine's.
+    care_hello: 'careHello', care_state: 'careState', care_alert: 'careAlert', care_action: 'careAction',
+    care_timeline: 'careTimeline', care_settings: 'careSettings',
     gesture: 'gesture', gestures: 'gesture',
     presence: 'presence', occupancy: 'presence', room: 'presence',
     breathing: 'breathing', breath: 'breathing', respiration: 'breathing', resp: 'breathing', vitals: 'breathing',
@@ -298,9 +304,123 @@
     };
   }
 
+  // ---- Sonar Care's own messages ---------------------------------------------
+  // Field names on the wire are snake_case (see docs/SONAR_CARE.md); the app uses camelCase like the rest.
+
+  function d(v) { return isObj(v) ? v : {}; }
+  function yes(v) { return bool(v) === true; }
+
+  function careAlert(a) {
+    if (!isObj(a)) return null;
+    return {
+      id: strOrNull(a.id), kind: strOrNull(a.kind), level: strOrNull(a.level), state: strOrNull(a.state),
+      title: strOrNull(a.title), detail: strOrNull(a.detail),
+      since: num(a.since), raisedAt: num(a.raised_at), activeAt: num(a.active_at), escalateAt: num(a.escalate_at),
+      ackedAt: num(a.acked_at), resolvedAt: num(a.resolved_at), resolution: strOrNull(a.resolution),
+      ackS: num(a.ack_s), count: num(a.count), thresholdS: num(a.threshold_s), breathingDetected: boolOrNull(a.breathing_detected)
+    };
+  }
+
+  function careEntry(e) {
+    if (!isObj(e)) return null;
+    return {
+      id: num(e.id), t: num(e.t), kind: strOrNull(e.kind), level: strOrNull(e.level), icon: strOrNull(e.icon),
+      text: strOrNull(e.text), detail: strOrNull(e.detail), alertId: strOrNull(e.alert_id)
+    };
+  }
+
+  function careGesture(g) {
+    if (!isObj(g) || g.gesture == null) return null;
+    return {
+      gesture: String(g.gesture), confidence: conf(g.confidence), result: strOrNull(g.result), reason: strOrNull(g.reason),
+      action: strOrNull(g.action), actionLabel: strOrNull(g.action_label), t: num(g.t)
+    };
+  }
+
+  function parseCareHello(m, ts) {
+    return {
+      kind: 'careHello', version: strOrNull(m.version), dryRun: boolOrNull(m.dry_run), mode: strOrNull(m.mode),
+      gestures: Array.isArray(m.gestures) ? m.gestures.map(String) : [],
+      timeline: Array.isArray(m.timeline) ? m.timeline.map(careEntry).filter(Boolean) : [],
+      t: ts.t, tLocal: ts.tLocal
+    };
+  }
+
+  // The settings document belongs to the local API (GET/POST /api/settings) and is passed through as it is.
+  function parseCareSettings(m, ts) {
+    return { kind: 'careSettings', rev: num(m.rev), settings: d(m.settings), t: ts.t, tLocal: ts.tLocal };
+  }
+
+  function parseCareAction(m, ts) {
+    return {
+      kind: 'careAction', gesture: strOrNull(m.gesture), confidence: conf(m.confidence), result: strOrNull(m.result),
+      reason: strOrNull(m.reason), action: strOrNull(m.action), actionLabel: strOrNull(m.action_label), detail: strOrNull(m.detail),
+      delayedS: num(m.delayed_s), helpUntil: num(m.help_until), doublePush: boolOrNull(m.double_push), gapS: num(m.gap_s),
+      t: ts.t, tLocal: ts.tLocal
+    };
+  }
+
+  function parseCareAlert(m, ts) {
+    return { kind: 'careAlert', change: strOrNull(m.change), alert: careAlert(m.alert), t: ts.t, tLocal: ts.tLocal };
+  }
+
+  function parseCareTimeline(m, ts) {
+    return { kind: 'careTimeline', entry: careEntry(m.entry), t: ts.t, tLocal: ts.tLocal };
+  }
+
+  function parseCareState(m, ts) {
+    var eng = d(m.engine), link = d(m.link), sonar = d(m.sonar), pres = d(m.presence), br = d(m.breathing);
+    var still = d(m.stillness), hlp = d(m.help), ctl = d(m.control), mon = d(m.monitoring);
+    var keys = d(ctl.keys), mh = d(mon.help), mm = d(mon.no_movement), mb = d(mon.no_breathing);
+    var mapping = {}, rawMap = d(ctl.mapping);
+    for (var g in rawMap) mapping[g] = { action: strOrNull(d(rawMap[g]).action), label: strOrNull(d(rawMap[g]).label) };
+    return {
+      kind: 'careState', version: strOrNull(m.version), starting: yes(m.starting),
+      dryRun: boolOrNull(m.dry_run), quiet: boolOrNull(m.quiet), mode: strOrNull(m.mode),
+      engine: {
+        managed: boolOrNull(eng.managed), state: strOrNull(eng.state), mode: strOrNull(eng.mode), port: num(eng.port),
+        url: strOrNull(eng.url), pid: num(eng.pid), model: strOrNull(eng.model), restarts: num(eng.restarts),
+        lastError: strOrNull(eng.last_error), uptimeS: num(eng.uptime_s), retryInS: num(eng.retry_in_s)
+      },
+      link: { state: strOrNull(link.state), health: strOrNull(link.health), ageS: num(link.age_s) },
+      sonar: {
+        snrDb: num(sonar.snr_db), signal: strOrNull(sonar.signal), calibrating: yes(sonar.calibrating),
+        locked: boolOrNull(sonar.locked), source: strOrNull(sonar.source), noiseDb: num(sonar.noise_db), fps: num(sonar.fps),
+        clipped: boolOrNull(sonar.clipped), device: strOrNull(sonar.device)
+      },
+      presence: {
+        state: strOrNull(pres.state), since: num(pres.since), confidence: conf(pres.confidence), rangeM: num(pres.range_m),
+        moving: yes(pres.moving), confirmed: yes(pres.confirmed), motionlessS: num(pres.motionless_s)
+      },
+      breathing: { bpm: num(br.bpm), state: strOrNull(br.state), confidence: conf(br.confidence), armed: yes(br.armed) },
+      stillness: { stillS: num(still.still_s), limitS: num(still.limit_s), lastMovement: strOrNull(still.last_movement) },
+      help: { pending: yes(hlp.pending), since: num(hlp.since), until: num(hlp.until), heldAction: strOrNull(hlp.held_action) },
+      practice: yes(m.practice),
+      lastGesture: careGesture(m.last_gesture),
+      alerts: Array.isArray(m.alerts) ? m.alerts.map(careAlert).filter(Boolean) : [],
+      control: {
+        enabled: yes(ctl.enabled), preset: strOrNull(ctl.preset), presetLabel: strOrNull(ctl.preset_label), mapping: mapping,
+        keys: {
+          mode: strOrNull(keys.mode), trusted: boolOrNull(keys.trusted), backend: strOrNull(keys.backend), canPress: yes(keys.can_press),
+          media: strOrNull(keys.media), note: strOrNull(keys.note), settingsPath: strOrNull(keys.settings_path)
+        }
+      },
+      monitoring: {
+        enabled: yes(mon.enabled),
+        help: { enabled: yes(mh.enabled), windowS: num(mh.window_s), minGapS: num(mh.min_gap_s), confirmS: num(mh.confirm_s), pushTiming: strOrNull(mh.push_timing) },
+        noMovement: { enabled: yes(mm.enabled), seconds: num(mm.seconds), breathingCounts: yes(mm.breathing_counts) },
+        noBreathing: { enabled: yes(mb.enabled), seconds: num(mb.seconds) }
+      },
+      room: strOrNull(m.room), onboarded: yes(m.onboarded), settingsRev: num(m.settings_rev), pages: num(m.pages),
+      t: ts.t, tLocal: ts.tLocal
+    };
+  }
+
   var PARSERS = {
     gesture: parseGesture, presence: parsePresence, breathing: parseBreathing,
-    status: parseStatus, spectrogram: parseSpectrogram, hello: parseHello
+    status: parseStatus, spectrogram: parseSpectrogram, hello: parseHello,
+    careHello: parseCareHello, careState: parseCareState, careAlert: parseCareAlert, careAction: parseCareAction,
+    careTimeline: parseCareTimeline, careSettings: parseCareSettings
   };
 
   // ---- envelope handling ---------------------------------------------------
@@ -315,7 +435,7 @@
     var typeRaw = pick(m, ['type', 'event', 'kind', 'topic', 'msg_type']);
     var body = m;
     var inner = pick(m, ['data', 'payload', 'body']);
-    if (typeRaw != null && isObj(inner)) {                         // {"type":"gesture","data":{...}}
+    if (typeRaw != null && isObj(inner) && key(typeRaw).indexOf('care_') !== 0) {   // {"type":"gesture","data":{...}}
       body = {};
       for (var k in inner) body[k] = inner[k];
       for (var k2 in m) if (!(k2 in body) && k2 !== 'data' && k2 !== 'payload' && k2 !== 'body') body[k2] = m[k2];

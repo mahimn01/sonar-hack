@@ -5,6 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const util = require('node:util');
 const adapter = require('../web/js/adapter.js');
 
 const FIX = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'engine_events.json'), 'utf8'));
@@ -19,9 +20,9 @@ function check(evt, expect) {
     else if (key === 'rows_shape') got = [evt.rows.length, evt.rows[0].length];
     else if (key === 'rows_in_01') got = evt.rows.every((r) => r.every((v) => v >= 0 && v <= 1));
     else got = key in evt ? evt[key] : '<missing>';
-    const exact = (want !== null && typeof want === 'object' && !Array.isArray(want)) || (Array.isArray(want) && want.some((w) => typeof w === 'string'));
+    const exact = (want !== null && typeof want === 'object' && !Array.isArray(want)) || (Array.isArray(want) && want.some((w) => typeof w !== 'number'));
     const ok = exact
-      ? JSON.stringify(got) === JSON.stringify(want)        // a nested object or a list of names: compared exactly
+      ? util.isDeepStrictEqual(got, want)                    // a nested object or a list of names: compared exactly
       : Array.isArray(want)
         ? Array.isArray(got) && got.length === want.length && got.every((g, i) => close(g, want[i]))
         : typeof want === 'number' && typeof got === 'number' ? close(got, want) : got === want;

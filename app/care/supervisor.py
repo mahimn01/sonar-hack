@@ -74,7 +74,7 @@ def engine_command(mode: str, port: int, repo: Path = REPO, scene: str | None = 
     extra = list(extra or [])
     if mode == "mock":
         cmd = [python, str(repo / "app" / "mock_engine.py"), "--port", str(port), "--scenario", scene or "care", "--quiet"]
-        return cmd + extra, {}, "mock engine (no model)"
+        return cmd + extra, {}, "mock engine: scripted data"
     if mode not in ("live", "sim"):
         raise ValueError(f"unknown engine mode {mode!r}")
     model = pick_model(repo)

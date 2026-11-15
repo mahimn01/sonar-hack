@@ -244,8 +244,8 @@ class Service:
             return
         before, self._engine_state = self._engine_state, state
         line = {
-            "starting": ("info", f"Starting the engine ({info['model']})", None),
-            "running": ("ok", "Engine running", f"model {info['model']}" if info["model"] else None),
+            "starting": ("info", "Starting the engine", info["model"] or None),
+            "running": ("ok", "Engine running", info["model"] or None),
             "attached": ("info", "Using an engine that was already running", f"port {info['port']}"),
             "restarting": ("attention", "The engine stopped unexpectedly; restarting", info["last_error"]),
             "failed": ("alert", "The engine could not be started", info["last_error"]),
@@ -441,6 +441,14 @@ class Service:
             return bool(effects)
         return self._call(do())
 
+    def send_help_now(self) -> bool:
+        """Send a help request that is still counting down, at once. False if there was none."""
+        async def do() -> bool:
+            effects = self._rules.send_help_now(self._now())
+            self._apply(effects)
+            return bool(effects)
+        return self._call(do())
+
     def calibrate(self) -> bool:
         """Ask the engine to learn its noise floors again (about 5 s; keep still). False if it is not connected."""
         async def do() -> bool:
@@ -487,6 +495,21 @@ class Service:
                                 "icon": "test", "text": f"Test: {S.action_label(action)}", "detail": outcome["detail"]})
         self._call(note())
         return outcome
+
+    def test_alert(self) -> dict[str, Any]:
+        """Announce a harmless test alert the way a real one would be (banner, chime, voice), to check it is noticed."""
+        cfg = self.settings["alerts"]
+        now = self._now()
+        seconds = self.notifier.alert({"id": f"test-{int(now)}", "kind": "test", "level": "attention", "title": "Test alert",
+                                       "detail": "This is how Sonar Care announces an alert."},
+                                      reminder=False, notification=cfg["notification"], sound=cfg["sound"], volume=cfg["volume"],
+                                      speak=cfg["speak"], now=now)
+
+        async def guard() -> None:
+            if seconds:
+                self._rules.sound_played(self._now(), seconds + 0.5)
+        self._call(guard())
+        return {"quiet": not self.notifier.enabled, "seconds": seconds}
 
     def inject(self, event: dict[str, Any]) -> None:
         """Feed one normalised event straight into the rules (tests only)."""

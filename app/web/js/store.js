@@ -10,6 +10,11 @@
  *   - an activity log.
  * Views subscribe with store.on(topic, fn). Topics: conn, hello, status, presence, breathing,
  * gesture, spectrogram, alerts, log, raw.
+ *
+ * When the page is fed by the Sonar Care service (cfg.careAlerts), it also keeps what the service
+ * decided: its state, alerts, gesture decisions and timeline (topics care, careAlert, careAction,
+ * careTimeline, careSettings, careHello). Alerts are then the service's, not this page's: the
+ * built-in no-breathing check below stays quiet and the orb follows the service's alert.
  */
 (function (root) {
   'use strict';
@@ -99,6 +104,8 @@
       spectro: { rows: [], max: 900, binsHz: null, axisLabel: null, lastAt: 0 },
       alerts: { apnea: null, entered: null, offline: null, calibrating: false, lowSignal: false },
       log: [],                      // newest first: {at, level, icon, text}
+      // What the Sonar Care service decided (empty unless the page is connected to it).
+      care: { hello: null, state: null, settings: null, rev: null, alerts: [], actions: [], timeline: [] },
       latency: [],                  // recent receive-minus-engine-time samples (ms)
       msgRate: null,                // messages per second from the engine
       clockOffset: null             // local seconds minus engine seconds (min-tracked)
@@ -161,6 +168,9 @@
       if (p.state === 'unknown') return;
       var now = nowMs(), prev = S.presence.state;
       S.presence.confidence = p.confidence;
+      S.presence.rangeM = p.rangeM;
+      S.presence.moving = p.moving === true;
+      S.presence.motionlessS = p.motionlessS;
       if (p.state !== prev) {
         S.presence.prev = prev;
         S.presence.state = p.state;
@@ -263,6 +273,77 @@
       emit('hello', h);
     }
 
+    // ---- what the Sonar Care service decided ---------------------------------
+
+    var ALERT_ORDER = { help: 0, no_breathing: 1, no_movement: 2 };
+    function sortAlerts(list) {
+      return list.slice().sort(function (a, b) {
+        var pa = ALERT_ORDER[a.kind] == null ? 9 : ALERT_ORDER[a.kind], pb = ALERT_ORDER[b.kind] == null ? 9 : ALERT_ORDER[b.kind];
+        return pa - pb || (a.raisedAt || 0) - (b.raisedAt || 0);
+      });
+    }
+    // Service time (unix seconds) -> this page's clock (ms), so countdowns are right even on another device.
+    function careTimeMs(t) { return t == null ? null : (t + (S.clockOffset || 0)) * 1000; }
+
+    // The breathing orb turns red from the service's alert, not from this page's own check.
+    function syncApnea() {
+      if (!cfg.careAlerts) return;
+      var open = null;
+      for (var i = 0; i < S.care.alerts.length; i++) {
+        var a = S.care.alerts[i];
+        if (a.kind === 'no_breathing' && a.resolvedAt == null) open = a;
+      }
+      var next = open ? { since: careTimeMs(open.since) } : null;
+      if (!!next !== !!S.alerts.apnea || (next && S.alerts.apnea && Math.abs(next.since - S.alerts.apnea.since) > 500)) {
+        S.alerts.apnea = next;
+        emit('alerts', S.alerts);
+      }
+    }
+
+    function ingestCareState(st) {
+      S.care.state = st;
+      S.care.alerts = sortAlerts(st.alerts);
+      syncApnea();
+      emit('care', st);
+    }
+
+    function ingestCareAlert(e) {
+      if (!e.alert || !e.alert.id) return;
+      var list = S.care.alerts.filter(function (a) { return a.id !== e.alert.id; });
+      if (e.change !== 'dismissed') list.push(e.alert);
+      S.care.alerts = sortAlerts(list);
+      syncApnea();
+      emit('careAlert', e);
+    }
+
+    function ingestCareAction(a) {
+      a.at = nowMs();
+      S.care.actions.unshift(a);
+      if (S.care.actions.length > 30) S.care.actions.length = 30;
+      emit('careAction', a);
+    }
+
+    function ingestCareTimeline(e) {
+      if (!e.entry) return;
+      for (var i = 0; i < S.care.timeline.length && i < 20; i++) if (S.care.timeline[i].id === e.entry.id) return;   // seen (reconnect)
+      S.care.timeline.unshift(e.entry);
+      if (S.care.timeline.length > 200) S.care.timeline.length = 200;
+      emit('careTimeline', e.entry);
+    }
+
+    function ingestCareHello(h) {
+      S.care.hello = h;
+      S.care.timeline = h.timeline.slice().reverse();          // newest first
+      emit('careHello', h);
+      emit('careTimeline', null);
+    }
+
+    function ingestCareSettings(e) {
+      S.care.settings = e.settings;
+      S.care.rev = e.rev;
+      emit('careSettings', e);
+    }
+
     function ingest(evt) {
       if (evt.kind !== 'unknown') trackClock(evt);
       switch (evt.kind) {
@@ -272,6 +353,12 @@
         case 'status': ingestStatus(evt); break;
         case 'spectrogram': ingestSpectrogram(evt); break;
         case 'hello': ingestHello(evt); break;
+        case 'careState': ingestCareState(evt); break;
+        case 'careAlert': ingestCareAlert(evt); break;
+        case 'careAction': ingestCareAction(evt); break;
+        case 'careTimeline': ingestCareTimeline(evt); break;
+        case 'careSettings': ingestCareSettings(evt); break;
+        case 'careHello': ingestCareHello(evt); break;
         default: break;
       }
     }
@@ -353,7 +440,9 @@
           if (!motion) apneaSince = apneaSince ? Math.min(apneaSince, B.lastValidAt) : B.lastValidAt;
         }
       }
-      if (apneaSince && !A.apnea) {
+      if (cfg.careAlerts) {
+        // The Sonar Care service decides this alert (see syncApnea); this page only shows it.
+      } else if (apneaSince && !A.apnea) {
         A.apnea = { since: apneaSince };
         log('alert', 'alert', 'No breathing movement for ' + Math.round((now - apneaSince) / 1000) + ' s');
         emit('alerts', A);
@@ -388,6 +477,7 @@
       setSocket: setSocket,
       evaluate: evaluate,
       engineNow: engineNow,
+      careTimeMs: careTimeMs,
       linkLatencyMs: linkLatencyMs,
       log: log,
       config: cfg

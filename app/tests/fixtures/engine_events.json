@@ -946,6 +946,790 @@
      "classifier": "model"
     }
    ]
+  },
+  {
+   "name": "care state: the whole picture once a second",
+   "raw": {
+    "type": "care_state",
+    "t": 1794600000.5,
+    "version": "1.0.0",
+    "dry_run": true,
+    "quiet": false,
+    "mode": "sim",
+    "engine": {
+     "managed": true,
+     "state": "running",
+     "mode": "sim",
+     "port": 8765,
+     "url": "ws://127.0.0.1:8765",
+     "pid": 4242,
+     "model": "models-candidate-mac-calm50",
+     "restarts": 1,
+     "last_error": null,
+     "log": "/tmp/engine.log",
+     "uptime_s": 61.0,
+     "retry_in_s": null
+    },
+    "link": {
+     "state": "open",
+     "health": "live",
+     "age_s": 0.1
+    },
+    "sonar": {
+     "snr_db": 43.6,
+     "signal": "good",
+     "calibrating": false,
+     "locked": true,
+     "source": "sim",
+     "noise_db": 0.4,
+     "fps": 50.0,
+     "clipped": false,
+     "device": "sim"
+    },
+    "control": {
+     "enabled": true,
+     "preset": "slides",
+     "preset_label": "Slides / PDF",
+     "mapping": {
+      "swipe_left": {
+       "action": "left",
+       "label": "Left arrow"
+      },
+      "swipe_right": {
+       "action": "right",
+       "label": "Right arrow"
+      },
+      "push": {
+       "action": "space",
+       "label": "Space"
+      }
+     },
+     "keys": {
+      "settings_path": "System Settings > Privacy & Security > Accessibility",
+      "platform": "darwin",
+      "mode": "dry_run",
+      "trusted": null,
+      "backend": "dry run",
+      "can_press": false,
+      "media": "dry run",
+      "note": "Dry run: actions are logged, no key is pressed."
+     }
+    },
+    "monitoring": {
+     "enabled": true,
+     "help": {
+      "enabled": true,
+      "window_s": 2.5,
+      "min_gap_s": 1.0,
+      "confirm_s": 3.0,
+      "push_timing": "wait"
+     },
+     "no_movement": {
+      "enabled": true,
+      "seconds": 15,
+      "breathing_counts": false
+     },
+     "no_breathing": {
+      "enabled": true,
+      "seconds": 10
+     }
+    },
+    "room": "Living room",
+    "onboarded": true,
+    "settings_rev": 3,
+    "pages": 2,
+    "presence": {
+     "state": "present",
+     "since": 1794599880.5,
+     "confidence": 0.97,
+     "range_m": 0.62,
+     "moving": false,
+     "confirmed": true,
+     "motionless_s": 0.0
+    },
+    "breathing": {
+     "bpm": 15.1,
+     "state": "breathing",
+     "confidence": 0.8,
+     "armed": true
+    },
+    "stillness": {
+     "still_s": 12.3,
+     "limit_s": 15.0,
+     "last_movement": "gesture"
+    },
+    "help": {
+     "pending": true,
+     "since": 1794599999.3,
+     "until": 1794600001.8,
+     "held_action": "space"
+    },
+    "practice": false,
+    "last_gesture": {
+     "gesture": "push",
+     "confidence": 0.83,
+     "result": "held",
+     "reason": "waiting for a second push",
+     "action": "space",
+     "action_label": "Space",
+     "t": 1794599999.3
+    },
+    "alerts": [
+     {
+      "id": "help-2",
+      "kind": "help",
+      "level": "alert",
+      "state": "pending",
+      "title": "Help requested",
+      "detail": "Two pushes in a row at the laptop",
+      "since": 1794599996.2,
+      "raised_at": 1794599997.5,
+      "active_at": null,
+      "escalate_at": 1794600000.5,
+      "acked_at": null,
+      "resolved_at": null,
+      "resolution": null,
+      "ack_s": null,
+      "count": 1,
+      "reminders": 0,
+      "last_sound_at": 1794599997.5,
+      "last_request_at": 1794599997.5
+     },
+     {
+      "id": "no_movement-1",
+      "kind": "no_movement",
+      "level": "attention",
+      "state": "resolved",
+      "title": "No movement",
+      "detail": "Someone is present but nothing has moved for 15 s. Breathing is not confirmed.",
+      "since": 1794599960.5,
+      "raised_at": 1794599975.5,
+      "active_at": 1794599975.5,
+      "escalate_at": null,
+      "acked_at": null,
+      "resolved_at": 1794599998.5,
+      "resolution": "movement seen again",
+      "ack_s": null,
+      "count": 1,
+      "reminders": 0,
+      "last_sound_at": 1794599975.5,
+      "threshold_s": 15.0,
+      "breathing_detected": false
+     }
+    ]
+   },
+   "expect": [
+    {
+     "kind": "careState",
+     "version": "1.0.0",
+     "starting": false,
+     "dryRun": true,
+     "quiet": false,
+     "mode": "sim",
+     "engine": {
+      "managed": true,
+      "state": "running",
+      "mode": "sim",
+      "port": 8765.0,
+      "url": "ws://127.0.0.1:8765",
+      "pid": 4242.0,
+      "model": "models-candidate-mac-calm50",
+      "restarts": 1.0,
+      "lastError": null,
+      "uptimeS": 61.0,
+      "retryInS": null
+     },
+     "link": {
+      "state": "open",
+      "health": "live",
+      "ageS": 0.1
+     },
+     "sonar": {
+      "snrDb": 43.6,
+      "signal": "good",
+      "calibrating": false,
+      "locked": true,
+      "source": "sim",
+      "noiseDb": 0.4,
+      "fps": 50.0,
+      "clipped": false,
+      "device": "sim"
+     },
+     "presence": {
+      "state": "present",
+      "since": 1794599880.5,
+      "confidence": 0.97,
+      "rangeM": 0.62,
+      "moving": false,
+      "confirmed": true,
+      "motionlessS": 0.0
+     },
+     "breathing": {
+      "bpm": 15.1,
+      "state": "breathing",
+      "confidence": 0.8,
+      "armed": true
+     },
+     "stillness": {
+      "stillS": 12.3,
+      "limitS": 15.0,
+      "lastMovement": "gesture"
+     },
+     "help": {
+      "pending": true,
+      "since": 1794599999.3,
+      "until": 1794600001.8,
+      "heldAction": "space"
+     },
+     "practice": false,
+     "lastGesture": {
+      "gesture": "push",
+      "confidence": 0.83,
+      "result": "held",
+      "reason": "waiting for a second push",
+      "action": "space",
+      "actionLabel": "Space",
+      "t": 1794599999.3
+     },
+     "alerts": [
+      {
+       "id": "help-2",
+       "kind": "help",
+       "level": "alert",
+       "state": "pending",
+       "title": "Help requested",
+       "detail": "Two pushes in a row at the laptop",
+       "since": 1794599996.2,
+       "raisedAt": 1794599997.5,
+       "activeAt": null,
+       "escalateAt": 1794600000.5,
+       "ackedAt": null,
+       "resolvedAt": null,
+       "resolution": null,
+       "ackS": null,
+       "count": 1.0,
+       "thresholdS": null,
+       "breathingDetected": null
+      },
+      {
+       "id": "no_movement-1",
+       "kind": "no_movement",
+       "level": "attention",
+       "state": "resolved",
+       "title": "No movement",
+       "detail": "Someone is present but nothing has moved for 15 s. Breathing is not confirmed.",
+       "since": 1794599960.5,
+       "raisedAt": 1794599975.5,
+       "activeAt": 1794599975.5,
+       "escalateAt": null,
+       "ackedAt": null,
+       "resolvedAt": 1794599998.5,
+       "resolution": "movement seen again",
+       "ackS": null,
+       "count": 1.0,
+       "thresholdS": 15.0,
+       "breathingDetected": false
+      }
+     ],
+     "control": {
+      "enabled": true,
+      "preset": "slides",
+      "presetLabel": "Slides / PDF",
+      "mapping": {
+       "swipe_left": {
+        "action": "left",
+        "label": "Left arrow"
+       },
+       "swipe_right": {
+        "action": "right",
+        "label": "Right arrow"
+       },
+       "push": {
+        "action": "space",
+        "label": "Space"
+       }
+      },
+      "keys": {
+       "mode": "dry_run",
+       "trusted": null,
+       "backend": "dry run",
+       "canPress": false,
+       "media": "dry run",
+       "note": "Dry run: actions are logged, no key is pressed.",
+       "settingsPath": "System Settings > Privacy & Security > Accessibility"
+      }
+     },
+     "monitoring": {
+      "enabled": true,
+      "help": {
+       "enabled": true,
+       "windowS": 2.5,
+       "minGapS": 1.0,
+       "confirmS": 3.0,
+       "pushTiming": "wait"
+      },
+      "noMovement": {
+       "enabled": true,
+       "seconds": 15.0,
+       "breathingCounts": false
+      },
+      "noBreathing": {
+       "enabled": true,
+       "seconds": 10.0
+      }
+     },
+     "room": "Living room",
+     "onboarded": true,
+     "settingsRev": 3.0,
+     "pages": 2.0
+    }
+   ]
+  },
+  {
+   "name": "care state while the service is still starting",
+   "raw": {
+    "type": "care_state",
+    "t": 1794600000.5,
+    "version": "1.0.0",
+    "starting": true
+   },
+   "expect": [
+    {
+     "kind": "careState",
+     "version": "1.0.0",
+     "starting": true,
+     "dryRun": null,
+     "quiet": null,
+     "mode": null,
+     "engine": {
+      "managed": null,
+      "state": null,
+      "mode": null,
+      "port": null,
+      "url": null,
+      "pid": null,
+      "model": null,
+      "restarts": null,
+      "lastError": null,
+      "uptimeS": null,
+      "retryInS": null
+     },
+     "link": {
+      "state": null,
+      "health": null,
+      "ageS": null
+     },
+     "sonar": {
+      "snrDb": null,
+      "signal": null,
+      "calibrating": false,
+      "locked": null,
+      "source": null,
+      "noiseDb": null,
+      "fps": null,
+      "clipped": null,
+      "device": null
+     },
+     "presence": {
+      "state": null,
+      "since": null,
+      "confidence": null,
+      "rangeM": null,
+      "moving": false,
+      "confirmed": false,
+      "motionlessS": null
+     },
+     "breathing": {
+      "bpm": null,
+      "state": null,
+      "confidence": null,
+      "armed": false
+     },
+     "stillness": {
+      "stillS": null,
+      "limitS": null,
+      "lastMovement": null
+     },
+     "help": {
+      "pending": false,
+      "since": null,
+      "until": null,
+      "heldAction": null
+     },
+     "practice": false,
+     "lastGesture": null,
+     "alerts": [],
+     "control": {
+      "enabled": false,
+      "preset": null,
+      "presetLabel": null,
+      "mapping": {},
+      "keys": {
+       "mode": null,
+       "trusted": null,
+       "backend": null,
+       "canPress": false,
+       "media": null,
+       "note": null,
+       "settingsPath": null
+      }
+     },
+     "monitoring": {
+      "enabled": false,
+      "help": {
+       "enabled": false,
+       "windowS": null,
+       "minGapS": null,
+       "confirmS": null,
+       "pushTiming": null
+      },
+      "noMovement": {
+       "enabled": false,
+       "seconds": null,
+       "breathingCounts": false
+      },
+      "noBreathing": {
+       "enabled": false,
+       "seconds": null
+      }
+     },
+     "room": null,
+     "onboarded": false,
+     "settingsRev": null,
+     "pages": null
+    }
+   ]
+  },
+  {
+   "name": "care alert: help counting down",
+   "raw": {
+    "type": "care_alert",
+    "t": 1794600000.5,
+    "change": "pending",
+    "alert": {
+     "id": "help-2",
+     "kind": "help",
+     "level": "alert",
+     "state": "pending",
+     "title": "Help requested",
+     "detail": "Two pushes in a row at the laptop",
+     "since": 1794599996.2,
+     "raised_at": 1794599997.5,
+     "active_at": null,
+     "escalate_at": 1794600000.5,
+     "acked_at": null,
+     "resolved_at": null,
+     "resolution": null,
+     "ack_s": null,
+     "count": 1,
+     "reminders": 0,
+     "last_sound_at": 1794599997.5,
+     "last_request_at": 1794599997.5
+    }
+   },
+   "expect": [
+    {
+     "kind": "careAlert",
+     "change": "pending",
+     "alert": {
+      "id": "help-2",
+      "kind": "help",
+      "level": "alert",
+      "state": "pending",
+      "title": "Help requested",
+      "detail": "Two pushes in a row at the laptop",
+      "since": 1794599996.2,
+      "raisedAt": 1794599997.5,
+      "activeAt": null,
+      "escalateAt": 1794600000.5,
+      "ackedAt": null,
+      "resolvedAt": null,
+      "resolution": null,
+      "ackS": null,
+      "count": 1.0,
+      "thresholdS": null,
+      "breathingDetected": null
+     }
+    }
+   ]
+  },
+  {
+   "name": "care alert: no movement resolved by itself",
+   "raw": {
+    "type": "care_alert",
+    "t": 1794600000.5,
+    "change": "resolved",
+    "alert": {
+     "id": "no_movement-1",
+     "kind": "no_movement",
+     "level": "attention",
+     "state": "resolved",
+     "title": "No movement",
+     "detail": "Someone is present but nothing has moved for 15 s. Breathing is not confirmed.",
+     "since": 1794599960.5,
+     "raised_at": 1794599975.5,
+     "active_at": 1794599975.5,
+     "escalate_at": null,
+     "acked_at": null,
+     "resolved_at": 1794599998.5,
+     "resolution": "movement seen again",
+     "ack_s": null,
+     "count": 1,
+     "reminders": 0,
+     "last_sound_at": 1794599975.5,
+     "threshold_s": 15.0,
+     "breathing_detected": false
+    }
+   },
+   "expect": [
+    {
+     "kind": "careAlert",
+     "change": "resolved",
+     "alert": {
+      "id": "no_movement-1",
+      "kind": "no_movement",
+      "level": "attention",
+      "state": "resolved",
+      "title": "No movement",
+      "detail": "Someone is present but nothing has moved for 15 s. Breathing is not confirmed.",
+      "since": 1794599960.5,
+      "raisedAt": 1794599975.5,
+      "activeAt": 1794599975.5,
+      "escalateAt": null,
+      "ackedAt": null,
+      "resolvedAt": 1794599998.5,
+      "resolution": "movement seen again",
+      "ackS": null,
+      "count": 1.0,
+      "thresholdS": 15.0,
+      "breathingDetected": false
+     }
+    }
+   ]
+  },
+  {
+   "name": "care action: a swipe pressed its key (dry run)",
+   "raw": {
+    "type": "care_action",
+    "t": 1794600000.5,
+    "gesture": "swipe_right",
+    "confidence": 0.96,
+    "result": "dry_run",
+    "reason": null,
+    "action": "right",
+    "action_label": "Right arrow",
+    "detail": "would press Right arrow"
+   },
+   "expect": [
+    {
+     "kind": "careAction",
+     "gesture": "swipe_right",
+     "confidence": 0.96,
+     "result": "dry_run",
+     "reason": null,
+     "action": "right",
+     "actionLabel": "Right arrow",
+     "detail": "would press Right arrow",
+     "delayedS": null,
+     "helpUntil": null,
+     "doublePush": null,
+     "gapS": null
+    }
+   ]
+  },
+  {
+   "name": "care action: a push held back for the help window",
+   "raw": {
+    "type": "care_action",
+    "t": 1794600000.5,
+    "gesture": "push",
+    "confidence": 0.83,
+    "result": "held",
+    "reason": "waiting for a second push",
+    "action": "space",
+    "help_until": 1794600003.0,
+    "action_label": "Space"
+   },
+   "expect": [
+    {
+     "kind": "careAction",
+     "gesture": "push",
+     "confidence": 0.83,
+     "result": "held",
+     "reason": "waiting for a second push",
+     "action": "space",
+     "actionLabel": "Space",
+     "detail": null,
+     "delayedS": null,
+     "helpUntil": 1794600003.0,
+     "doublePush": null,
+     "gapS": null
+    }
+   ]
+  },
+  {
+   "name": "care action: the second push of a pair",
+   "raw": {
+    "type": "care_action",
+    "t": 1794600000.5,
+    "gesture": "push",
+    "confidence": 0.95,
+    "result": "help",
+    "reason": "second push",
+    "gap_s": 1.3
+   },
+   "expect": [
+    {
+     "kind": "careAction",
+     "gesture": "push",
+     "confidence": 0.95,
+     "result": "help",
+     "reason": "second push",
+     "action": null,
+     "actionLabel": null,
+     "detail": null,
+     "delayedS": null,
+     "helpUntil": null,
+     "doublePush": null,
+     "gapS": 1.3
+    }
+   ]
+  },
+  {
+   "name": "care action: practice double push",
+   "raw": {
+    "type": "care_action",
+    "t": 1794600000.5,
+    "gesture": "push",
+    "confidence": 0.9,
+    "result": "practice",
+    "double_push": true,
+    "gap_s": 1.4
+   },
+   "expect": [
+    {
+     "kind": "careAction",
+     "gesture": "push",
+     "confidence": 0.9,
+     "result": "practice",
+     "reason": null,
+     "action": null,
+     "actionLabel": null,
+     "detail": null,
+     "delayedS": null,
+     "helpUntil": null,
+     "doublePush": true,
+     "gapS": 1.4
+    }
+   ]
+  },
+  {
+   "name": "care timeline entry",
+   "raw": {
+    "type": "care_timeline",
+    "t": 1794600000.5,
+    "entry": {
+     "id": 12,
+     "t": 1794600000.5,
+     "kind": "alert",
+     "level": "alert",
+     "icon": "help",
+     "text": "Help requested",
+     "detail": "Two pushes in a row at the laptop",
+     "alert_id": "help-2"
+    }
+   },
+   "expect": [
+    {
+     "kind": "careTimeline",
+     "entry": {
+      "id": 12.0,
+      "t": 1794600000.5,
+      "kind": "alert",
+      "level": "alert",
+      "icon": "help",
+      "text": "Help requested",
+      "detail": "Two pushes in a row at the laptop",
+      "alertId": "help-2"
+     }
+    }
+   ]
+  },
+  {
+   "name": "care settings are passed through",
+   "raw": {
+    "type": "care_settings",
+    "t": 1794600000.5,
+    "rev": 3,
+    "settings": {
+     "room": "Ward 3",
+     "control": {
+      "preset": "media"
+     }
+    }
+   },
+   "expect": [
+    {
+     "kind": "careSettings",
+     "rev": 3.0,
+     "settings": {
+      "room": "Ward 3",
+      "control": {
+       "preset": "media"
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "care hello with the recent timeline",
+   "raw": {
+    "type": "care_hello",
+    "t": 1794600000.5,
+    "version": "1.0.0",
+    "dry_run": false,
+    "mode": "live",
+    "gestures": [
+     "swipe_left",
+     "swipe_right",
+     "push"
+    ],
+    "timeline": [
+     {
+      "id": 1,
+      "t": 1794599940.5,
+      "kind": "system",
+      "level": "info",
+      "icon": "ping",
+      "text": "Sonar Care started"
+     }
+    ]
+   },
+   "expect": [
+    {
+     "kind": "careHello",
+     "version": "1.0.0",
+     "dryRun": false,
+     "mode": "live",
+     "gestures": [
+      "swipe_left",
+      "swipe_right",
+      "push"
+     ],
+     "timeline": [
+      {
+       "id": 1.0,
+       "t": 1794599940.5,
+       "kind": "system",
+       "level": "info",
+       "icon": "ping",
+       "text": "Sonar Care started",
+       "detail": null,
+       "alertId": null
+      }
+     ]
+    }
+   ]
   }
  ]
 }
