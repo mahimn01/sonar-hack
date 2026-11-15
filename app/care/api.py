@@ -11,6 +11,9 @@ What it does
       POST /api/help/cancel      cancel a help request that is still counting down
       POST /api/calibrate        ask the engine to recalibrate (about 5 s, keep still)
       POST /api/practice         body = {"active": true|false}: tutorial mode (nothing is pressed or raised)
+      POST /api/engine           body = {"action": "start"|"stop"|"restart"}: the engine this app manages
+      POST /api/accessibility    open System Settings on the Accessibility page (and ask macOS to list this app)
+      POST /api/test-action      body = {"action": "right", "delay_s": 3}: press one key after a delay, to try a mapping
       GET  /api/timeline         recent timeline entries (?limit=100)
 
     Every reply is JSON. Errors come back as {"error": "..."} with a 4xx status.
@@ -176,6 +179,15 @@ class ApiHandler(StaticHandler):
                 self._send_json({"sent": svc.calibrate()})
             elif url.path == "/api/practice":
                 self._send_json({"practice": svc.set_practice(bool(data.get("active")))})
+            elif url.path == "/api/engine":
+                self._send_json({"engine": svc.engine_command(str(data.get("action")))})
+            elif url.path == "/api/accessibility":
+                self._send_json({"opened": svc.open_accessibility(), "keys": svc.actions.status()})
+            elif url.path == "/api/test-action":
+                delay = data.get("delay_s", 0)
+                if isinstance(delay, bool) or not isinstance(delay, (int, float)) or not 0 <= delay <= 10:
+                    raise ValueError("delay_s must be a number from 0 to 10")
+                self._send_json(svc.test_action(str(data.get("action")), float(delay)))
             else:
                 self._fail(404, "no such endpoint")
         except S.SettingsError as err:

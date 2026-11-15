@@ -1,0 +1,5 @@
+# Sonar Care (app/care): what scripts/sonar_care.sh installs on top of the engine's requirements.txt.
+# Key presses need nothing from here: they use macOS CoreGraphics through the standard library.
+websockets>=13                                        # 17.4  engine client + the dashboard's relay
+rumps>=0.4.0; sys_platform == "darwin"                # 0.4.0 the menu bar item (optional: without it the app runs --headless)
+pyobjc-framework-Quartz>=10; sys_platform == "darwin" # 13.0  media keys (optional: without it Spotify / Music are asked directly)

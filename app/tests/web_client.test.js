@@ -14,8 +14,11 @@ const APP = path.join(__dirname, '..');
 
 function python() {
   if (process.env.PYTHON) return process.env.PYTHON;
-  const venv = process.platform === 'win32' ? path.join(APP, '.venv', 'Scripts', 'python.exe') : path.join(APP, '.venv', 'bin', 'python');
-  if (fs.existsSync(venv)) return venv;
+  // The venv is in app/ on the old Windows setup and at the repo root on the Mac.
+  for (const root of [APP, path.join(APP, '..')]) {
+    const venv = process.platform === 'win32' ? path.join(root, '.venv', 'Scripts', 'python.exe') : path.join(root, '.venv', 'bin', 'python');
+    if (fs.existsSync(venv)) return venv;
+  }
   return process.platform === 'win32' ? 'python' : 'python3';
 }
 

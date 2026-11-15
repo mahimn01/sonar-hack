@@ -590,6 +590,10 @@ class NoMovement(unittest.TestCase):
         rig.now += 1
         rig.presence("empty", range_m=None)
         self.assertEqual(rig.timeline()[-1], "Room is empty")
+        rig.sit(10, state="empty")                                 # the engine is 95 % sure the room is EMPTY: that is not a person
+        self.assertEqual(rig.timeline()[-1], "Room is empty")
+        self.assertFalse(rig.rules.snapshot(rig.now)["presence"]["confirmed"])
+        self.assertEqual(rig.timeline().count("Someone is here"), 1)
 
 
 class BreathRig(Rig):

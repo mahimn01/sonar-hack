@@ -56,10 +56,9 @@ ACTIONS: dict[str, tuple[str, str]] = {
     "media_play_pause": ("Play / pause", "media"),
     "media_next": ("Next track", "media"),
     "media_previous": ("Previous track", "media"),
-    "volume_up": ("Volume up", "media"),
-    "volume_down": ("Volume down", "media"),
-    "mute": ("Mute", "media"),
 }
+# No volume or mute on purpose: the sonar plays through the same speakers at a fixed volume, and changing it
+# would change the sensor's own signal.
 
 # Ready-made mappings. "custom" uses control.custom instead.
 PRESETS: dict[str, dict[str, Any]] = {
@@ -129,6 +128,7 @@ DEFAULTS: dict[str, Any] = {
     "alerts": {
         "notification": True,        # macOS notification banner
         "sound": True,               # a system sound through the speakers
+        "speak": True,               # then say the alert's title aloud ("Help requested")
         "volume": 0.7,               # 0..1
         "repeat_s": 20,              # remind again while a help request is not acknowledged (0 = never)
     },

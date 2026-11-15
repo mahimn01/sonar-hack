@@ -213,7 +213,8 @@
 
   function parseStatus(m, ts) {
     var snr = scalarOf(pick(m, ['snr_db', 'snr', 'snrDb', 'snr_dB']));
-    var car = scalarOf(pick(m, ['carrier_hz', 'carrier', 'f0', 'f0_hz', 'tone_hz', 'tones_hz', 'freq_hz', 'carriers_hz']));
+    // The engine sends its first tone (carrier_hz) and the full list (tones_hz): the list wins, so both tones show.
+    var car = scalarOf(pick(m, ['tones_hz', 'carriers_hz', 'carrier_hz', 'carrier', 'f0', 'f0_hz', 'tone_hz', 'freq_hz']));
     var band = pick(m, ['band_hz', 'band', 'chirp_band_hz', 'chirp_hz', 'sweep_hz']);
     var bandHz = null;
     if (Array.isArray(band) && band.length >= 2) {

@@ -842,7 +842,6 @@
     {
      "kind": "status",
      "snrDb": 43.5,
-     "carrierHz": 18500,
      "bandHz": [
       19500,
       21500
@@ -862,7 +861,11 @@
       "label": "blocked:weak",
       "confidence": 0,
       "peakDb": 10.2
-     }
+     },
+     "carriersHz": [
+      18500,
+      19000
+     ]
     }
    ]
   },

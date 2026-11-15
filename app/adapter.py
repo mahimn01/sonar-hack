@@ -23,6 +23,9 @@ from typing import Any
 VERSION = "provisional-2"
 
 TYPE_ALIASES = {
+    # Sonar Care's own messages (app/care/service.py), on the same stream as the engine's.
+    "care_hello": "careHello", "care_state": "careState", "care_alert": "careAlert", "care_action": "careAction",
+    "care_timeline": "careTimeline", "care_settings": "careSettings",
     "gesture": "gesture", "gestures": "gesture",
     "presence": "presence", "occupancy": "presence", "room": "presence",
     "breathing": "breathing", "breath": "breathing", "respiration": "breathing", "resp": "breathing", "vitals": "breathing",
@@ -208,7 +211,7 @@ def _last_decision(v: Any) -> dict | None:
 
 def _status(m: dict, t: float, local: bool) -> dict:
     snr, snr_list = _scalar(_pick(m, ("snr_db", "snr", "snrDb", "snr_dB")))
-    car, car_list = _scalar(_pick(m, ("carrier_hz", "carrier", "f0", "f0_hz", "tone_hz", "tones_hz", "freq_hz", "carriers_hz")))
+    car, car_list = _scalar(_pick(m, ("tones_hz", "carriers_hz", "carrier_hz", "carrier", "f0", "f0_hz", "tone_hz", "freq_hz")))
     band = _pick(m, ("band_hz", "band", "chirp_band_hz", "chirp_hz", "sweep_hz"))
     band_hz = None
     if isinstance(band, list) and len(band) >= 2 and _num(band[0]) is not None and _num(band[1]) is not None:
@@ -274,8 +277,125 @@ def _hello(m: dict, t: float, local: bool) -> dict:
             "t": t, "tLocal": local}
 
 
+# ---- Sonar Care's own messages -------------------------------------------------------------------
+# Field names on the wire are snake_case (see docs/SONAR_CARE.md); the app uses camelCase like the rest.
+
+def _d(v: Any) -> dict:
+    return v if isinstance(v, dict) else {}
+
+
+def _care_alert(a: Any) -> dict | None:
+    if not isinstance(a, dict):
+        return None
+    return {"id": _str_or_none(a.get("id")), "kind": _str_or_none(a.get("kind")), "level": _str_or_none(a.get("level")),
+            "state": _str_or_none(a.get("state")), "title": _str_or_none(a.get("title")), "detail": _str_or_none(a.get("detail")),
+            "since": _num(a.get("since")), "raisedAt": _num(a.get("raised_at")), "activeAt": _num(a.get("active_at")),
+            "escalateAt": _num(a.get("escalate_at")), "ackedAt": _num(a.get("acked_at")), "resolvedAt": _num(a.get("resolved_at")),
+            "resolution": _str_or_none(a.get("resolution")), "ackS": _num(a.get("ack_s")), "count": _num(a.get("count")),
+            "thresholdS": _num(a.get("threshold_s")), "breathingDetected": _bool(a.get("breathing_detected"))}
+
+
+def _care_entry(e: Any) -> dict | None:
+    if not isinstance(e, dict):
+        return None
+    return {"id": _num(e.get("id")), "t": _num(e.get("t")), "kind": _str_or_none(e.get("kind")), "level": _str_or_none(e.get("level")),
+            "icon": _str_or_none(e.get("icon")), "text": _str_or_none(e.get("text")), "detail": _str_or_none(e.get("detail")),
+            "alertId": _str_or_none(e.get("alert_id"))}
+
+
+def _care_gesture(g: Any) -> dict | None:
+    if not isinstance(g, dict) or g.get("gesture") is None:
+        return None
+    return {"gesture": str(g["gesture"]), "confidence": _conf(g.get("confidence")), "result": _str_or_none(g.get("result")),
+            "reason": _str_or_none(g.get("reason")), "action": _str_or_none(g.get("action")),
+            "actionLabel": _str_or_none(g.get("action_label")), "t": _num(g.get("t"))}
+
+
+def _care_hello(m: dict, t: float, local: bool) -> dict:
+    gestures = m.get("gestures")
+    timeline = m.get("timeline")
+    return {"kind": "careHello", "version": _str_or_none(m.get("version")), "dryRun": _bool(m.get("dry_run")),
+            "mode": _str_or_none(m.get("mode")), "gestures": [str(g) for g in gestures] if isinstance(gestures, list) else [],
+            "timeline": [e for e in (_care_entry(x) for x in timeline) if e] if isinstance(timeline, list) else [],
+            "t": t, "tLocal": local}
+
+
+def _care_settings(m: dict, t: float, local: bool) -> dict:
+    # The settings document belongs to the local API (GET/POST /api/settings) and is passed through as it is.
+    return {"kind": "careSettings", "rev": _num(m.get("rev")), "settings": _d(m.get("settings")), "t": t, "tLocal": local}
+
+
+def _care_action(m: dict, t: float, local: bool) -> dict:
+    return {"kind": "careAction", "gesture": _str_or_none(m.get("gesture")), "confidence": _conf(m.get("confidence")),
+            "result": _str_or_none(m.get("result")), "reason": _str_or_none(m.get("reason")), "action": _str_or_none(m.get("action")),
+            "actionLabel": _str_or_none(m.get("action_label")), "detail": _str_or_none(m.get("detail")),
+            "delayedS": _num(m.get("delayed_s")), "helpUntil": _num(m.get("help_until")), "doublePush": _bool(m.get("double_push")),
+            "gapS": _num(m.get("gap_s")), "t": t, "tLocal": local}
+
+
+def _care_alert_event(m: dict, t: float, local: bool) -> dict:
+    return {"kind": "careAlert", "change": _str_or_none(m.get("change")), "alert": _care_alert(m.get("alert")), "t": t, "tLocal": local}
+
+
+def _care_timeline(m: dict, t: float, local: bool) -> dict:
+    return {"kind": "careTimeline", "entry": _care_entry(m.get("entry")), "t": t, "tLocal": local}
+
+
+def _care_state(m: dict, t: float, local: bool) -> dict:
+    eng, link, sonar, pres, br = _d(m.get("engine")), _d(m.get("link")), _d(m.get("sonar")), _d(m.get("presence")), _d(m.get("breathing"))
+    still, hlp, ctl, mon = _d(m.get("stillness")), _d(m.get("help")), _d(m.get("control")), _d(m.get("monitoring"))
+    keys, mh, mm, mb = _d(ctl.get("keys")), _d(mon.get("help")), _d(mon.get("no_movement")), _d(mon.get("no_breathing"))
+    mapping = {str(g): {"action": _str_or_none(_d(v).get("action")), "label": _str_or_none(_d(v).get("label"))}
+               for g, v in _d(ctl.get("mapping")).items()}
+    alerts = m.get("alerts")
+    return {
+        "kind": "careState", "version": _str_or_none(m.get("version")), "starting": _bool(m.get("starting")) is True,
+        "dryRun": _bool(m.get("dry_run")), "quiet": _bool(m.get("quiet")), "mode": _str_or_none(m.get("mode")),
+        "engine": {"managed": _bool(eng.get("managed")), "state": _str_or_none(eng.get("state")), "mode": _str_or_none(eng.get("mode")),
+                   "port": _num(eng.get("port")), "url": _str_or_none(eng.get("url")), "pid": _num(eng.get("pid")),
+                   "model": _str_or_none(eng.get("model")), "restarts": _num(eng.get("restarts")),
+                   "lastError": _str_or_none(eng.get("last_error")), "uptimeS": _num(eng.get("uptime_s")),
+                   "retryInS": _num(eng.get("retry_in_s"))},
+        "link": {"state": _str_or_none(link.get("state")), "health": _str_or_none(link.get("health")), "ageS": _num(link.get("age_s"))},
+        "sonar": {"snrDb": _num(sonar.get("snr_db")), "signal": _str_or_none(sonar.get("signal")),
+                  "calibrating": _bool(sonar.get("calibrating")) is True, "locked": _bool(sonar.get("locked")),
+                  "source": _str_or_none(sonar.get("source")), "noiseDb": _num(sonar.get("noise_db")), "fps": _num(sonar.get("fps")),
+                  "clipped": _bool(sonar.get("clipped")), "device": _str_or_none(sonar.get("device"))},
+        "presence": {"state": _str_or_none(pres.get("state")), "since": _num(pres.get("since")), "confidence": _conf(pres.get("confidence")),
+                     "rangeM": _num(pres.get("range_m")), "moving": _bool(pres.get("moving")) is True,
+                     "confirmed": _bool(pres.get("confirmed")) is True, "motionlessS": _num(pres.get("motionless_s"))},
+        "breathing": {"bpm": _num(br.get("bpm")), "state": _str_or_none(br.get("state")), "confidence": _conf(br.get("confidence")),
+                      "armed": _bool(br.get("armed")) is True},
+        "stillness": {"stillS": _num(still.get("still_s")), "limitS": _num(still.get("limit_s")),
+                      "lastMovement": _str_or_none(still.get("last_movement"))},
+        "help": {"pending": _bool(hlp.get("pending")) is True, "since": _num(hlp.get("since")), "until": _num(hlp.get("until")),
+                 "heldAction": _str_or_none(hlp.get("held_action"))},
+        "practice": _bool(m.get("practice")) is True,
+        "lastGesture": _care_gesture(m.get("last_gesture")),
+        "alerts": [a for a in (_care_alert(x) for x in alerts) if a] if isinstance(alerts, list) else [],
+        "control": {"enabled": _bool(ctl.get("enabled")) is True, "preset": _str_or_none(ctl.get("preset")),
+                    "presetLabel": _str_or_none(ctl.get("preset_label")), "mapping": mapping,
+                    "keys": {"mode": _str_or_none(keys.get("mode")), "trusted": _bool(keys.get("trusted")),
+                             "backend": _str_or_none(keys.get("backend")), "canPress": _bool(keys.get("can_press")) is True,
+                             "media": _str_or_none(keys.get("media")), "note": _str_or_none(keys.get("note")),
+                             "settingsPath": _str_or_none(keys.get("settings_path"))}},
+        "monitoring": {"enabled": _bool(mon.get("enabled")) is True,
+                       "help": {"enabled": _bool(mh.get("enabled")) is True, "windowS": _num(mh.get("window_s")),
+                                "minGapS": _num(mh.get("min_gap_s")), "confirmS": _num(mh.get("confirm_s")),
+                                "pushTiming": _str_or_none(mh.get("push_timing"))},
+                       "noMovement": {"enabled": _bool(mm.get("enabled")) is True, "seconds": _num(mm.get("seconds")),
+                                      "breathingCounts": _bool(mm.get("breathing_counts")) is True},
+                       "noBreathing": {"enabled": _bool(mb.get("enabled")) is True, "seconds": _num(mb.get("seconds"))}},
+        "room": _str_or_none(m.get("room")), "onboarded": _bool(m.get("onboarded")) is True,
+        "settingsRev": _num(m.get("settings_rev")), "pages": _num(m.get("pages")),
+        "t": t, "tLocal": local,
+    }
+
+
 _PARSERS = {"gesture": _gesture, "presence": _presence, "breathing": _breathing,
-            "status": _status, "spectrogram": _spectrogram, "hello": _hello}
+            "status": _status, "spectrogram": _spectrogram, "hello": _hello,
+            "careHello": _care_hello, "careState": _care_state, "careAlert": _care_alert_event, "careAction": _care_action,
+            "careTimeline": _care_timeline, "careSettings": _care_settings}
 
 
 def _adapt_obj(m: Any, now_s: float, out: list[dict], depth: int) -> None:
@@ -296,7 +416,7 @@ def _adapt_obj(m: Any, now_s: float, out: list[dict], depth: int) -> None:
     type_raw = _pick(m, ("type", "event", "kind", "topic", "msg_type"))
     body = m
     inner = _pick(m, ("data", "payload", "body"))
-    if type_raw is not None and isinstance(inner, dict):
+    if type_raw is not None and isinstance(inner, dict) and not _key(type_raw).startswith("care_"):
         body = dict(inner)
         for k, v in m.items():
             if k not in body and k not in ("data", "payload", "body"):

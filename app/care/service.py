@@ -19,7 +19,8 @@ What it changes
     * presses keys (through actions.py) unless dry_run is set;
     * shows notifications / plays sounds (through notify.py) unless quiet is set;
     * writes settings.json when a setting changes, and appends to events.jsonl in the log folder;
-    * opens two local ports: the web server and the relay WebSocket.
+    * opens two local ports: the web server and the relay WebSocket;
+    * starts, restarts and stops the engine process through supervisor.py (when it was given one).
 """
 
 from __future__ import annotations
@@ -45,6 +46,7 @@ from .client import EngineClient  # noqa: E402
 from .notify import Notifier  # noqa: E402
 from .relay import Relay  # noqa: E402
 from .rules import CareRules, fmt_duration  # noqa: E402
+from .supervisor import EngineSupervisor  # noqa: E402
 
 GESTURE_TEXT = {"swipe_left": "Swipe left", "swipe_right": "Swipe right", "push": "Push"}
 
@@ -94,14 +96,17 @@ def signal_quality(snr_db: float | None) -> str:
 class Service:
     """The running app. start() it, read snapshot(), stop() it."""
 
-    def __init__(self, opts: Options, actions: Actions | None = None, notifier: Notifier | None = None) -> None:
+    def __init__(self, opts: Options, actions: Actions | None = None, notifier: Notifier | None = None,
+                 supervisor: EngineSupervisor | None = None) -> None:
         self.opts = opts
         self.settings = S.load(opts.settings_path)
         self.actions = actions or Actions(dry_run=opts.dry_run)
         self.notifier = notifier or Notifier(enabled=not opts.quiet)
+        self.supervisor = supervisor                     # None = the engine is somebody else's (--attach)
         self.relay_port = 0
         self.http_port = opts.port
         self.engine_info: dict[str, Any] = {"managed": False, "state": "external", "url": opts.engine_url}
+        self._engine_state = "external"
 
         self._now = opts.clock
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -167,6 +172,9 @@ class Service:
         tasks = [asyncio.create_task(self._client.run()), asyncio.create_task(self._ticker())]
         self._add_timeline({"t": now, "kind": "system", "level": "info", "icon": "ping", "text": "Sonar Care started",
                             "detail": "dry run: no keys are pressed" if self.opts.dry_run else None})
+        if self.supervisor is not None:
+            self.supervisor.start()
+            self._watch_engine(now)
         self._publish_state(now)
         self._ready.set()
         try:
@@ -177,6 +185,8 @@ class Service:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
             await self._relay.stop()
+            if self.supervisor is not None:
+                await asyncio.get_running_loop().run_in_executor(None, self.supervisor.shutdown)
 
     # ---- engine -> rules -------------------------------------------------------------------------
 
@@ -215,12 +225,34 @@ class Service:
             if health != self._health:
                 self._health = health
                 self._dirty = True
+            if self.supervisor is not None and self.supervisor.poll():
+                self._watch_engine(now)
             self._apply(self._rules.on_link(health == "live", now))
             self._apply(self._rules.tick(now))
             if self._dirty or now - last_state >= STATE_EVERY_S:
                 self._publish_state(now)
                 last_state = now
             await asyncio.sleep(TICK_S)
+
+    def _watch_engine(self, now: float) -> None:
+        """The engine process changed state: remember it and write a timeline line a person can read."""
+        info = self.supervisor.info()
+        self.engine_info = info
+        self._dirty = True
+        state = info["state"]
+        if state == self._engine_state:
+            return
+        before, self._engine_state = self._engine_state, state
+        line = {
+            "starting": ("info", f"Starting the engine ({info['model']})", None),
+            "running": ("ok", "Engine running", f"model {info['model']}" if info["model"] else None),
+            "attached": ("info", "Using an engine that was already running", f"port {info['port']}"),
+            "restarting": ("attention", "The engine stopped unexpectedly; restarting", info["last_error"]),
+            "failed": ("alert", "The engine could not be started", info["last_error"]),
+            "stopped": ("info", "Engine stopped", None) if before != "external" else None,
+        }.get(state)
+        if line:
+            self._add_timeline({"t": now, "kind": "system", "level": line[0], "icon": "engine", "text": line[1], "detail": line[2]})
 
     # ---- rules -> the world ------------------------------------------------------------------------
 
@@ -268,7 +300,7 @@ class Service:
         if change in ("raised", "reminder"):
             cfg = self.settings["alerts"]
             seconds = self.notifier.alert(alert, reminder=change == "reminder", notification=cfg["notification"],
-                                          sound=cfg["sound"], volume=cfg["volume"], now=now)
+                                          sound=cfg["sound"], volume=cfg["volume"], speak=cfg["speak"], now=now)
             if seconds:
                 self._rules.sound_played(now, seconds + 0.5)
         self._dirty = True
@@ -422,6 +454,39 @@ class Service:
             self._dirty = True
             return self._rules.practice
         return self._call(do())
+
+    def engine_command(self, action: str) -> dict[str, Any]:
+        """start | stop | restart the engine this app manages. Raises ValueError if there is none to manage."""
+        if self.supervisor is None:
+            raise ValueError("this engine was started elsewhere; Sonar Care does not manage it")
+        if action not in ("start", "stop", "restart"):
+            raise ValueError("action must be start, stop or restart")
+
+        async def do() -> dict[str, Any]:
+            getattr(self.supervisor, action)()
+            self._watch_engine(self._now())
+            self._publish_state(self._now())
+            return self.supervisor.info()
+        return self._call(do())
+
+    def open_accessibility(self) -> bool:
+        """Open System Settings on the Accessibility page, and ask macOS to list this app there."""
+        self.actions.request_access()
+        return self.actions.open_settings()
+
+    def test_action(self, action: str, delay_s: float = 0.0) -> dict[str, Any]:
+        """Press one action after `delay_s` (so there is time to click into another app). Returns the outcome."""
+        if action not in S.ACTIONS or action == "off":
+            raise ValueError(f"unknown action {action!r}")
+        if delay_s > 0:
+            time.sleep(min(delay_s, 10.0))                # runs on the web server's thread, not on the service loop
+        outcome = self.actions.perform(action)
+
+        async def note() -> None:
+            self._add_timeline({"t": self._now(), "kind": "gesture", "level": "info" if outcome["result"] in ("sent", "dry_run") else "attention",
+                                "icon": "test", "text": f"Test: {S.action_label(action)}", "detail": outcome["detail"]})
+        self._call(note())
+        return outcome
 
     def inject(self, event: dict[str, Any]) -> None:
         """Feed one normalised event straight into the rules (tests only)."""

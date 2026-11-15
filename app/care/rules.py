@@ -526,6 +526,10 @@ class CareRules:
             elif not guarded:                             # entering <-> present: they walked or settled
                 self._saw_motion(now, "walking")
 
+        if state == "empty":                              # the engine's confidence here is "sure the room is empty"
+            self.moving = False
+            self._confident_in_a_row = 0
+            return out
         self.moving = moving
         if (moving or state == "entering") and not guarded:
             self._saw_motion(now, "moving")

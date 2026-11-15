@@ -149,8 +149,8 @@ class Smoke(unittest.TestCase):
         self.assertEqual(hello["source"], "mock")
         status = [e for e in events if e["kind"] == "status"][-1]
         self.assertAlmostEqual(status["snrDb"], 55, delta=5)
-        self.assertEqual(status["carriersHz"], [18000, 18500])     # pilot tones, as in sonar/config.py
-        self.assertEqual(status["bandHz"], [19000, 21500])         # chirp band
+        self.assertEqual(status["carriersHz"], [18500, 19000])     # pilot tones (left and right speaker), as in sonar/config.py
+        self.assertEqual(status["bandHz"], [19500, 21500])         # chirp band
         self.assertEqual(status["fps"], 50)
         spec = next(e for e in events if e["kind"] == "spectrogram")
         self.assertEqual(len(spec["rows"][0]), 64)
