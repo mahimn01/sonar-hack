@@ -34,7 +34,15 @@ away from the laptop and nobody walking past during those seconds.
 `--backend sim` loops a 62 s story: a visitor walks in (4-7 s), swipes right
 (~11 s), pushes (~14 s), swipes left (~18 s), sits still breathing at 15/min
 (19-50 s), leaves (50-53 s). Use it to rehearse the UI against the real event
-stream.
+stream. `--backend sim --scene hall` is the messy version: a seated person
+breathing 15/min who fidgets, people walking past 1.5-3 m behind, a neighbour
+2 m away and bursts of noise, at the noise level measured on the demo laptop
+(`--scene hall_empty`: the same hall with nobody at the laptop).
+
+To score a recording (or those simulated scenes) instead of watching it live:
+`python -m sonar.replay <session folder>` prints presence and breathing second
+by second and, per labelled part of the session, how often "moving" fired, how
+often breathing restarted and the measured rate against the paced rate.
 
 ---
 
@@ -95,15 +103,17 @@ directly. Latency: a swipe is reported about 0.5 s after the hand stops
 
 | field | meaning |
 |---|---|
-| `state` | `empty` (nobody within ~2 m) \| `entering` (somebody is walking up) \| `present` (somebody is there). |
-| `confidence` | 0..1 |
-| `range_m` | distance of the person from the laptop in metres, `null` when empty. Good to about ±0.1 m. |
-| `moving` | gross body movement right now (walking, reaching, gesturing). |
-| `motionless_s` | while `present`: seconds since ANY movement was seen, breathing included. Normally near 0. If it keeps counting, the person is still there (they did not walk away) but nothing moves: this is the "no breathing / no movement" alarm signal. After 40 s the state falls back to `empty`. |
+| `state` | `empty` (nobody within ~1.3 m in front of the laptop) \| `entering` (somebody is walking up) \| `present` (somebody is there). People further back in the room do not count. |
+| `confidence` | 0..1, smoothed over ~1.5 s. |
+| `range_m` | distance of the person from the laptop in metres, `null` when empty. Good to about ±0.1 m; a 2 s median, so a hand crossing in front does not move it. |
+| `moving` | gross body movement of THE PERSON IN FRONT right now (leaning, reaching, gesturing, walking up). Other people walking past further back, and bursts of noise, do not set it. Slow movement (under ~5 cm/s) does not either. |
+| `motionless_s` | while `present`: seconds since ANY movement was seen, breathing included. Normally near 0. If it keeps counting, the person is still there (they did not walk away) but nothing moves at all. A pulse or a little sway keeps it at 0, so for "breathing stopped" use `breathing.apnea` / `breathing.stopped_s`. After 40 s the state falls back to `empty`. |
 | `changed` | `true` only on the message where `state` changed. |
 
 Typical timing: `entering` within ~0.5 s of someone walking into range,
-`present` ~1 s after they stop, `empty` ~5 s after they have walked away.
+`present` ~1 s after they stop, `empty` ~5 s after they have walked away. A hand
+reaching in from the side while the state is `empty` does not make anybody
+"enter" (so it cannot veto its own gesture).
 
 ### `breathing` — about once per second (not while calibrating)
 
@@ -111,21 +121,29 @@ Typical timing: `entering` within ~0.5 s of someone walking into range,
 {"type":"breathing","bpm":15.2,"confidence":0.97,"state":"tracking",
  "waveform":[-0.42,-0.31, "... up to 300 values ..."],"fs":10.0,
  "range_m":0.71,"amplitude_mm":5.3,"window_s":30.0,
- "apnea":false,"motionless_s":0.0,"t":1794620760.1,"seq":1410}
+ "apnea":false,"motionless_s":0.0,"stopped_s":0.0,"held":false,"t":1794620760.1,"seq":1410}
 ```
 
 | field | meaning |
 |---|---|
 | `bpm` | breaths per minute, or `null` when there is no trustworthy rate (show "--"). |
 | `confidence` | 0..1. `bpm` is only non-null from 0.45 up and after 3 consecutive estimates agree. |
-| `state` | `tracking` (rate is valid) \| `acquiring` (a chest-like movement is visible, still measuring; needs ~10-15 s of stillness) \| `moving` (the person moved; measurement restarted) \| `no_signal` (nothing breathing-like in range). |
-| `waveform` | chest displacement, newest sample last, normalised to -1..1, positive = chest towards the laptop (breathing in). Up to 30 s. May be empty. Present from ~4 s of stillness, before `bpm` is. |
+| `state` | `tracking` (rate is valid) \| `acquiring` (a chest-like movement is visible, still measuring: the first ~10-15 s, a couple of seconds after the person moved, or while the breathing is irregular, e.g. talking) \| `moving` (the person has been moving for 1.5 s or more; no rate while it lasts) \| `no_signal` (nothing breathing-like in range, or the chest that was being followed has stopped moving). |
+| `waveform` | chest displacement, newest sample last, normalised to -1..1, positive = chest towards the laptop (breathing in). Up to 30 s. May be empty. Present from ~4 s of stillness, before `bpm` is. Also sent while a breath is held (it then goes flat). |
 | `fs` | sample rate of `waveform` in Hz (10). |
 | `range_m` | distance of the chest. |
 | `amplitude_mm` | peak-to-peak chest movement in millimetres (approximate for shallow breathing). |
 | `window_s` | seconds of data behind this estimate. |
-| `apnea` | `true` when somebody is `present` and nothing at all has moved for 5 s (experimental). |
+| `held` | `true` when `bpm` repeats the last good rate while a brief disturbance passes (at most 3 s). A UI may dim the number. |
+| `stopped_s` | seconds since a breathing rhythm that WAS being tracked stopped and the chest has been still since; 0 while breathing. A pulse or a little sway does not reset it; talking or moving does. |
+| `apnea` | `true` when somebody is `present` and either nothing at all has moved for 5 s, or `stopped_s` has reached 6 s (about 10 s after the last breath). |
 | `motionless_s` | same counter as in `presence`. |
+
+What a fidget, a walker or a burst of noise does: a brief disturbance at the
+chest's distance (under 1.5 s: a hand moves, a head turns, a click) is skipped
+and the rate carries on; people walking past further back are ignored; a longer
+movement shows `moving`, and the rate is back 2-3 s after it ends (about 10 s if
+the person moved for more than 3 s, because the measurement then starts again).
 
 Accuracy to expect: within 1 breath/min for a **seated** person at 0.5-0.8 m.
 A free-standing person sways in the same frequency band; expect `acquiring` or a
@@ -153,7 +171,8 @@ less reliable rate.
 | `drift_ppm` | measured clock offset between speaker and microphone (parts per million; 0 expected on the demo laptop). |
 | `clipped` | the microphone hit full scale in the last second (lower the volume). |
 | `dropped`, `resyncs` | audio dropouts noticed / times the receiver had to re-align. |
-| `activity_db` | current hand-movement energy above the noise floor (a live "is it seeing me" meter; a gesture needs 3+). |
+| `activity_db` | current hand-movement energy above the noise floor (a live "is it seeing me" meter; a gesture needs 3+). Not range-gated: in a busy room it also shows other people. |
+| `noise_db` | how much louder the room's ultrasonic noise has been lately than during calibration (0 = unchanged). If it stays above ~6, send `calibrate`. |
 | `last_decision` | the classifier's verdict on the latest movement burst, including rejected ones (`none`, `blocked:entering`, `blocked:far`, `blocked:weak`). Useful for a debug HUD. |
 | `source` | `live`, `sim` or `file`. Show a "simulated" badge unless it is `live`. |
 

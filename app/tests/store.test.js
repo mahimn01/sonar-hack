@@ -104,6 +104,15 @@ test('calibration and weak signal surface as alerts; mock source is flagged', ()
   assert.strictEqual(store.state.simulated, true);
 });
 
+test('a replayed recording (source "file") is flagged, a live engine is not', () => {
+  const replay = rig();
+  replay.send({ type: 'status', snr_db: 50, calibrating: false, source: 'file' });
+  assert.strictEqual(replay.store.state.simulated, true);
+  const live = rig();
+  live.send({ type: 'status', snr_db: 50, calibrating: false, source: 'live' });
+  assert.strictEqual(live.store.state.simulated, false);
+});
+
 test('waveform timeline merges full windows and chunks without duplicates', () => {
   const sb = loadWeb(['store.js']);
   const tl = new sb.SonarStore.Timeline(60);

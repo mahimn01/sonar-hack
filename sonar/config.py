@@ -108,8 +108,12 @@ class SonarConfig:
     impulse_ratio: float = 0.6      # outer-band excess / inner-band excess that marks a click
 
     # ------------------------------------------------------------------ presence
-    presence_max_range_m: float = 2.0     # "the room" = this far from the laptop
+    # "The person" = somebody between these two distances. Nearer is the laptop's own direct sound
+    # (it flickers with the fan and the lid); further is the hall, where other people walk about.
+    presence_min_range_m: float = 0.30
+    presence_max_range_m: float = 1.3
     presence_near_m: float = 0.6          # hand / gesture zone
+    presence_gate_margin_m: float = 0.35  # once somebody is tracked, only movement up to this far behind them counts as theirs
     presence_enter_s: float = 0.3         # gross motion this long -> "entering"
     presence_settle_s: float = 1.0        # quiet this long after motion -> "present"
     presence_absent_s: float = 5.0        # nothing moves this long after somebody walked -> "empty" (they left)
@@ -117,17 +121,24 @@ class SonarConfig:
     presence_doppler_thresh_db: float = 6.0   # pilot-tone movement energy that also counts as gross movement
     presence_fast_hp_hz: float = 7.0      # echo changes faster than this are gross movement (breathing is < 3 Hz)
     presence_slow_tau_s: float = 4.0      # slow background time constant for micro motion
-    presence_fast_thresh_db: float = 8.0  # dB above the calibrated floor
+    presence_fast_thresh_db: float = 8.0  # gross movement switches on this many dB above the floor ...
+    presence_fast_off_db: float = 5.0     # ... and off again below this (no flicker around one threshold)
+    presence_tap_thresh_db: float = 6.0   # one distance tap this far above the floor is "disturbed" (breathing skips it)
+    presence_noise_pct: float = 50.0      # the quieter half of all distances = the noise level of this frame
     presence_slow_thresh_db: float = 7.0
 
     # ----------------------------------------------------------------- breathing
     breath_fs: float = 10.0               # slow-time rate of the breathing analysis (Hz)
-    breath_range_m: tuple[float, float] = (0.25, 1.6)   # where a chest may be
+    breath_range_m: tuple[float, float] = (0.30, 1.3)   # where a chest may be
     breath_band_hz: tuple[float, float] = (0.1, 0.6)    # 6 .. 36 breaths per minute
     breath_min_s: float = 10.0            # shortest still period before a first estimate
     breath_max_s: float = 30.0            # longest analysis window
     breath_update_s: float = 1.0          # how often a new estimate is produced
     breath_min_conf: float = 0.45         # below this the bpm is reported as null
+    breath_disturb_db: float = 6.0        # gross movement this far above the floor at the chest's distance = a disturbed moment
+    breath_gap_s: float = 3.0             # a disturbance up to this long is skipped over; a longer one starts a new measurement
+    breath_moving_s: float = 1.5          # disturbed this long without a break -> state "moving"
+    breath_hold_s: float = 3.0            # keep showing the last rate this long while a brief disturbance passes
 
     # ------------------------------------------------- physics-only classifier
     heur_w_speakers: float = 1.0          # sign/weight of the two-speaker direction cue (-1 if L/R speakers are swapped)

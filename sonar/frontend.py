@@ -34,6 +34,7 @@ class FrameOut:
     coherence: float              # chirp lock quality 0..1 (0 while locking)
     drift_ppm: float              # speaker-vs-mic clock offset estimate
     clipped: bool                 # input touched full scale during this frame
+    ambient: float = 0.0          # ultrasonic noise power of this frame, measured beside our own signal (0 while locking)
 
 
 class Frontend:
@@ -103,6 +104,7 @@ class Frontend:
                     coherence=0.0 if cf is None else cf.coherence,
                     drift_ppm=self._chirp.drift_ppm,
                     clipped=self._clipped,
+                    ambient=0.0 if cf is None else cf.ambient,
                 )
             )
             self._clipped = False

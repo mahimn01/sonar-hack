@@ -18,3 +18,5 @@ train_out/
 !models-release*/**
 # The stored CPU results the GPU parity check compares against (small, committed on purpose)
 !tests/fixtures/*.npz
+data_tune/
+.venv

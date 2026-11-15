@@ -249,43 +249,77 @@ the sidelobes of the huge direct path below the echoes at chest range.
 ### 5.6 Presence (`presence.py`)
 Per range tap: **gross movement** = power of the echo profile after a 7 Hz
 high-pass along time (breathing changes it at <3 Hz and is rejected by >25 dB
-however strong the chest echo); **micro movement** = power of (0.25 s average −
-4 s average). Both are compared with floors learned at start-up; only taps
-within 2 m count. Pilot-tone Doppler energy also counts as gross movement.
+however strong the chest echo is); **micro movement** = power of (0.25 s average −
+4 s average). Both are compared with floors learned at start-up.
 
 ```
-empty ──gross movement 0.3 s──► entering ──still 1 s──► present
+empty ──gross movement in front of the laptop 0.3 s──► entering ──still 1 s──► present
 present ──walked, then nothing for 5 s──► empty
-present ──nothing moves, no walking before──► stays present, motionless_s counts (alarm signal), empty after 40 s
+present ──nothing moves, no walking before──► stays present, motionless_s counts, empty after 40 s
 ```
 
-A confident breathing detection counts as micro movement, so a quiet, still
-person stays "present".
+What the first run in the hall changed (2026-11-14; it said "moving" 50 times a
+minute for a person sitting still):
+
+- **Only the person zone counts**, 0.3-1.3 m. Nearer is the direct sound's own
+  skirt, further is the hall. Once somebody is tracked, only movement up to
+  0.35 m behind them is "theirs". **The pilot tones are no longer used here**:
+  they cannot tell distance and report every walker in the room.
+- **Every frame is divided by its own noise level** (the middle value over all
+  taps: movement sits at a few distances, a noise burst at most of them), and a
+  frame noisier than usual counts for less in every average. A second noise
+  meter reads FFT bins beside our band where we transmit nothing; it catches
+  the short clicks that land on only some of the taps. The breathing estimator
+  uses the same per-frame weight.
+- **On at 8 dB, off under 5 dB**, each tap settles on its own after movement
+  there, the reported distance is a 2 s median (preferring the distance where
+  breathing is tracked), the confidence is smoothed over 1.5 s.
+- "Entering" needs movement beyond arm's length (a body, not a hand), so a hand
+  reaching in cannot veto its own gesture.
+
+A confident, fresh breathing detection counts as micro movement, so a quiet,
+still person stays "present".
 
 ### 5.7 Breathing (`breathing.py`)
-1. Average 5 frames (50 -> 10 per second), keep the last 30 s of the taps
-   between 0.25 and 1.6 m. Any gross movement restarts the buffer.
-2. Zero-phase low-pass the complex taps (1.3 Hz and 3.0 Hz versions; the better
-   result wins), subtract each tap's time average.
+1. Average 5 frames (50 -> 10 per second, each frame weighted by how clean it
+   is), keep the last 30 s of the taps between 0.3 and 1.3 m, together with how
+   much gross movement each tap saw in each slot.
+2. **Disturbed moments are skipped, not punished.** Slots where the taps around
+   a candidate saw gross movement (a hand, a head turn, a noise burst) are left
+   out; each clean stretch is low-passed on its own (1.3 Hz and 3.0 Hz versions;
+   the better result wins). A disturbance up to 3 s only makes a gap; a longer
+   one makes the estimator start again from the data after it. Movement at other
+   distances does not touch the candidate at all.
 3. Find where something still moves: excess variance over sensor noise per tap;
    up to 3 candidate ranges.
 4. **Combine before reading the phase.** The chest appears in ~5 neighbouring
-   taps on both microphones, all turning together. The first component of an
-   SVD of that 10-column block is their best-weights sum: one complex signal
-   g(t) with ~7-10 dB better SNR than any single tap.
+   taps on both microphones, all turning together. Neighbouring taps share most
+   of their noise (3 taps per resolution cell), so each microphone's 5 taps are
+   first reduced to 2 independent unit-noise looks; the first component of an SVD
+   of those looks is one complex signal g(t). **Its SNR is judged against the
+   weakest components of the same data**, not only against the sensor-noise
+   estimate, so a room that got noisier than the estimate knows cannot pass for a
+   moving echo (plain noise reads 0.2 ± 0.3; a rate needs 1.2).
 5. **Phase.** g(t) = centre + arc. Long arc (>~150°, deep breathing): Taubin
-   circle fit, subtract the centre, unwrap the angle. Short arc (shallow
-   breathing or weak echo, where a circle fit is unreliable): project onto the
-   arc's direction. Displacement `d = phase · λ/(4π)`.
+   circle fit, subtract the centre, unwrap the angle. Short arc: project onto the
+   arc's direction. Across a gap the still echo under the chest echo may have
+   changed (a hand now lies elsewhere): stretches that still continue each other
+   share one centre; where the signal jumped, each side gets its own, and the
+   angles are joined to the nearest full turn. Displacement `d = phase · λ/(4π)`.
 6. **Rate.** Band-pass 0.08-0.8 Hz; Hann-windowed spectrum tilted by f to
    flatten sway and drift; only true local maxima in 0.1-0.6 Hz;
-   score(f) = P(f) + 0.4·P(2f) (the 2nd harmonic protects against rate
-   doubling); parabolic peak refinement.
+   score(f) = P(f) + 0.4·P(2f); parabolic peak refinement.
 7. **Confidence** = peak share of the band power × window length (>=3 breaths)
-   × SNR × plausible amplitude; a rate is reported only at >= 0.45 **and** when
-   3 consecutive estimates agree within 2 breaths/min. Otherwise `bpm` is null.
-   The estimator also checks that the echo is still moving *now* (last 6 s), so
-   a held breath or a person who left is not "measured" from old data.
+   × SNR × plausible amplitude × share of the window that was clean; a rate is
+   reported only at >= 0.45 **and** when 3 consecutive estimates agree within
+   2 breaths/min.
+8. **Is it still going?** The chest must be seen moving after the latest
+   disturbance (2 s of movement = alive; 4 s of nothing = gone), and the swing at
+   the breathing rate over the last breath and a half must be at least 40 % of
+   its size over the window. Rhythm gone and the chest nearly still -> "stopped"
+   (`stopped_s` counts; the engine raises `apnea` at 6 s). Rhythm gone but still
+   moving (talking, a sigh) -> "acquiring". While a brief disturbance passes the
+   last rate is held for up to 3 s (`held`).
 
 ## 6. Features and model
 
@@ -414,14 +448,19 @@ Rules that make the data worth having:
 
 ## 11. What is verified and what is not
 
-Verified in simulation (pytest, 84 tests, no hardware): signal purity and
+Verified in simulation (pytest, 100 tests, no hardware): signal purity and
 seamless looping; Doppler sign and speed against geometry; frame sync for any
 latency/block size; range to 8 cm; clock drift ±40 ppm; re-lock after dropped
 audio; breathing within 1 breath/min at 0.5-1 m under measured-level noise, a
 direct path 40-50 dB above the echo, hall noise and sway; no rate invented for an
 empty room or a held breath; all four gestures detected and named by the
 physics rules; either direction cue alone suffices; clicks rejected; presence
-sequence; engine event stream; record -> train -> ONNX -> classify.
+sequence; engine event stream; record -> train -> ONNX -> classify; and the
+"busy hall" scene (`tests/test_hall.py`: a seated breather who fidgets, walkers
+1.5-3 m behind, a neighbour, noise bursts, noise at the measured level), which
+reproduces the first real-hardware failure on the old detectors: breathing
+tracked within 1 breath/min with no restarts, "moving" quiet, an empty hall
+stays empty.
 
 **Not verified: anything on the real laptop.** Echo strengths, the speaker
 layout, the microphone spacing, audibility and every threshold marked "tune"
