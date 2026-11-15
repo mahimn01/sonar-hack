@@ -2,16 +2,18 @@
  * presenter.js: slide deck driven by sonar gestures, with keyboard fallback.
  *
  *   swipe_right -> next slide       swipe_left -> previous slide
- *   push        -> live panel on/off pull/wave -> shown in the HUD only
+ *   push        -> live panel on/off
  *
  * Gestures pass the store's filters first (confidence, cooldown, return stroke).
+ * If Sonar Care is also pressing keys for the same gestures, the key that follows a gesture this
+ * page already acted on is dropped, so one movement never moves two slides.
  */
 (function (root) {
   'use strict';
   var doc = root.document, UI = root.SonarUI, W = root.SonarWidgets, cfg = root.SonarConfig;
 
-  var ACTIONS = { swipe_right: 'next', swipe_left: 'prev', push: 'overlay', pull: null };
-  var TILE_TEXT = { swipe_left: 'Previous slide', swipe_right: 'Next slide', push: 'Live panel on or off', pull: 'Wave for help (planned)' };
+  var ACTIONS = { swipe_right: 'next', swipe_left: 'prev', push: 'overlay' };
+  var TILE_TEXT = { swipe_left: 'Previous slide', swipe_right: 'Next slide', push: 'Live panel on or off' };
 
   UI.setTheme(cfg.theme);
   var store = root.SonarStore.start(cfg);
@@ -27,7 +29,7 @@
   var progress = doc.getElementById('progress');
   var announce = doc.getElementById('announce');
   var help = doc.getElementById('help');
-  var current = 0, navLocked = false, lastGestureNav = { action: null, at: 0 };
+  var current = 0, navLocked = false, lastGestureNav = { action: null, at: 0 }, lastPushAt = 0;
 
   // ---- live widgets ---------------------------------------------------------------
   W.conn(doc.getElementById('hudConn'), store);
@@ -115,6 +117,7 @@
       hudTimer = setTimeout(function () { hud.classList.add('is-stale'); }, 2000);
     }, 1600);
 
+    if (g.label === 'push') lastPushAt = Date.now();
     if (!g.accepted || !action || navLocked) return;
     if (run(action)) lastGestureNav = { action: action, at: Date.now() };
   });
@@ -132,12 +135,14 @@
     var action = KEYS[e.key] || KEYS[k];
     if (action) {
       e.preventDefault();
-      // If keys_bridge.py is also running, the same gesture arrives a second time as a key press. Drop it.
+      // If Sonar Care (or keys_bridge.py) is also running, the same gesture arrives a second time as a key press. Drop it.
       if (lastGestureNav.action === action && Date.now() - lastGestureNav.at < 450) return;
+      // Sonar Care presses Space for a push about 2.5 s later (it waits in case a second push follows).
+      if (e.key === ' ' && Date.now() - lastPushAt < 4500) return;
       run(action);
       return;
     }
-    if (/^[1-9]$/.test(k)) { go(Number(k) - 1); return; }
+    if (/^[0-9]$/.test(k)) { go(k === '0' ? 9 : Number(k) - 1); return; }
     switch (k) {
       case 'o': setOverlay(); break;
       case 'f': UI.toggleFullscreen(); break;
@@ -146,6 +151,7 @@
       case 'l': navLocked = !navLocked; doc.body.classList.toggle('nav-locked', navLocked); break;
       case 'd': debug.toggle(); break;
       case 'm': root.open('monitor.html' + location.search, '_blank'); break;
+      case 'c': root.open('care.html', '_blank'); break;
       case '?': case '/': help.classList.toggle('is-open'); break;
       default: return;
     }

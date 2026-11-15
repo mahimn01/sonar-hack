@@ -169,12 +169,16 @@
 
 /* Touch-free control */
 .card--control { grid-area: control; container-type: size; }
-@container (min-aspect-ratio: 100/104) { .grow__note { display: none; } }
-@container (min-aspect-ratio: 100/80) { .ctl__last { display: none; } .ctl__preset { font-size: var(--fs-h3); } }
+/* care-dashboard.js measures the list and steps the card down when it does not fit:
+   1 = one line per gesture, 2 = also no "Last:" line and a smaller heading. Past that the list scrolls. */
+.card--control[data-compact] .grow__note { display: none; }
+.card--control[data-compact='2'] .ctl__last { display: none; }
+.card--control[data-compact='2'] .ctl__preset { font-size: var(--fs-h3); }
+.card--control[data-compact='2'] { gap: var(--s-1); }
 .ctl__preset { display: flex; align-items: baseline; gap: var(--s-2); font-size: var(--fs-h2); line-height: 1.1; letter-spacing: -0.015em; }
 .ctl__preset b { font-weight: 740; }
 .ctl__preset a { font-size: var(--fs-label); font-weight: 620; }
-.grows { display: flex; flex-direction: column; gap: min(calc(var(--u) * 0.42), 1.3cqh); flex: 1 1 0; min-height: 0; justify-content: space-evenly; overflow: hidden; }
+.grows { display: flex; flex-direction: column; gap: min(calc(var(--u) * 0.42), 1.3cqh); flex: 1 1 0; min-height: 0; justify-content: space-evenly; overflow-y: auto; scrollbar-width: thin; }
 .grow { flex: none; }
 .grow {
   position: relative; overflow: hidden;
@@ -316,6 +320,14 @@
 .nosvc__box pre, .nosvc__box code { font: 16px ui-monospace, Menlo, monospace; background: var(--panel-2); color: var(--ink); border-radius: 8px; }
 .nosvc__box pre { margin: 0; padding: 12px 14px; }
 .nosvc__box code { padding: 2px 6px; }
+
+/* ---- small laptop windows: the top bar drops what it can spare ---------------------------------- */
+@media (max-width: 1180px) {
+  .bar { gap: var(--s-3); }
+  .bar__right { gap: var(--s-2); }
+  .bar__clock { display: none; }
+}
+@media (max-width: 1000px) { .care .privacy { display: none; } }
 
 /* ---- narrow screens (a phone opened with --lan): one column, scrolling -------------------------- */
 @media (max-width: 860px), (max-aspect-ratio: 1/1) {

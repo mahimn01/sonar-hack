@@ -121,6 +121,7 @@ body.is-simulated .sim-tag { display: inline-flex; }
 
 /* ---- Gesture tiles (live slide) ------------------------------------------- */
 .gtiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--s-2); }
+.gtile:last-child:nth-child(odd) { grid-column: 1 / -1; }      /* three gestures: the third takes the full row */
 .gtile {
   position: relative;
   display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: var(--s-2); align-items: center;

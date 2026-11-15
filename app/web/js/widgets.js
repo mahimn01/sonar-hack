@@ -354,7 +354,7 @@
 
   // ---- gesture tiles (live slide) -----------------------------------------------------
   function gestureTiles(container, store, actions) {
-    var labels = ['swipe_left', 'swipe_right', 'push', 'pull'];
+    var labels = ['swipe_left', 'swipe_right', 'push'];             // the gestures the trained model has
     var el = h('<div class="gtiles"></div>');
     labels.forEach(function (g) {
       el.appendChild(h(
@@ -386,7 +386,7 @@
     container.appendChild(list);
     function render(isNew) {
       var G = store.state.gestures.slice(0, max);
-      if (!G.length) { list.innerHTML = '<li class="feed__empty">No gestures yet. Swipe, push or wave at the laptop.</li>'; return; }
+      if (!G.length) { list.innerHTML = '<li class="feed__empty">No gestures yet. Swipe or push at the laptop.</li>'; return; }
       var now = Date.now();
       list.innerHTML = G.map(function (g, i) {
         var meta = g.accepted ? UI.pct(g.confidence) + ' · ' + UI.ago(now - g.at) : (g.reason === 'low confidence' ? UI.pct(g.confidence) + ' too unsure' : 'ignored: ' + g.reason);

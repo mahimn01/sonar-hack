@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Laptop Sonar · Presenter</title>
-<meta name="description" content="Pitch slides for Laptop Sonar, driven by mid-air hand gestures that the laptop's own sonar detects.">
+<title>Sonar Care · Presenter</title>
+<meta name="description" content="Pitch slides for Sonar Care, changed by mid-air hand gestures that the laptop's own sonar detects.">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/atkinson-next-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/lexend-digits.woff2" as="font" type="font/woff2" crossorigin>
@@ -25,11 +25,11 @@
 <main class="stage deck" id="deck">
 
   <!-- 1. Title -->
-  <section class="slide slide--title" data-title="Laptop Sonar">
+  <section class="slide slide--title" data-title="Sonar Care">
     <div class="title__copy">
-      <p class="wordmark"><span data-icon="ping"></span>Laptop Sonar</p>
+      <p class="wordmark"><span data-icon="ping"></span>Sonar Care</p>
       <h1 class="display">Camera-free care, from the laptop already in the room.</h1>
-      <p class="lede">An ordinary laptop plays sound too high to hear and listens to the echoes. From them it measures a still person's breathing, notices when someone comes or goes, and reads hand gestures. No camera. Nothing to wear.</p>
+      <p class="lede">A MacBook plays sound too high to hear and listens to the echoes with its one microphone. From them it reads hand gestures, notices when someone comes, goes or stops moving, and estimates a still person's breathing. No camera. Nothing to wear.</p>
       <p class="title__meta"><span class="privacy"><span data-icon="cameraOff"></span>Camera off <small>· no images captured</small></span><span>HackPrinceton · Healthcare track</span></p>
     </div>
     <figure class="title__art" aria-hidden="true">
@@ -94,7 +94,7 @@
       </figure>
       <ul class="points">
         <li><b>The speakers</b> play near-inaudible sound at 18.5–21.5 kHz, the top edge of human hearing and the first range to fade with age.</li>
-        <li><b>The two microphones</b> hear its echoes off hands, bodies and a chest.</li>
+        <li><b>One microphone</b> hears the echoes off hands, bodies and a chest. Each speaker plays its own tone, which is how one microphone can tell left from right.</li>
         <li><b>Motion</b> shifts the echo's pitch (the Doppler effect). <b>Breathing</b> shifts its timing: at 20 kHz a wave is 1.7 cm long, so a 4 mm breath moves the echo by almost half a wave.</li>
         <li><b>No new hardware.</b> The speaker, microphone and processor are already in the room.</li>
       </ul>
@@ -105,11 +105,11 @@
   <section class="slide slide--how" data-title="How it works">
     <h2 class="headline">Sound out, echoes in, numbers out.</h2>
     <ol class="pipeline">
-      <li><span class="step__n num">1</span><b>Emit</b><span>A steady 18.5 kHz tone and a 19.5–21.5 kHz chirp, looping every 20 ms</span></li>
-      <li><span class="step__n num">2</span><b>Listen</b><span>Both mics record at 48 kHz in exclusive mode. Windows' normal mode filters out everything above 15 kHz</span></li>
+      <li><span class="step__n num">1</span><b>Emit</b><span>An 18.5 kHz tone from the left speaker, 19.0 kHz from the right, and a 19.5–21.5 kHz chirp, looping every 20 ms</span></li>
+      <li><span class="step__n num">2</span><b>Listen</b><span>One microphone records at 48 kHz. Nothing is stored</span></li>
       <li><span class="step__n num">3</span><b>Clean</b><span>Cut speech and room noise, then the speaker-to-mic leak and still echoes</span></li>
-      <li><span class="step__n num">4</span><b>Read</b><span>Tone Doppler for hand motion. Chirp echoes by distance for presence and breathing</span></li>
-      <li><span class="step__n num">5</span><b>Decide</b><span>A small CNN names the gesture. Presence and breathing need no training</span></li>
+      <li><span class="step__n num">4</span><b>Read</b><span>Pitch shift of the two tones for hand motion and its side. Chirp echoes by distance for presence and breathing</span></li>
+      <li><span class="step__n num">5</span><b>Decide</b><span>A small CNN names the gesture: swipe left, swipe right or push. Presence and breathing need no training</span></li>
     </ol>
     <div class="how__live" data-live-scope>
       <div class="how__strip" id="howSpectro"></div>
@@ -121,7 +121,7 @@
   <section class="slide slide--live" data-title="Live demo" data-live-scope>
     <header class="live__head">
       <h2 class="headline">Live: camera taped over, sonar on.</h2>
-      <p>Sit still about 0.6 m away: breathing shows in 10–15 s. Swipe a hand-length from the screen to change slides.</p>
+      <p>Swipe a hand-length from the screen to change slides. Sitting still about 0.6 m away gives an early breathing estimate, or a dash when it is unsure.</p>
     </header>
     <div class="live__grid">
       <div class="live__breath">
@@ -139,55 +139,65 @@
     </div>
   </section>
 
-  <!-- 6. Healthcare impact -->
+  <!-- 6. Sonar Care: the app -->
+  <section class="slide slide--care" data-title="Sonar Care">
+    <h2 class="headline">Sonar Care: the app running on this laptop right now.</h2>
+    <div class="pillars4">
+      <article class="pillar"><span data-icon="keyboard"></span><h3>Touch-free control</h3><p>A gesture presses a real key in the app in front: next slide, previous, play or pause. For hands that are full, gloved or cannot reach.</p></article>
+      <article class="pillar"><span data-icon="person"></span><h3>Room monitor</h3><p>A caregiver's dashboard: is someone there, how far, an early breathing estimate, and an alert when they have not moved.</p></article>
+      <article class="pillar pillar--help"><span data-icon="help"></span><h3>Help gesture</h3><p>Two pushes in a row raise “Help requested”: three seconds to cancel, then a chime, a spoken alert and a full-screen Acknowledge.</p></article>
+      <article class="pillar"><span data-icon="check"></span><h3>Guided setup</h3><p>Signal check, calibration and a practice round for each gesture, with live feedback when it sees the wrong one.</p></article>
+    </div>
+    <p class="care__foot"><span data-icon="cameraOff"></span>A menu bar app and a local dashboard. No account, no cloud, no camera. Press <b>C</b> to open it.</p>
+  </section>
+
+  <!-- 7. Healthcare impact -->
   <section class="slide slide--impact" data-title="Healthcare impact">
     <h2 class="headline">Breathing rate predicts trouble, and it is the vital sign most often missed.</h2>
     <p class="lede">In hospitals, respiratory rate is the vital sign least often recorded, yet it strongly predicts serious events such as cardiac arrest. An adult breathing over 24 times a minute is likely critically ill.</p>
     <div class="cases">
-      <article class="case"><span data-icon="breath"></span><h3>Breathing watch</h3><p>Breaths per minute for a still person, and an alarm when breathing movement stops for 10 seconds.</p></article>
+      <article class="case"><span data-icon="breath"></span><h3>Breathing watch</h3><p>An early estimate of breaths per minute for a still person, and a dash when the sensor is not sure. Experimental on one microphone.</p></article>
       <article class="case"><span data-icon="enter"></span><h3>Bedroom and bathroom presence</h3><p>Whether someone came in, is still there, or has stopped moving, without a single image.</p></article>
-      <article class="case"><span data-icon="ping"></span><h3>A gesture as a call button</h3><p>Next: a push at the bedside device instead of a pendant to wear, charge and find. Gestures already work within arm's reach.</p></article>
+      <article class="case"><span data-icon="help"></span><h3>A gesture as a call button</h3><p>Two pushes at the laptop instead of a pendant to wear, charge and find. Working today within arm's reach.</p></article>
     </div>
     <p class="impact__privacy"><span data-icon="cameraOff"></span>Runs on the laptop. Sends numbers, never audio or images.</p>
     <p class="sources">Cretikos et al., "Respiratory rate: the neglected vital sign", Med J Aust 2008;188(11):657–659</p>
   </section>
 
-  <!-- 7. Under the hood -->
+  <!-- 8. Under the hood -->
   <section class="slide slide--tech" data-title="Under the hood">
     <h2 class="headline">Under the hood</h2>
     <div class="tech">
       <div class="tech__col">
         <h3>Signal</h3>
         <ul>
-          <li>An 18.5 kHz tone on one speaker, a 19.5–21.5 kHz chirp on the other, every 20 ms</li>
-          <li>48 kHz, WASAPI exclusive mode: shared mode erases 15–22 kHz</li>
-          <li>Self-test: tone 63 dB, chirp 73 dB above noise (1 Hz), drift −0.3 ppm, no audible leak</li>
+          <li>18.5 kHz from the left speaker, 19.0 kHz from the right, a 19.5–21.5 kHz chirp, every 20 ms</li>
+          <li>The MacBook's own speakers and one microphone, 48 kHz; the receiver finds its own timing and re-locks by itself</li>
         </ul>
       </div>
       <div class="tech__col">
         <h3>Processing</h3>
         <ul>
           <li>Speech filtered out first, then the speaker-to-mic leak and still echoes</li>
-          <li>64-bin Doppler picture per mic (about ±2.3 m/s), 50 frames a second</li>
+          <li>A 64-bin Doppler picture per tone (about ±2.3 m/s), 50 frames a second</li>
           <li>Distance in 2.7 cm steps to 2.6 m. Breathing from echo phase: 1 mm of chest = 43°</li>
         </ul>
       </div>
       <div class="tech__col">
         <h3>Decisions</h3>
         <ul>
-          <li>Gestures: a small CNN, pre-trained on simulated physics, fine-tuned on real recordings</li>
-          <li>Left and right from the two mics: both speaker channels reach them within 4 µs</li>
+          <li>Gestures: a small CNN trained on this MacBook's recordings of 3 people and a simulator fitted to it</li>
+          <li>Left and right from the two speakers' tones, heard by one microphone</li>
           <li>Presence and breathing: signal processing, no training. Everything on the laptop CPU</li>
         </ul>
       </div>
     </div>
-    <!-- Results slot. Keep `hidden` until BOTH numbers are real, then replace the brackets and remove `hidden`.
-         [HONEST SCORE] = gesture accuracy on held-out people (never the presenter), from models-release/TRAINING_RUN.json.
-         [LIVE BREATHING CHECK] = rate shown vs counted, seated at 0.6 m (docs/DEMO_RUNBOOK.md, section 1).
-         Check the slide still fits at 1280x720 after editing. -->
-    <div class="metrics" hidden>
-      <div class="metric"><b class="num">[HONEST SCORE]</b><span>gesture accuracy on people the model never saw</span></div>
-      <div class="metric"><b class="num">[LIVE BREATHING CHECK]</b><span>breathing rate shown vs counted, seated at 0.6 m</span></div>
+    <!-- Honest numbers: each of the three recorded people held out of training in turn (calm50 recipe).
+         Source: ~/Documents/Dev/sonar-hack-recall/.runs/fable_recall.summary.md, section 2b (2026-11-14). -->
+    <div class="metrics">
+      <div class="metric"><b class="num">65%</b><span>of gestures recognised on a person the model never saw (133 of 206, three people held out in turn)</span></div>
+      <div class="metric"><b class="num">4.4%</b><span>of other movements set off a gesture (22 of 499)</span></div>
+      <div class="metric"><b class="num">86%</b><span>on the best-matched unseen person (70 of 81)</span></div>
     </div>
     <div class="tech__live" data-live-scope>
       <p class="tech__live-label"><span data-icon="ping"></span>Live from the engine, right now</p>
@@ -195,19 +205,19 @@
     </div>
   </section>
 
-  <!-- 8. Roadmap -->
+  <!-- 9. Roadmap -->
   <section class="slide slide--roadmap" data-title="What's next">
     <h2 class="headline">From one laptop to every room</h2>
     <ul class="road">
       <li><b><span data-icon="check"></span>Clinical validation</b><span>Breathing rate against a respiration belt and nurse counts, across ages, chairs and beds.</span></li>
       <li><b><span data-icon="breath"></span>Overnight breathing</b><span>At the bedside, lying down and under a blanket, building on contactless sleep apnea research such as UW's ApneaApp (MobiSys 2015).</span></li>
       <li><b><span data-icon="alert"></span>Fall detection</b><span>A fast movement whose distance changes by more than half a metre in under a second, then stillness.</span></li>
-      <li><b><span data-icon="person"></span>Caregiver alerts</b><span>Alerts and trends on a family member's or nurse's phone. Never footage.</span></li>
-      <li><b><span data-icon="ping"></span>Any speaker and mic</b><span>Tablets, smart speakers and TVs already in the room, with the sonar inside the audio driver so it can share the speaker.</span></li>
+      <li><b><span data-icon="person"></span>On the caregiver's phone</b><span>Today's alerts and timeline, sent to a family member's or nurse's phone. Never footage.</span></li>
+      <li><b><span data-icon="ping"></span>More people, more devices</b><span>Today's model knows one MacBook and three people. Next: tablets, smart speakers and TVs already in the room.</span></li>
     </ul>
   </section>
 
-  <!-- 9. Team -->
+  <!-- 10. Team -->
   <section class="slide slide--team" data-title="Team">
     <h2 class="display">Camera-free care, from the laptop already in the room.</h2>
     <!-- Add teammates as more <li> rows: <li><b>Name</b><span>School</span></li> -->
@@ -215,7 +225,7 @@
       <li><b>Mahimn Patel</b><span>University of Toronto</span></li>
       <li><b>Lance Li</b><!-- add Lance's school as <span>School</span> --></li>
     </ul>
-    <p class="team__cta">Try it at our table: sit down, watch your own breathing, then hold your breath.</p>
+    <p class="team__cta">Try it at our table: change a slide with a swipe, then push twice to call for help.</p>
     <p class="team__note">Built in 36 hours at HackPrinceton.</p>
     <figure class="team__art" aria-hidden="true">
       <svg viewBox="0 0 300 300"><g class="rings"><circle cx="150" cy="150" r="70"/><circle cx="150" cy="150" r="70"/><circle cx="150" cy="150" r="70"/></g><circle class="team__dot" cx="150" cy="150" r="16"/></svg>
@@ -249,13 +259,14 @@
   <dl>
     <dt>Right, Down, PgDn, Space</dt><dd>Next slide</dd>
     <dt>Left, Up, PgUp</dt><dd>Previous slide</dd>
-    <dt>1 to 9</dt><dd>Jump to slide</dd>
+    <dt>1 to 9, 0</dt><dd>Jump to slide 1 to 10</dd>
     <dt>O</dt><dd>Live panel on or off (same as the push gesture)</dd>
     <dt>L</dt><dd>Pause or resume gesture navigation</dd>
     <dt>F</dt><dd>Fullscreen</dd>
     <dt>T</dt><dd>Light or dark theme</dd>
     <dt>H</dt><dd>Hide or show the corner HUD</dd>
-    <dt>M</dt><dd>Open the Care Monitor in a new tab</dd>
+    <dt>C</dt><dd>Open the Sonar Care dashboard in a new tab</dd>
+    <dt>M</dt><dd>Open the older Care Monitor in a new tab</dd>
     <dt>D</dt><dd>Raw event inspector</dd>
     <dt>?</dt><dd>This help</dd>
   </dl>

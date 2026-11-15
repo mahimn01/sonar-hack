@@ -1,127 +1,136 @@
 # Demo runbook for judging
 
-For the HP ENVY x360 demo laptop on Windows 11. Note: presence/breathing retuning was in progress in another session at 00:41 on Nov 14 (uncommitted). If it lands, presence and breathing look at 0.30-1.3 m instead of 2 m / 0.25-1.6 m, and short disturbances (up to 3 s) no longer restart breathing. Then update the 2 m and 0.25-1.6 m figures here. The demo rules below stay safe either way. Commands run in PowerShell from the `sonar-hack` folder (the one with `README.md`). They call `.venv\Scripts\python` in full on purpose: plain `py` starts the system Python, which has none of the packages.
+For Lance's MacBook Pro (Apple Silicon): its own speakers and its one microphone. The gesture model was trained on this MacBook and works only on it. Commands run in Terminal from the repo folder, the one with `README.md` (`cd ~/sonar-hack`, or wherever the repo is). The full guide to the app is `SONAR_CARE.md`. The words to say are in `PITCH.md`.
 
 ## On one screen
 
-1. Charger in. Speaker volume at `[VOLUME %]` (the level the self-test passed at), and nobody touches it again.
-2. Start in this order: self-test, engine, slides (section 2).
-3. Show breathing and presence first. They need no trained model. Gestures come last.
-4. **While breathing is measured, nothing moves within 2 m.** That includes the presenter's hands and the judges. Big movements farther away can also restart it.
-5. **Ask for the breath-hold only after the rate has been on screen for 5 seconds.** Before that the alarm isn't armed.
-6. If the same thing fails twice, switch to the backup and say so out loud (section 5). Never present a recording or the mock as live.
+1. Charger in. Speaker volume at `[VOLUME %]` (the level the gesture recordings were made at), and nobody touches it again.
+2. One command starts everything: `scripts/sonar_care.sh`. The dashboard must say "Sonar live", with no "Simulated data" tag and no "Dry run" tag.
+3. Demo settings: the preset "Slides / PDF" and the no-movement choice "Demo · 15 s".
+4. The demo, in order: someone is here, swipe the slides, push twice for help, sit still for the "No movement" alert. Breathing is on screen as an early estimate. Nothing depends on it.
+5. One driver for the slides. At the table: a PDF or Keynote deck, and Sonar Care presses the keys. On stage: the web deck, with Sonar Care's gesture control switched off. With both on, one swipe can move two slides.
+6. If the same thing fails twice, switch to the backup and say so out loud (section 5). Never present a recording or simulated data as live.
 
 ---
 
 ## 1. Tonight: rehearse and measure
 
-Every blank here becomes a number in the pitch or the Devpost. Fill them on the HP, at the demo table if you can.
+Do this on the MacBook, at the demo table if you can. Four rows are marked **first time**: when the docs were written, those parts had passed their tests but had never run on the real MacBook.
 
 | Check | How | Result |
 |---|---|---|
-| Speaker volume used | Windows volume slider | `[VOLUME %]` |
-| Time to first breathing rate | S sits at the 0.6 m mark, still; stopwatch from sitting down until the number appears. Three tries. | ___ s, ___ s, ___ s |
-| Breath-hold to alarm | Wait 5 s after the rate appears, then hold. Stopwatch from the hold to the red orb. Three tries. | `[ALARM TIME]`: ___ s, ___ s, ___ s |
-| Breathing accuracy | (a) S breathes in time with a metronome app at 12 and at 15 per minute, 60 s each; write down what the screen settles on. (b) Or replay last night's paced `breathing` session (the replay command is in section 5) and note what the engine prints for each 40 s part (12, 15, 20 per minute). Call that a replayed recording whenever you quote it. | `[LIVE BREATHING CHECK]`: 12 → ___, 15 → ___, 20 → ___ |
-| Movement that restarts breathing | While the rate shows: a person stands still at 1.2 m; then talks without moving their hands at 2 m; then waves at 2 m. Does the orb drop back to "Hold still"? | ___ / ___ / ___ |
-| Gestures, the trained person | 10 swipes right (left hand), 10 swipes left (right hand), 5 pushes | right ___/10, left ___/10, push ___/5, wrong-way ___ |
-| Gestures, someone new | Show them once, then 10 swipes right | ___/10 |
-| False gestures | 2 minutes of the presenter talking normally at 1-2 m, nobody gesturing | ___ |
-| The 3-minute pitch with a timer | `PITCH.md`, twice | ___ : ___ |
-| The 60-second pitch | Five times, with someone playing the judge | done |
+| Speaker volume used | The volume slider in Control Centre | `[VOLUME %]` |
+| Signal strength | Dashboard > Sensor card. 35 dB or more reads "good signal". Under 25 dB reads "weak signal". | `[SNR ON THE MACBOOK]` dB |
+| A key press reaches another app (**first time**) | Settings > Touch-free control > "Try in 3 s" next to Swipe right, then click into the deck. The slide must change. | yes / no |
+| Swipes, the presenter | Deck in front. 10 swipes right, 10 swipes left. | right ___/10, left ___/10, wrong way ___ |
+| Swipes, someone new | Show them once, then 10 swipes right. | ___/10 |
+| A single push | Deck in front. 10 single pushes. Each should press Space about 2.5 s later. Count the ones that showed "Help gesture seen" by mistake (expect about 1 in 12). | pressed ___/10, false help ___/10 |
+| A deliberate double push (**first time**, never measured) | Dashboard in front. 10 tries, about a second apart. Count the ones that show "Help gesture seen". The Setup's practice step shows the gap it measured. | ___/10, usual gap ___ s |
+| The help alert (**first time**) | After one double push: 3 s countdown, then the red screen, the banner, the chime, and the laptop says "Help requested". Press Acknowledge. The timeline shows "Help requested: acknowledged after N s". | banner yes/no, chime yes/no, voice yes/no |
+| "No movement" | "Demo · 15 s" set. Sit still at 0.6 m, hands down, talking. Stopwatch from your last movement to the banner. Then move a hand: it should resolve. Three tries. | ___ s, ___ s, ___ s |
+| What restarts the 15 seconds | While the Room card counts "Still for N s": T shifts their feet a step back; someone leans over the table; P talks with hands down. Does the count restart? | ___ / ___ / ___ |
+| False gestures | 2 minutes of the presenter talking normally at 0.6 m, hands moving, nobody gesturing. Count the key presses. | ___ |
+| Breathing (optional) | Sit still and silent at 0.6 m for a minute. Does a number appear, and does it hold? This decides whether anyone reads a number aloud, and whether the breath-hold extra in `PITCH.md` is allowed. | number yes/no, steady yes/no |
+| The menu bar item (**first time**) | It shows "◉ Sonar". Gesture control and Room monitoring switch on and off from it. | yes / no |
+| The 90-second demo with a timer | `PITCH.md`, five times, with someone playing the judge. | done |
+| The 3-minute pitch with a timer | `PITCH.md`, twice, with the web deck and gesture control off. | ___ : ___ |
 
 Also tonight:
 
-- Record the backup video (`BACKUP_VIDEO.md`). Copy it to both phones and the Mac **as a local file**. Venue Wi-Fi is not a plan.
-- Pick the replay session: a `breathing` or `scene` recording from this laptop where someone sits still. Write its folder name here: `[REPLAY SESSION]`. Then run the replay once (command in section 5) to be sure it shows a rate.
-- Check the engine prints `classifier: model (gesture.onnx)` with **no** line starting `WARNING: the model was trained with different settings`. If that warning appears, the model was trained for another profile: use `--physics` (and test it) or retrain.
+- Do the first run of `scripts/sonar_care.sh` where the internet works. It installs packages (about a minute). Venue Wi-Fi is not a plan.
+- Run the Setup once from start to end (menu bar > Run Setup…), practice round included.
+- Record the backup video (`BACKUP_VIDEO.md`). Copy it to two phones **as a local file**.
+- If a **first time** row fails, tell the team before the Devpost text is submitted. `DEVPOST.md` describes those parts as working.
 
 ---
 
 ## 2. Setup checklist (T-60 to T-30 min)
 
-### Windows (once, 10 minutes)
+### macOS (once, 10 minutes)
 
-- [ ] Close Teams, Discord, Zoom, Spotify and every browser tab that plays sound. Any of them can hold the speaker or the microphone.
-- [ ] Classic Sound panel (Win+R, `mmsys.cpl`): Playback tab > the Realtek speaker > Properties > Advanced: tick **Allow applications to take exclusive control of this device**. Recording tab > the Intel microphone array: the same.
-- [ ] Control Panel > Sound > Sounds: Sound Scheme **No Sounds**. A notification chime can steal the device in the middle of a demo.
-- [ ] Do not disturb on. Windows Update paused for a week.
-- [ ] Power: plugged in, screen and sleep set to **Never** while plugged in, lid-close action **Do nothing**.
-- [ ] Bluetooth off. No headphones, USB microphones or USB audio plugged in.
-- [ ] HDMI to a projector is fine: the engine picks the built-in Realtek speaker and Intel microphone array by name. Plug it in **before** starting the engine, then check the device names the engine prints.
-- [ ] Volume at `[VOLUME %]`. Not muted (the slider sets how loud the sonar plays).
+- [ ] Quit Zoom, Teams, FaceTime, Discord, Spotify, Music and every browser tab that plays sound. Any of them can hold the microphone or the speakers, and loud audio through the same speakers can weaken the signal.
+- [ ] Audio MIDI Setup (Applications > Utilities): the MacBook Pro microphone and the MacBook Pro speakers both at **48,000 Hz**.
+- [ ] Sound output and input: the MacBook's own speakers and microphone. No AirPods, no Bluetooth speaker, no headphones, no USB audio.
+- [ ] Volume at `[VOLUME %]`, not muted. The slider sets how loud the sonar plays. If the alert chime is too loud or too quiet, change Settings > How alerts are announced > Alert volume, never the system volume.
+- [ ] Quit Messages, Mail, Slack and anything else that can pop up or make a sound. Leave Focus (Do Not Disturb) **off**: with Focus on, the "Help requested" banner is hidden, and only the chime, the voice and the red screen get through.
+- [ ] System Settings > Notifications > Script Editor: allowed. That is the name macOS files Sonar Care's banner under. It may only appear in that list after the first test alert.
+- [ ] Power: plugged in. Display set to never turn off on the power adapter (System Settings > Lock Screen). Do not close the lid.
+- [ ] Chrome installed. It is the tested browser, and the dashboard opens in a Chrome app window.
+- [ ] A projector over HDMI is fine: the engine picks the MacBook's own speakers and microphone by name. Plug it in **before** starting, mirror the display, then check the dashboard still says "Sonar live" and the signal strength has not dropped.
 
 ### The table (5 minutes)
 
-- [ ] Laptop near the front edge of the table, screen facing the chair, lid at the angle used in rehearsal. If anyone moves the lid later, restart the engine (it re-learns the room in 5 s).
-- [ ] Tape a mark on the table so that the subject's chest sits **0.6 m** from the screen (the engine wants 0.5-0.8 m).
+- [ ] Laptop near the front edge of the table, screen facing the chair, lid at the angle used in the recordings. If anyone moves the laptop or the lid later, press Calibrate (Sensor card, or the menu) and keep still for 5 s.
+- [ ] Tape a mark on the table so that the presenter's chest sits about **0.6 m** from the screen.
 - [ ] A solid chair that doesn't swivel or roll.
-- [ ] Nothing that moves in front of the laptop: no fan, no air vent blowing across the table, no flapping sign. Static objects are fine; the engine removes still echoes.
-- [ ] Mark the presenter's spot at least 2 m from the laptop.
+- [ ] Nothing that moves in front of the laptop: no fan, no air vent blowing across the table, no flapping sign. Still objects are fine; the engine removes still echoes.
+- [ ] A mark for T, a step back, more than a metre from the screen. T steps in only to press Acknowledge.
 - [ ] Tape over the webcam. It is part of the story.
-- [ ] The subject takes off a bulky coat. Thick soft fabric soaks up high frequencies and moves less than the chest under it.
 
 ### Software (5 minutes)
 
-0. **Pull the latest commit on the HP.** The corrected slides and the tag that marks a replay as not live are in git, not on the HP until you pull.
+0. **Get the latest version and start it.**
 
-1. **Self-test** (about 35 s of near-inaudible tones; hands away, nobody walking past):
-
-   ```powershell
-   .venv\Scripts\python -m sonar.selftest --profile clean --blocksize 3840
+   ```bash
+   git pull
+   scripts/sonar_care.sh
    ```
 
-   Compare with last night:
+   The first run creates `.venv` and installs what is missing. macOS asks once for the Microphone permission for the terminal app: allow it. Leave the Terminal open. Ctrl+C there, or Quit Sonar Care in the menu, stops everything.
 
-   | Line | Pass at | Last night |
-   |---|---|---|
-   | weakest pilot tone SNR / chirp band SNR (in 1 Hz) | 50 / 45 dB | 63 / 73 dB |
-   | receiver lock | True, coherence above 0.8, re-locks 0 | True, 0.81 |
-   | speaker/mic clock drift | under 5 ppm | -0.3 ppm |
-   | microphone peak | not clipped | |
-   | audible leak | not above room noise | not above room noise |
-   | left/right speaker channels | (a warning here is expected on this laptop) | 4 µs apart |
-   | verdict | PASS, or "OK with warnings" where the only warning is `speaker_separation` | passed |
+1. **Read what the terminal printed.** It lists the dashboard (`http://127.0.0.1:8800/care.html`), the slides, the engine and the log files. It must not print `DRY RUN` or `KEYS BLOCKED`. If port 8800 was busy it took the next free one: use the address it printed.
 
-   Coherence was 0.81 against a pass line of 0.8, so it has little margin. If the lock line fails: close other apps, check the charger, run it again.
+2. **First run only: the Setup opens.** Go through it: the signal check, calibration (keep still for 5 s, hands away, nobody walking past), the Accessibility permission (System Settings > Privacy & Security > Accessibility: switch on the terminal app) and the practice round for each gesture. On the last page choose "Slides / PDF" and "15 seconds".
 
-2. **Engine** (leave this window open; Ctrl+C stops it):
+3. **Check the dashboard.**
+   - Top bar: a green "Sonar live". No "Simulated data" tag, no "Dry run" tag.
+   - Room card: "Someone is here" with a distance when you sit at the mark, and "Monitoring on".
+   - Touch-free control card: the chip says "On" (not "Keys blocked", "Dry run", "Practice" or "Off"), and the preset is "Slides / PDF".
+   - Sensor card: "This laptop · its own speakers and one microphone", and a signal near `[SNR ON THE MACBOOK]` dB.
+   - Settings > This device: "Engine running", model `models-candidate-mac-calm50`.
 
-   ```powershell
-   .venv\Scripts\python -m sonar.engine --profile clean --blocksize 3840
-   ```
+4. **Check the demo settings** (Settings tab; every change saves at once).
+   - Touch-free control: "Gestures press keys" on, "Slides / PDF".
+   - Room monitor: Monitoring on, the "No movement" alert on, the quick choice "Demo · 15 s".
+   - Help gesture: on. Second push within 2.5 s, but not sooner than 1.0 s. Time to cancel on screen 3 s. A single push "Waits for the window".
+   - How alerts are announced: notification, sound and "Say it aloud" all on. Press "Play a test alert": you should see the banner and hear the chime and the voice.
 
-   It should print the backend and device names, `classifier: model (gesture.onnx)` (or `physics` if there is no model), `events on ws://127.0.0.1:8765`, then `calibrating for about 5 s: keep hands away from the laptop`. For those 5 seconds nobody moves near the laptop.
+5. **Open the deck for touch-free control.** A PDF or Keynote deck in its own window, not full screen, so you can click between it and the dashboard. Press the Right and Left arrow keys yourself first: the page must change. If the keyboard does not change the page, Sonar Care's key press will not either. Then press "Try in 3 s" (Settings > Touch-free control) and click into the deck.
 
-3. **Slides** (a second PowerShell window):
+### Which deck, where
 
-   ```powershell
-   .venv\Scripts\python app\serve.py --app
-   ```
+| Where | Slides | Sonar Care's gesture control | Why |
+|---|---|---|---|
+| At the table: the 90-second demo | A PDF or Keynote deck in its own window. The web deck stays closed. | **On**, preset "Slides / PDF" | It shows the real product: the gesture presses a real key in another app. |
+| On stage: the 3-minute pitch | The web deck: `http://127.0.0.1:8800/presenter.html?ws=ws://127.0.0.1:8765` (the terminal prints the address) | **Off** (menu bar > Gesture control) | The web deck changes slides on a swipe by itself. With gesture control also on, the deck reacts to the gesture and to the arrow key Sonar Care presses, so one swipe can move two slides. |
 
-   It opens a clean Chrome or Edge window. Press **F** for full screen. Bottom-left HUD: a green dot and "Sonar live", and **no** "Simulated data" tag. Press **7** and check the live panel: echo SNR around 50 dB, frame rate about 50, latency under 100 ms. Press **5** to park on the live slide. **M** opens the Care Monitor in a new tab if a judge wants the nurse-station view.
+The help gesture and the "No movement" alert belong to Room monitoring. They work in both rows.
 
-### Slide keys
+If you open the web deck at the table (a judge wants the numbers on slide 8), drive it with the keyboard, or switch gesture control off first.
+
+### Web deck keys
 
 | Key | Does |
 |---|---|
-| → / ← (also Space, PgDn / PgUp) | next / previous slide |
-| 1-9 | jump to a slide |
-| O | live panel on or off (same as a push gesture) |
-| L | pause gesture navigation: gestures still show in the HUD, slides stop moving |
-| D | raw event inspector (debugging) |
-| M | Care Monitor in a new tab |
-| F, T, H | full screen, light/dark, hide HUD |
+| → / ← (also Space for next) | next / previous slide |
+| 1-9, 0 | jump to slide 1-10 |
+| O | live panel on or off (the same as a push at the deck) |
+| C | open the Sonar Care dashboard in a new tab |
+| F, T | full screen, light/dark |
+
+The ten slides: 1 Title · 2 The problem · 3 The insight · 4 How it works · 5 Live demo · 6 Sonar Care · 7 Healthcare impact · 8 Under the hood (with the honest score) · 9 What's next · 10 Team.
+
+On the dashboard, **T** switches light and dark and **F** is full screen.
 
 ---
 
-## 3. What to say while it calibrates or measures
+## 3. What to say while it calibrates or waits
 
-- **Engine start (5 s):** "It's listening to the room for five seconds, learning what nothing moving sounds like, the way you'd zero a scale. If everyone keeps still for a moment, we're ready."
-- **Breathing, before the number (10-15 s):** "It waits for ten seconds of stillness and three readings in a row that agree. Until then it shows a dash, because a wrong breathing rate is worse than none."
-- **After the number, before the hold (5 s):** "It has to see a steady rate for five seconds before the no-breathing alarm is armed."
-- **During the hold:** "Ten seconds without breathing is the clinical length of an apnea. That's what it waits for."
-- **Restarting the engine:** "Restarting the sensor takes five seconds while it re-learns the room."
+- **Engine start, or Calibrate (5 s):** "It's listening to the room for five seconds, learning what nothing moving sounds like, the way you'd zero a scale. If everyone keeps still for a moment, we're ready."
+- **The 3-second help countdown:** "It waits three seconds so a mistake can be cancelled on the screen. A hand can never cancel it."
+- **A single push that acts late (2.5 s):** "A single push waits two and a half seconds, in case a second push follows and it is a call for help."
+- **The 15 seconds of stillness:** "Everything that happened is in this timeline. This card is an early breathing estimate: it shows a dash unless it is sure, because a wrong number is worse than none."
+- **The engine restarting:** "The sensor restarted itself. It needs a few seconds, then five more to re-learn the room."
 
 ---
 
@@ -131,23 +140,24 @@ Also tonight:
 
 | Time | What happens | Who |
 |---|---|---|
-| Before they arrive | Slide 5 on screen. S sits at the mark, still, so a rate is on screen. P stands beside the table. | S, P |
-| 0:00-0:10 | Judges walk up (this restarts breathing). P asks them to stand still for 20 s and gives the hook (`PITCH.md`, 60-second version). The presence panel says "Person present". It only shows "Someone entering" when someone walks into an empty room, so don't promise a walk-in moment at a busy table. | P |
-| 0:10-0:25 | "Person present" on screen; the breathing line returns, then the number. P explains the 43 degrees. | P |
-| 0:25-0:40 | 5 s after the number: "Lance, hold your breath." The orb turns red and counts. "Breathe." | P, S |
-| 0:40-0:50 | Gesture last: the trained person swipes right (left hand, left to right). The next slide slides in. | trained person |
-| 0:50-1:00 | Close: on-device, numbers only, the honest score. | P |
-| 1:00-4:00 | Questions (`JUDGE_QA.md`). Offer the judge the chair: "Sit here for 20 seconds and watch your own breathing." Offer, don't push, the breath-hold. For gestures, show the swipe first, then let them try: people copy what they just saw. | P |
-| End | S stands up and walks 2 m away; P presses 5 to return to the live slide; glance at the HUD (green, no "Simulated data"). | P, S |
+| Before they arrive | Dashboard in front. The deck open in its own window. P seated at the mark, T a step back. With "Demo · 15 s" the "No movement" alert also comes up whenever P sits still while waiting. That is normal: press Acknowledge, or move. When judges walk up, move, and press Dismiss if a finished alert is still showing (it clears by itself after 20 s). | P, T |
+| 0:00-0:15 | P gives the hook (`PITCH.md`, 90-second version) and points at the Room card: "Someone is here" and about how far. | P |
+| 0:15-0:35 | P clicks into the deck. Swipe right: next slide. Swipe left: back. | P |
+| 0:35-0:55 | P clicks an empty part of the dashboard and pushes twice, about a second apart. "Help gesture seen", 3 s to cancel, then the chime, "Help requested" spoken, the red screen. T steps in, presses Acknowledge, steps back. The timeline shows how long it took. | P, T |
+| 0:55-1:20 | P sits still, hands down, and talks about the timeline and the early breathing estimate. After 15 s the "No movement" banner and chime arrive. P moves a hand: it resolves by itself. | P |
+| 1:20-1:30 | Close: no camera, nothing to wear, no new hardware. It runs on the laptop's CPU. Nothing leaves the laptop. | P |
+| 1:30-4:00 | Questions (`JUDGE_QA.md`). Offer the judge the chair: "Swipe the slide, then push twice." Show the gesture first, then let them try: people copy what they just saw. Tell them first that the model was trained on three of us, so a new hand is recognised less often. | P |
+| End | Acknowledge or dismiss anything on screen. Deck back to its first page. Glance at the top bar: green "Sonar live", no "Simulated data". | P, T |
 
 ### On stage (3 minutes, if you are a finalist)
 
 | Time | What happens |
 |---|---|
-| Before you're called | Laptop on a table on stage, chair at the 0.6 m mark, projector set to Duplicate (Win+P). Start the engine **on stage** (the room changed, so it must re-learn it), then the slides. Slide 1. |
-| 0:00-1:12 | Slides 1-4, keyboard (`PITCH.md`). S stands 2 m away. |
-| 1:12-2:05 | Slide 5. P steps back to 2 m; S sits. "Person present", the breathing line, the rate, 5 s, the breath-hold, the alarm, breathe. Then the swipe to slide 6. |
-| 2:05-3:00 | Slides 6-9 by swipe if the first one worked, otherwise keyboard. |
+| Before you're called | Laptop on a table on stage, chair at the 0.6 m mark, projector mirrored. Press Calibrate once the laptop is in place (the room changed), or start Sonar Care there if it was stopped. Menu bar: Gesture control **off**, Room monitoring on. Open the web deck on slide 1 and press F. |
+| 0:00-1:07 | Slides 1-4 by keyboard. P stands back, more than about 1.3 m from the laptop, and steps in to press →. Sitting still in front of the laptop for 15 s would raise "No movement" in the middle of the slides. |
+| 1:07-1:35 | Slide 5: P sits, points at the presence reading, then one swipe right to slide 6. One line on slide 6, then **C** opens the dashboard. |
+| 1:35-2:25 | Dashboard: two pushes, 3 s, the alarm, T acknowledges. Then P sits still for 15 s: "No movement". P stands up: it resolves. |
+| 2:25-3:00 | Back to the deck's tab (F again if it left full screen, O if the live panel is open). Slides 7-10 by keyboard, standing. |
 
 ---
 
@@ -159,54 +169,65 @@ Rule for all of them: **one fix attempt in front of judges, then the backup.** S
 
 | What you see | Likely cause | Fix, in order |
 |---|---|---|
-| A1. Engine or self-test says it **could not open the audio devices** (device busy) | Another app holds the speaker or microphone; exclusive control not allowed; a Bluetooth or USB device took over | Close the apps in section 2. Check "Allow exclusive control" on **both** devices. Unplug USB and Bluetooth audio. Run again. Then add `--duplex`. Then list the devices with `.venv\Scripts\python -m sonar.engine --list-devices` and name them: `--in-device "Microphone Array" --out-device "Speaker"`. Last resort before judging: reboot (about 3 minutes). |
-| A2. Self-test lock FAIL, or the engine's status shows `locked False` / re-syncs climbing (status lines print only when the engine runs with `-v`; otherwise press D on the slides and read `locked` and `resyncs` in the status messages) | Audio dropouts: CPU busy, or on battery | Charger in, close heavy apps (browsers with many tabs, Docker, OneDrive sync). `--blocksize 3840` is already on. Run again. |
-| A3. SNR far below last night (under 50 dB in the self-test, or "Weak echo signal" on screen) | Volume changed, wrong device, shared mode | Volume back to `[VOLUME %]`. Check the device names printed. Never use `--shared` for the demo. |
-| A4. Someone hears a whine | Volume too high for young ears | Lower the volume one step, then re-run the self-test and keep the new level for everything. |
-| A5. `WARNING: the model was trained with different settings` | Model and `--profile` don't match | Use the profile the model was trained with, or `--physics` (only if you tested it tonight). |
-| A6. Page says "Sensor offline" | Engine not running, or it crashed | Look at the engine window for `ERROR`. Start it again. The page reconnects by itself. |
+| A1. After `git pull`, the shell says there is no `scripts/sonar_care.sh` | The checkout is on a branch without Sonar Care | `git branch --show-current` shows the branch. Sonar Care was built on `sonar-care`: switch to it unless the team has merged it elsewhere. |
+| A2. Terminal says `no gesture model found` | The model's weight file did not arrive | `git pull` again. To rehearse the screens meanwhile: `scripts/sonar_care.sh --mock`. |
+| A3. Dashboard says "The sensor could not start", with an audio error | Another app holds the microphone or the speakers, or the Microphone permission was refused | Quit Zoom, Teams, FaceTime and browser tabs that play sound. System Settings > Privacy & Security > Microphone: the terminal app on. Then menu bar > Start engine. |
+| A4. "Weak signal" (under 25 dB), or far below `[SNR ON THE MACBOOK]` | Volume changed, headphones or Bluetooth audio connected, a sound enhancer switched on | Volume back to `[VOLUME %]`. Headphones out, Bluetooth audio off. Then Calibrate. |
+| A5. Someone hears a whine | The lowest tone is 18.5 kHz, and a few young people can hear that high | Lower the volume one step only if you must. Then Calibrate and repeat ten swipes: the model was recorded at the old level. Keep the new level for everything. |
+| A6. The Touch-free control chip says "Keys blocked" | The Accessibility permission is missing | System Settings > Privacy & Security > Accessibility: switch on the terminal app (Settings has an "Open Accessibility settings" button). The page notices by itself. |
+| A7. The chip says "Dry run" | Started with `--dry-run` | Ctrl+C, then start again without it. |
+| A8. The top bar shows "Simulated data" | Started with `--mock` or `--backend sim` | Ctrl+C, then start again with plain `scripts/sonar_care.sh`. |
+| A9. The page says "Sonar Care is not running" | The page was opened without the app behind it | Start `scripts/sonar_care.sh`, then reload. |
+| A10. No menu bar item | The menu bar library did not install | The app runs without it. The dashboard's Settings do everything the menu does. |
+| A11. No banner on "Play a test alert" | Focus is on, or notifications for Script Editor are off | Turn Focus off. System Settings > Notifications > Script Editor. The chime and the voice work without the banner. |
 
 ### B. During a judge visit
 
 | What you see | Do | Say |
 |---|---|---|
-| **B1. No breathing number.** The orb keeps showing "Hold still · N of 10 s" and N falls back to 0, or "Measuring" for more than 30 s. | Something within 2 m is moving: judges, the presenter's hands, a passer-by. Ask everyone to freeze. S: hands in lap, back against the chair, steady breaths a little deeper than normal, chest 0.5-0.6 m from the screen. Wait 20 s more. At 45 s with no number, twice in a row: go to the backup video's breathing shot, or replay the recording (below). | "Anything moving nearby restarts the measurement, which is the presence detector doing its job. Let's all hold still for twenty seconds." Then, if needed: "Here is the same thing recorded on this laptop last night." |
-| B2. The rate is clearly wrong (for example double what S is breathing) | Ask S to breathe slower and deeper and keep still. The number only settles after three readings agree. | "Count with me, watch his shoulders. It corrects itself once three readings agree." |
-| B3. No alarm 25 s into the breath-hold | The hold probably started before the 5-second arming, or S moved (a swallow, a shift). Let S breathe, wait for the number plus 5 s, try once more. | "It needs five steady seconds before it arms. Let's do that again." |
-| B4. The alarm fires while S is breathing | Shallow breathing looks flat. S takes two deeper breaths. | "That's a false alarm, and it's why this is a prototype and not a medical device." |
-| B5. A swipe does nothing | Too far, too slow, or too small. A miss usually shows nothing, because the engine drops weak or unsure movements before sending them. Press → and carry on. Later, press D: the newest status message's `last_decision` says what the engine made of the movement (`none`, `blocked:far`, `blocked:weak`). | "It didn't catch that one. I'll use the keyboard." |
-| B6. A swipe goes the wrong way, or gestures fire on their own | Press the right arrow key. If it happens again, press **L** to pause gesture navigation for the rest of the visit. | "Wrong way. This is why we score the model on people it has never seen." |
-| B7. Gestures keep firing while people walk around the table | Restart the engine with `--min-confidence 0.7` between visits. | |
-| B8. Presence never says "Room empty" in a busy hall | Normal: movement within 2 m counts, and so does big movement farther out. Skip the walk-in moment and just point at "Person present". | |
-| B9. Mid-demo "Sensor offline", or the engine window shows `ERROR` | Restart the engine (Up arrow, Enter, in its window). Everyone still for 5 s. | The calibration line from section 3. |
+| B1. A swipe does nothing | Press the arrow key and carry on. Never retry twice. Afterwards, the "Last:" line in the Touch-free control card says what the app made of it (pressed, or ignored with the reason). If it shows nothing new, the engine saw no gesture: closer, a hand-length from the screen, half a second across. | "It didn't catch that one. I'll use the keyboard." |
+| B2. The row lights up but the slide doesn't move | The deck is not the app in front: click into it. Or the chip says "Keys blocked" (A6). | |
+| B3. A swipe goes the wrong way | Press the right arrow key. | "Wrong way. Misses like that are in the score we report." |
+| B4. One swipe moves two slides | Press ← once. Between visits: if the web deck was in front, switch gesture control off. Otherwise the same swipe was reported twice: Settings > Touch-free control > Fine tuning > raise "Same gesture again". | |
+| B5. Help does not trigger | Push twice again, slower: a full second between the two. There is no "Send now" to press: that button only appears once the gesture has been seen. | "Two pushes, a full second apart. Once more." |
+| B6. "Help gesture seen" after a single push | Press Cancel during the 3 seconds. | "About one single push in twelve looks like two. That is what the three seconds are for." |
+| B7. The help chime keeps coming back | Nobody acknowledged: it repeats every 20 s. Press Acknowledge. | |
+| B8. No "No movement" after 20 s of stillness | Something near the laptop is moving, or the Room card says "Checking…" or "Room is empty" instead of "Someone is here", or "Demo · 15 s" is not set. Move on. Check between visits. | "It starts its count again whenever something moves near the laptop." |
+| B9. "No movement" comes up early | You sat still for 15 s. Move a hand: it resolves. | "That is the no-movement alert. I sat still for fifteen seconds." |
+| B10. Gestures fire on their own while people move around the table | Between visits: Settings > Touch-free control > Fine tuning > raise "How sure the model must be" (the default is 60 %). | |
+| B11. "Sensor offline" or "Restarting the sensor" | Keep talking. The app restarts the engine by itself: after 1 s the first time, with longer pauses (2, 4, 8, 15 s) if it keeps crashing. Then it calibrates for about 5 s: everyone still. If it says "The sensor could not start", menu bar > Start engine. | The restart line from section 3. |
 
 ### C. Bigger failures
 
 | What happens | Do |
 |---|---|
-| C1. Audio can't be opened after two tries (about a minute) | Backup video. Then offer the replay or the mock UI walkthrough if the judge wants more. |
-| C2. The laptop dies, blue-screens or starts an update | Backup video on a phone or the Mac straight away. Then the mock UI on the Mac (below), labelled as simulated. If Lance's MacBook has passed its own self-test and has its own model, it is a **live** backup (`TRAINING.md` section 9): `.venv/bin/python -m sonar.engine --in-device MacBook --out-device MacBook`. It has one microphone, so swipe direction relies on its two speakers. |
+| C1. The engine cannot start after two tries (about a minute) | Backup video. Then offer the mock walk-through if the judge wants more. |
+| C2. The MacBook dies or restarts | Backup video on a phone straight away. Then the mock on any other Mac that has the repo, labelled as simulated. There is no second live machine: the gesture model only fits this MacBook. |
 | C3. Projector problems on stage | Turn the laptop toward the judges and keep going. The laptop screen is the demo. |
 
-### The three backups, and when to use each
+### The backups, and when to use each
+
+Stop the live app first (Ctrl+C). If it is still running, a second start only attaches to its engine.
 
 | Backup | Use it when | Command | What the screen shows | What you must say |
 |---|---|---|---|---|
-| **Backup video** | The laptop or its audio is down; breathing won't lock twice in a row; you're out of time | Play the file from the phone or Mac | the video | "This is a recording from last night on this laptop." |
-| **Replay of a real recording** through the real engine | The laptop works but the hall is too busy for a live breathing lock | Stop the live engine (Ctrl+C), then:<br>`.venv\Scripts\python -m sonar.engine --profile clean --backend file --file data\[REPLAY SESSION]\audio.wav`<br>It plays once, in real time, and the engine stops at the end. Use the profile the session was recorded with (its `session.json` says which). | the slides, with the "Simulated data" tag (any source other than live is tagged) | "This is a recording from this laptop last night, played through the same engine. Live is what you saw a moment ago." |
-| **Mock engine** | Only to walk through the UI (alarm flow, monitor) when nothing real is possible | Stop the live engine first (both use port 8765), then:<br>`.venv\Scripts\python app\serve.py --mock` (on the Mac: `.venv/bin/python app/serve.py --mock`) | the slides with "Simulated data" | "This is our interface on simulated data, so you can see the alarm flow. It is not the sensor." |
+| **Backup video** | The MacBook or its audio is down; the same part failed twice; you're out of time | Play the file from a phone | the video | "This is a recording from last night on this MacBook." |
+| **Mock engine** | Only to walk through the screens (help alert, "No movement", timeline) when nothing real is possible. It runs on any Mac. | `scripts/sonar_care.sh --mock` | The dashboard marked "Simulated data", with an 80-second scripted story on a loop. On the dashboard the arrow keys, P, H, M and E fire a swipe, a push, a double push, a movement and arrive/leave. | "This is our interface on simulated data, so you can see the alert flow. It is not the sensor." |
+| **Simulated visitor** | To show the real engine running with no sound | `scripts/sonar_care.sh --backend sim` | The Sensor card says "Simulated visitor · the real engine, no sound". | "This is the real engine fed by a simulated person. It is not live." |
 
-The mock's status panel reports older signal settings (18.0/18.5 kHz tones). If you want it to match the demo laptop, start it on its own with `.venv\Scripts\python app\mock_engine.py --tones 18500 --chirp 19500,21500` and run `.venv\Scripts\python app\serve.py --app` in a second window.
+`scripts/sonar_care.sh --dry-run` is for a first look. The sensor is live and the dashboard shows which key each gesture would press, but nothing is pressed.
 
 ---
 
 ## 6. Honesty rules
 
-- A replay or the mock is never called live. Both are tagged on screen, and you say it as well.
-- Quote only `[HONEST SCORE]` for gesture accuracy: the score on held-out people, never the presenter, and never a number from people in the training set.
-- If a judge asks something you haven't measured, say "we haven't measured that" and what you would measure.
-- The Care Monitor says "Prototype · not a medical device". Say the same if asked.
+- Simulated data is never called live. It is tagged on screen, and you say it as well.
+- Quote only the held-out gesture score: 133 of 206 gestures recognised (65%) and 22 of 499 other movements triggering (4.4%), with each of three people held out of training in turn. The best-matched person was 70 of 81 (86%). Never quote that one alone.
+- Never promise a breathing number. Say "early estimate".
+- Say "No movement alert". Do not say "fall detection".
+- If a judge asks something you haven't measured, say "we haven't measured that" and what you would measure. The deliberate double push is one of those until you fill in section 1.
+- The dashboard says "Prototype · not a medical device". Say the same if asked.
 
 ## 7. After judging
 
-Ctrl+C the engine (it fades the signal out without a click), close `serve.py`, and switch exclusive control back off if this laptop goes back to normal use.
+Ctrl+C in the Terminal, or Quit Sonar Care in the menu. The engine it started stops too, and it fades the signal out without a click.

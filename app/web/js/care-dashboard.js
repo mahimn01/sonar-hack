@@ -169,10 +169,22 @@
       grows.appendChild(li);
     });
   }
+  // Step the card down until its four rows fit: full, one line per gesture, then no "Last:" line.
+  var controlCard = $('controlCard');
+  function fitControl() {
+    controlCard.removeAttribute('data-compact');
+    if (grows.scrollHeight <= grows.clientHeight + 1) return;
+    controlCard.setAttribute('data-compact', '1');
+    if (grows.scrollHeight > grows.clientHeight + 1) controlCard.setAttribute('data-compact', '2');
+  }
+  if (root.ResizeObserver) new ResizeObserver(fitControl).observe(controlCard);
+
   function renderControl() {
     var st = store.state.care.state;
     if (!st) return;
+    var before = rowsKey;
     buildRows(st);
+    if (rowsKey !== before) fitControl();
     setText(presetName, st.control.presetLabel || '');
     var tone = 'ok', text = 'On';
     if (!st.control.enabled) { tone = ''; text = 'Off'; }

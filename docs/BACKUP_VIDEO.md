@@ -1,59 +1,60 @@
 # Backup demo video: shot list and narration
 
-A 75-90 second video recorded tonight on the HP. It is the fallback when the live demo can't run (`DEMO_RUNBOOK.md`, section 5), and it can double as the Devpost video. Judges trust an uncut shot more than a montage, so the core of it is **one continuous take** of the laptop and the person together. Close-ups of the screen are inserts on top of that take, never replacements for it.
+A 90-second video recorded tonight on the MacBook. It is the fallback when the live demo can't run (`DEMO_RUNBOOK.md`, section 5), and it can double as the Devpost video. It follows the 90-second demo in `PITCH.md`: someone is here, swipe the slides, push twice for help, sit still for the "No movement" alert. Judges trust an uncut shot more than a montage, so the core of it is **one continuous take** of the laptop and the person together. Close-ups of the screen are inserts on top of that take, never replacements for it.
+
+**P** is the presenter at the laptop. **T** is the teammate who presses Acknowledge.
 
 ## What you need
 
-- **Phone A** on a tripod, or propped on books, behind and beside the chair, about 1.5 m back. It must see the laptop screen, the taped webcam and S's chest in one frame. Start recording, then step out of the 2 m zone: the person holding the phone counts as movement.
-- **Phone B** (optional), side-on to S's chest at the same height, for a close-up of the shoulders rising and falling.
-- **Screen recording** on the HP at the same time: Win+Alt+R (Xbox Game Bar) records the browser window. Start it before S sits down.
-- **Narration** recorded afterwards on a phone or the Mac, in a quiet spot. The HP can't record it: the engine holds its microphone.
-- **Editing:** Clipchamp (built into Windows 11), iMovie or CapCut. Cuts and captions only.
-- The engine and slides started as in the runbook (`--profile clean --blocksize 3840`). The HUD shows "Sonar live" with **no** "Simulated data" tag. That tag must never appear in this video.
+- **Phone A** on a tripod, or propped on books, behind and beside the chair, about 1.5 m back. It must see the laptop screen, the taped webcam and P's hand in one frame. Start recording, then step away from the table: a person moving near the laptop starts the 15-second count again.
+- **Phone B** (optional), over P's shoulder and close on the screen, for the red "Help requested" screen and the "No movement" banner.
+- **Screen recording** on the MacBook at the same time: Shift+Cmd+5, "Record Entire Screen", Options > Microphone: None. Start it before P sits down.
+- **Narration** recorded afterwards on a phone, in a quiet spot. The laptop's microphone stays with the sonar.
+- **Editing:** iMovie or CapCut. Cuts and captions only.
+- Sonar Care started as in the runbook: gesture control on, the preset "Slides / PDF", the no-movement choice "Demo · 15 s", and a PDF or Keynote deck in its own window. The top bar shows "Sonar live" with **no** "Simulated data" tag and no "Dry run" tag. Those tags must never appear in this video.
 
 ## The rules for an honest video
 
-1. Every reading on screen is live from the HP's own speaker and microphones. No mock and no replay. If you ever have to use a replay, caption it "replay of a recording" for as long as it is on screen.
-2. The hold and its alarm come from the same take. Never splice an alarm from one take onto a hold from another.
-3. The narration only says what the screen shows. If the self-test prints different numbers tonight, the narration doesn't recite them. The screen shows them.
-4. First frame caption: "Recorded live on an HP ENVY x360 laptop, [DATE, TIME]. Camera taped over. Cuts only, no edits to the data."
+1. Every reading on screen is live from the MacBook's own speakers and its one microphone. No mock and no simulated visitor.
+2. The two pushes, the countdown and the alarm come from the same take. So do the 15 seconds of stillness and the "No movement" alert. Never splice an alert from one take onto an action from another.
+3. The slide changes because of the swipe. If a swipe misses and you press the arrow key, that take is not the one you keep.
+4. The narration only says what the screen shows. Do not build a shot around the breathing card. If it shows a dash, the narration does not mention a number.
+5. First frame caption: "Recorded live on a MacBook Pro, [DATE, TIME]. Camera taped over. Cuts only, no edits to the data."
 
 ## Shot list
 
-Target 80 s. Shots 2 and 7 can be cut to reach 60 s.
+Target 90 s. Shots 2 and 6 can be cut to reach 75 s.
 
 | # | Time | Camera | Screen | Action |
 |---|---|---|---|---|
-| 1 | 0:00-0:06 | Phone A close on the taped webcam, then pull back (or cut) to the whole laptop on the table | Slide 1 | Nobody moves |
-| 2 | 0:06-0:14 | Screen insert: the self-test's results block in PowerShell, zoomed so the lines are readable | Self-test output: SNR lines, lock, drift, audible leak, verdict | Recorded before the main take |
-| 3 | 0:14-0:24 | Phone A, the main take starts | Care Monitor (`M` on the slides, or `.venv\Scripts\python app\serve.py --view monitor --app`) | S walks into frame and sits at the 0.6 m mark. Presence changes to "Person present" (it shows "Someone entering" first only if the room was empty). |
-| 4 | 0:24-0:42 | Phone A, with the Phone B chest close-up as a picture-in-picture or a 3-second cutaway | The breathing line appears ("Hold still · N of 10 s"), then the rate | S sits still, hands in lap, breathing steadily and a little deeper than normal |
-| 5 | 0:42-1:00 | Phone A, same take, no cut | The rate holds for 5 s, then the orb turns red, the banner says "No breathing movement detected" and counts; then the activity log shows "Breathing resumed" | S counts five seconds after the number appears, holds the breath, and breathes again about 5 s after the alarm appears. The counter starts from when breathing stopped, so it already reads about 10 s when the alarm first shows. |
-| 6 | 1:00-1:12 | Phone A, or a new take on the slides | Slide 5 or 6 of the deck; the HUD shows the gesture and its confidence | The trained person swipes right with the left hand (the next slide slides in), then pushes (the live panel opens) |
-| 7 | 1:12-1:22 | Screen insert of slide 7's live panel, then slide 9 | Echo SNR, frame rate, latency; then the title line | Nobody moves |
+| 1 | 0:00-0:10 | Phone A close on the taped webcam, then back to the whole laptop on the table (or a cut) | Dashboard | P sits down at the 0.6 m mark. The Room card changes to "Someone is here" with a distance. |
+| 2 | 0:10-0:16 | Screen insert from the same session: the Sensor card, zoomed so the line is readable | The signal strength in dB and "This laptop · its own speakers and one microphone" | Nobody moves |
+| 3 | 0:16-0:34 | Phone A, the main take starts | The deck, in its own window | P clicks into the deck. Swipe right: the next page. Swipe left: back. |
+| 4 | 0:34-0:58 | Phone A, same take, no cut. Phone B or the screen recording as a 3-second picture-in-picture. | Dashboard: "Help gesture seen" with its 3-second countdown, then the red "Help requested" screen | P clicks an empty part of the dashboard and pushes twice, about a second apart. T steps in, presses Acknowledge, steps back. The timeline shows "Help requested: acknowledged after N s". Keep the phone's own sound under this shot: the chime and the spoken "Help requested" must be heard. |
+| 5 | 0:58-1:22 | Phone A, same take, no cut | Room card: "Still for N s" counting up, then the "No movement" banner | P sits still, hands down, for 15 seconds. The banner and its chime arrive. P moves a hand, and the banner changes to "No movement: movement seen again". |
+| 6 | 1:22-1:30 | Screen insert: the Timeline card | Every event of the take, newest first | Nobody moves |
 
-## Narration (about 170 words, read at a calm pace)
+## Narration (about 160 words, read at a calm pace)
 
-Timings match the shot list. Record it in one go, then trim the gaps in the editor.
+Timings match the shot list. Record it in one go, then trim the gaps in the editor. Leave shot 4's alarm free of narration.
 
-**[1, 0:00]** "This laptop's camera is taped over. It's still going to watch my teammate breathe."
+**[1, 0:00]** "This MacBook's camera is taped over. Its speakers are playing sound too high to hear, and its one microphone is listening to the echoes. That is enough to know that someone just sat down, and about how far away."
 
-**[2, 0:06]** "Its speakers play sound above 18 kilohertz, higher than most adults can hear. A one-minute self-test checks that it hears its own echoes and that nothing leaks into the range we can hear."
+**[2, 0:10]** "This is Sonar Care. It runs on the laptop's own processor."
 
-**[3, 0:14]** "Lance sits down. There's no camera, but the echoes show someone is there."
+**[3, 0:16]** "A swipe in the air presses a real key. Next page. And back. For hands that are full, gloved, or cannot reach the keyboard."
 
-**[4, 0:24]** "Each breath moves his chest a few millimetres. The sound's wavelength is under two centimetres, so one millimetre turns the echo by 43 degrees. That's the line you see. After ten seconds of stillness, it gives a rate."
+**[4, 0:34]** "Two pushes call for help. It waits three seconds, so a mistake can be cancelled on the screen." *(The chime and the voice play.)* "A teammate acknowledges, and it logs how long the answer took."
 
-**[5, 0:42]** "Now he holds his breath. Ten seconds without breathing movement is an apnea, and the alarm goes off. He breathes again, and it clears."
+**[5, 0:58]** "Now my teammate sits still. Someone is here, but nothing has moved for fifteen seconds, so a caregiver gets this alert. One small movement, and it clears by itself."
 
-**[6, 1:00]** "The same echoes read hands. A swipe changes the slide. A push opens the live panel."
-
-**[7, 1:12]** "All of it runs on the laptop's own processor and sends numbers, never audio or images. Laptop Sonar: camera-free care, from the laptop already in the room."
+**[6, 1:22]** "No camera, nothing to wear, no new hardware, and nothing leaves the laptop. Sonar Care: camera-free care, from the laptop already in the room."
 
 ## Before and after recording
 
-- [ ] Quiet corner, nobody walking within 2 m, no fan blowing across the table.
-- [ ] Notifications off, volume at `[VOLUME %]`, charger in.
+- [ ] Quiet corner, nobody else within about 1.3 m of the laptop, no fan blowing across the table.
+- [ ] Other apps quit, volume at `[VOLUME %]`, charger in.
 - [ ] Three full takes. Keep the best one whole. Don't build a "best of".
-- [ ] Watch it once with the sound off: can you see the taped camera, the "Sonar live" HUD, S's chest and the alarm without being told where to look?
-- [ ] Export 1080p MP4. Copy it to both phones and the Mac as a local file. Upload an unlisted copy for Devpost (`[VIDEO LINK]` in `DEVPOST.md`).
+- [ ] Watch it once with the sound off: can you see the taped camera, the "Sonar live" label, the hand, the slide changing, the red screen and the banner without being told where to look?
+- [ ] Watch it once with the sound on: can you hear the chime and "Help requested"?
+- [ ] Export 1080p MP4. Copy it to two phones as a local file. Upload an unlisted copy for Devpost (`[VIDEO LINK]` in `DEVPOST.md`).

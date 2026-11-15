@@ -3,44 +3,69 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Laptop Sonar</title>
+<title>Sonar Care</title>
+<meta name="description" content="Sonar Care: touch-free control, a camera-free room monitor and a help gesture, from a laptop's own speakers and microphone.">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/atkinson-next-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/lexend-digits.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <style>
+  /* The launcher: one page that says what this is and opens the three screens. Same tokens as everything else. */
   body { overflow: auto; }
-  .launch { min-height: 100%; display: grid; place-content: center; gap: 28px; padding: 48px 24px; max-width: 980px; margin: 0 auto; }
-  .launch h1 { font-size: clamp(30px, 4vw, 48px); font-weight: 750; letter-spacing: -0.02em; line-height: 1.05; }
-  .launch h1 .icon { color: var(--tide); stroke-width: 2; }
-  .launch p { font-size: 18px; color: var(--ink-2); max-width: 60ch; }
-  .views { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .launch { min-height: 100%; display: grid; align-content: center; gap: 30px; padding: 56px 28px; max-width: 1080px; margin: 0 auto; }
+  .launch__mark { display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 750; color: var(--tide); letter-spacing: -0.01em; }
+  .launch__mark .icon { font-size: 1.35em; stroke-width: 2; }
+  .launch h1 { font-size: clamp(34px, 5vw, 60px); font-weight: 760; letter-spacing: -0.026em; line-height: 1.02; max-width: 17ch; text-wrap: balance; }
+  .launch p { font-size: 19px; line-height: 1.5; color: var(--ink-2); max-width: 62ch; text-wrap: pretty; }
+  .launch .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 16px; }
+  .launch .conn, .launch .privacy, .launch .sim-tag { font-size: 16px; }
+  .launch .privacy { background: transparent; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); font-weight: 620; padding: 6px 12px; border-radius: 8px; }
+  .launch .sim-tag { padding: 4px 10px; border-radius: 8px; }
+  .views { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 16px; }
   .view {
-    display: flex; flex-direction: column; gap: 6px; padding: 22px 24px; border-radius: 16px;
-    background: var(--panel); color: var(--ink); text-decoration: none; box-shadow: inset 0 0 0 1px var(--line);
-    transition: box-shadow var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out);
+    display: flex; flex-direction: column; gap: 8px; padding: 24px 26px; border-radius: 20px; min-height: 190px;
+    background: var(--panel); color: var(--ink); text-decoration: none;
+    transition: box-shadow var(--t-fast) var(--ease-out), transform var(--t-fast) var(--ease-out), background-color var(--t-fast) var(--ease-out);
   }
   .view:hover { box-shadow: inset 0 0 0 2px var(--tide); }
   .view:active { transform: scale(0.99); }
   .view:focus-visible { outline: 3px solid var(--tide); outline-offset: 3px; }
-  .view b { font-size: 22px; }
-  .view span { font-size: 16px; color: var(--ink-2); }
-  .launch .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 16px; }
-  .launch .conn { font-size: 16px; }
-  .launch code { font-size: 15px; background: var(--panel-2); padding: 2px 6px; border-radius: 4px; }
+  .view .icon { font-size: 30px; color: var(--tide); margin-bottom: 4px; }
+  .view b { font-size: 24px; font-weight: 740; letter-spacing: -0.015em; }
+  .view span { font-size: 16.5px; line-height: 1.45; color: var(--ink-2); }
+  .view small { margin-top: auto; padding-top: 10px; font-size: 15px; font-weight: 650; color: var(--tide); }
+  .view--main { background: var(--ink); color: var(--panel); }
+  .view--main span { color: color-mix(in srgb, var(--panel) 82%, var(--ink)); }
+  .view--main .icon, .view--main small { color: var(--tide-2); }
+  .view--main:hover { box-shadow: inset 0 0 0 2px var(--tide-2); }
+  .launch code { font: 15px ui-monospace, Menlo, monospace; background: var(--panel-2); color: var(--ink); padding: 2px 7px; border-radius: 5px; }
+  .launch .fine { font-size: 16px; }
+  @media (max-width: 860px) { .views { grid-template-columns: 1fr; } .view { min-height: 0; } }
 </style>
+<script>
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    try { t = t || localStorage.getItem('sonar.theme'); } catch (e) { /* storage blocked */ }
+    if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+    if (t === 'dark' || t === 'night') document.documentElement.setAttribute('data-theme', 'night');
+  })();
+</script>
 </head>
 <body>
 <main class="launch">
-  <h1><span data-icon="ping"></span> Laptop Sonar</h1>
-  <p>Camera-free care from the laptop already in the room. Pick a view. Both connect to the sonar engine at <code id="wsUrl"></code>.</p>
-  <div class="row"><span id="conn"></span><span class="sim-tag">Simulated data</span><span class="privacy"><span data-icon="cameraOff"></span>Camera off</span></div>
+  <div class="launch__mark"><span data-icon="ping"></span>Sonar Care</div>
+  <h1>Camera-free care, from the laptop already in the room.</h1>
+  <p>This laptop's speakers play sound too high to hear and its microphone listens to the echoes. That is enough to read hand gestures, notice when someone comes, goes or stops moving, and estimate a still person's breathing.</p>
+  <div class="row"><span id="conn"></span><span class="sim-tag">Simulated data</span><span class="privacy"><span data-icon="cameraOff"></span>No camera · nothing leaves this laptop</span></div>
   <div class="views">
-    <a class="view" id="toPresenter" href="presenter.html"><b>Presenter</b><span>Pitch slides you change with a swipe of the hand. Arrow keys work too. Press ? for keys.</span></a>
-    <a class="view" id="toMonitor" href="monitor.html"><b>Care Monitor</b><span>Breathing rate, presence, gestures and signal health, readable from across the room.</span></a>
+    <a class="view view--main" id="toCare" href="care.html"><span data-icon="person"></span><b>Sonar Care</b><span>The app: touch-free control, the caregiver's room monitor, the help gesture, settings and the guided setup.</span><small id="careHint">Open the dashboard</small></a>
+    <a class="view" id="toPresenter" href="presenter.html"><span data-icon="swipe_right"></span><b>Pitch slides</b><span>Ten slides you change with a swipe of the hand. Arrow keys work too.</span><small>Press ? there for the keys</small></a>
+    <a class="view" id="toMonitor" href="monitor.html"><span data-icon="breath"></span><b>Care Monitor</b><span>The earlier single-screen monitor: breathing, presence and the live Doppler strip.</span><small>Reads the engine directly</small></a>
   </div>
+  <p class="fine" id="how"></p>
 </main>
+<script src="/api/boot.js" onerror="window.SonarCareBoot=null"></script>
 <script src="js/adapter.js"></script>
 <script src="js/config.js"></script>
 <script src="js/connection.js"></script>
@@ -49,12 +74,23 @@
 <script src="js/widgets.js"></script>
 <script>
   (function () {
-    var UI = window.SonarUI, cfg = window.SonarConfig;
-    UI.setTheme(cfg.theme);
+    var UI = window.SonarUI, cfg = window.SonarConfig, boot = window.SonarCareBoot || null;
     document.querySelectorAll('[data-icon]').forEach(function (el) { el.innerHTML = UI.icon(el.getAttribute('data-icon')); });
-    document.getElementById('wsUrl').textContent = cfg.wsUrl;
-    // Keep any ?ws=... settings when moving to a view.
-    ['toPresenter', 'toMonitor'].forEach(function (id) { var a = document.getElementById(id); a.href += location.search; });
+    var q = new URLSearchParams(location.search);
+    // The slides and the old monitor talk to the engine itself. With Sonar Care running, it tells us where the engine is.
+    var engine = q.get('ws') || (boot ? boot.engine : null);
+    if (engine) { q.set('ws', engine); }
+    var qs = q.toString() ? '?' + q.toString() : '';
+    document.getElementById('toPresenter').href += qs;
+    document.getElementById('toMonitor').href += qs;
+    var how = document.getElementById('how');
+    if (boot) {
+      how.innerHTML = 'Sonar Care is running' + (boot.dryRun ? ' as a <b>dry run</b> (no keys are pressed)' : '') + '. The engine is at <code>' + UI.escapeHtml(boot.engine) + '</code>.';
+      cfg.wsUrl = boot.relay;                              // the status light follows the same stream as the dashboard
+    } else {
+      document.getElementById('careHint').textContent = 'Needs scripts/sonar_care.sh';
+      how.innerHTML = 'Sonar Care is not running, so only the slides and the monitor work here. Start everything with <code>scripts/sonar_care.sh</code> (or <code>scripts/sonar_care.sh --mock</code> to rehearse without the sonar).';
+    }
     var store = window.SonarStore.start(cfg);
     window.SonarWidgets.conn(document.getElementById('conn'), store);
     function sim() { document.body.classList.toggle('is-simulated', store.state.simulated); }
