@@ -1209,7 +1209,11 @@
        "ackS": null,
        "count": 1.0,
        "thresholdS": null,
-       "breathingDetected": null
+       "breathingDetected": null,
+       "experimental": false,
+       "direction": null,
+       "confidence": null,
+       "movedAt": null
       },
       {
        "id": "no_movement-1",
@@ -1228,7 +1232,11 @@
        "ackS": null,
        "count": 1.0,
        "thresholdS": 15.0,
-       "breathingDetected": false
+       "breathingDetected": false,
+       "experimental": false,
+       "direction": null,
+       "confidence": null,
+       "movedAt": null
       }
      ],
      "control": {
@@ -1276,6 +1284,16 @@
       "noBreathing": {
        "enabled": true,
        "seconds": 10.0
+      },
+      "fall": {
+       "enabled": false,
+       "sensitivity": null,
+       "stillnessS": null,
+       "burstLevel": null,
+       "fastLevel": null,
+       "oneSided": null,
+       "minS": null,
+       "maxS": null
       }
      },
      "room": "Living room",
@@ -1391,6 +1409,16 @@
       "noBreathing": {
        "enabled": false,
        "seconds": null
+      },
+      "fall": {
+       "enabled": false,
+       "sensitivity": null,
+       "stillnessS": null,
+       "burstLevel": null,
+       "fastLevel": null,
+       "oneSided": null,
+       "minS": null,
+       "maxS": null
       }
      },
      "room": null,
@@ -1448,7 +1476,11 @@
       "ackS": null,
       "count": 1.0,
       "thresholdS": null,
-      "breathingDetected": null
+      "breathingDetected": null,
+      "experimental": false,
+      "direction": null,
+      "confidence": null,
+      "movedAt": null
      }
     }
    ]
@@ -1502,7 +1534,11 @@
       "ackS": null,
       "count": 1.0,
       "thresholdS": 15.0,
-      "breathingDetected": false
+      "breathingDetected": false,
+      "experimental": false,
+      "direction": null,
+      "confidence": null,
+      "movedAt": null
      }
     }
    ]
@@ -1727,6 +1763,475 @@
        "detail": null,
        "alertId": null
       }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fall: confirmed after the stillness time (sent by Sonar Care, experimental)",
+   "raw": {
+    "type": "fall",
+    "source": "care",
+    "experimental": true,
+    "stage": "confirmed",
+    "t": 1794600000.5,
+    "seq": 7,
+    "burst_t": 1794599985.2,
+    "burst_level": 0.372,
+    "burst_db": 13.4,
+    "fast_level": 0.36,
+    "one_sided": 0.97,
+    "direction": "toward",
+    "duration_s": 1.2,
+    "stillness_s": 15.1,
+    "needs_s": 15.0,
+    "range_before_m": 1.1,
+    "range_after_m": 1.5,
+    "confidence": 0.66,
+    "reason": null
+   },
+   "expect": [
+    {
+     "kind": "fall",
+     "stage": "confirmed",
+     "seq": 7.0,
+     "burstT": 1794599985.2,
+     "burstDb": 13.4,
+     "burstLevel": 0.372,
+     "fastLevel": 0.36,
+     "oneSided": 0.97,
+     "direction": "toward",
+     "durationS": 1.2,
+     "stillnessS": 15.1,
+     "needsS": 15.0,
+     "rangeBeforeM": 1.1,
+     "rangeAfterM": 1.5,
+     "confidence": 0.66,
+     "reason": null,
+     "experimental": true,
+     "t": 1794600000.5,
+     "tLocal": false
+    }
+   ]
+  },
+  {
+   "name": "fall: dismissed with the reason",
+   "raw": {
+    "type": "fall",
+    "source": "care",
+    "experimental": true,
+    "stage": "dismissed",
+    "t": 1794600000.5,
+    "seq": 3,
+    "burst_t": 1794599997.0,
+    "burst_level": 0.5,
+    "burst_db": 18.0,
+    "fast_level": 0.52,
+    "one_sided": 0.12,
+    "direction": "away",
+    "duration_s": 0.5,
+    "stillness_s": 1.2,
+    "needs_s": 15.0,
+    "range_before_m": null,
+    "range_after_m": null,
+    "confidence": 0.5,
+    "reason": "it moved back the other way within a second or two (a reach, a gesture or sitting down)"
+   },
+   "expect": [
+    {
+     "kind": "fall",
+     "stage": "dismissed",
+     "seq": 3.0,
+     "burstT": 1794599997.0,
+     "burstDb": 18.0,
+     "burstLevel": 0.5,
+     "fastLevel": 0.52,
+     "oneSided": 0.12,
+     "direction": "away",
+     "durationS": 0.5,
+     "stillnessS": 1.2,
+     "needsS": 15.0,
+     "rangeBeforeM": null,
+     "rangeAfterM": null,
+     "confidence": 0.5,
+     "reason": "it moved back the other way within a second or two (a reach, a gesture or sitting down)",
+     "experimental": true,
+     "t": 1794600000.5,
+     "tLocal": false
+    }
+   ]
+  },
+  {
+   "name": "fall: a stage nobody knows is not passed on",
+   "raw": {
+    "type": "fall",
+    "stage": "maybe",
+    "t": 1794600000.5
+   },
+   "expect": [
+    {
+     "kind": "unknown",
+     "reason": "fall event without a known stage"
+    }
+   ]
+  },
+  {
+   "name": "care state with the fall alert on: live read-out, thresholds and the alert",
+   "raw": {
+    "type": "care_state",
+    "t": 1794600000.5,
+    "version": "1.0.0",
+    "dry_run": true,
+    "quiet": false,
+    "mode": "sim",
+    "engine": {
+     "managed": true,
+     "state": "running",
+     "mode": "sim",
+     "port": 8765,
+     "url": "ws://127.0.0.1:8765",
+     "pid": 4242,
+     "model": "models-candidate-mac-calm50",
+     "restarts": 1,
+     "last_error": null,
+     "log": "/tmp/engine.log",
+     "uptime_s": 61.0,
+     "retry_in_s": null
+    },
+    "link": {
+     "state": "open",
+     "health": "live",
+     "age_s": 0.1
+    },
+    "sonar": {
+     "snr_db": 43.6,
+     "signal": "good",
+     "calibrating": false,
+     "locked": true,
+     "source": "sim",
+     "noise_db": 0.4,
+     "fps": 50.0,
+     "clipped": false,
+     "device": "sim"
+    },
+    "control": {
+     "enabled": true,
+     "preset": "slides",
+     "preset_label": "Slides / PDF",
+     "mapping": {
+      "swipe_left": {
+       "action": "left",
+       "label": "Left arrow"
+      },
+      "swipe_right": {
+       "action": "right",
+       "label": "Right arrow"
+      },
+      "push": {
+       "action": "space",
+       "label": "Space"
+      }
+     },
+     "keys": {
+      "settings_path": "System Settings > Privacy & Security > Accessibility",
+      "platform": "darwin",
+      "mode": "dry_run",
+      "trusted": null,
+      "backend": "dry run",
+      "can_press": false,
+      "media": "dry run",
+      "note": "Dry run: actions are logged, no key is pressed."
+     }
+    },
+    "monitoring": {
+     "enabled": true,
+     "help": {
+      "enabled": true,
+      "window_s": 2.5,
+      "min_gap_s": 1.0,
+      "confirm_s": 3.0,
+      "push_timing": "wait"
+     },
+     "no_movement": {
+      "enabled": true,
+      "seconds": 15,
+      "breathing_counts": false
+     },
+     "no_breathing": {
+      "enabled": true,
+      "seconds": 10
+     },
+     "fall": {
+      "enabled": true,
+      "sensitivity": "high",
+      "stillness_s": 10,
+      "burst_level": 0.25,
+      "fast_level": 0.2,
+      "one_sided": 0.35,
+      "min_s": 0.4,
+      "max_s": 2.5
+     }
+    },
+    "room": "Living room",
+    "onboarded": true,
+    "settings_rev": 3,
+    "pages": 2,
+    "presence": {
+     "state": "present",
+     "since": 1794599880.5,
+     "confidence": 0.97,
+     "range_m": 0.62,
+     "moving": false,
+     "confirmed": true,
+     "motionless_s": 0.0
+    },
+    "breathing": {
+     "bpm": 15.1,
+     "state": "breathing",
+     "confidence": 0.8,
+     "armed": true
+    },
+    "stillness": {
+     "still_s": 12.3,
+     "limit_s": 15.0,
+     "last_movement": "gesture"
+    },
+    "help": {
+     "pending": true,
+     "since": 1794599999.3,
+     "until": 1794600001.8,
+     "held_action": "space"
+    },
+    "practice": false,
+    "last_gesture": {
+     "gesture": "push",
+     "confidence": 0.83,
+     "result": "held",
+     "reason": "waiting for a second push",
+     "action": "space",
+     "action_label": "Space",
+     "t": 1794599999.3
+    },
+    "alerts": [
+     {
+      "id": "fall-1",
+      "kind": "fall",
+      "level": "alert",
+      "state": "active",
+      "title": "Possible fall",
+      "detail": "A sudden movement toward the laptop, then no movement for 15 s. Experimental: it can be wrong. Movement was seen again 40 s later.",
+      "since": 1794599940.0,
+      "raised_at": 1794599955.0,
+      "active_at": 1794599955.0,
+      "count": 1,
+      "confidence": 0.66,
+      "direction": "toward",
+      "experimental": true,
+      "moved_at": 1794599995.0
+     }
+    ],
+    "fall": {
+     "enabled": true,
+     "sensitivity": "high",
+     "level": 0.004,
+     "slow_level": 0.0,
+     "has_rows": true,
+     "watching": {
+      "since": 1794599994.0,
+      "still_s": 6.5,
+      "needs_s": 10.0,
+      "direction": "away"
+     },
+     "last_burst": {
+      "t": 1794599994.0,
+      "duration_s": 0.92,
+      "level": 0.31,
+      "fast_level": 0.28,
+      "one_sided": 0.88,
+      "direction": "away",
+      "counted": true,
+      "why": "counted: big, fast and one-way",
+      "outcome": "waiting for stillness"
+     },
+     "thresholds": {
+      "burst_level": 0.18,
+      "fast_level": 0.144,
+      "one_sided": 0.35,
+      "min_s": 0.4,
+      "max_s": 2.5,
+      "stillness_s": 10.0
+     }
+    }
+   },
+   "expect": [
+    {
+     "kind": "careState",
+     "fall": {
+      "enabled": true,
+      "sensitivity": "high",
+      "level": 0.004,
+      "slowLevel": 0.0,
+      "hasRows": true,
+      "error": null,
+      "watching": {
+       "since": 1794599994.0,
+       "stillS": 6.5,
+       "needsS": 10.0,
+       "direction": "away"
+      },
+      "lastBurst": {
+       "t": 1794599994.0,
+       "durationS": 0.92,
+       "level": 0.31,
+       "fastLevel": 0.28,
+       "oneSided": 0.88,
+       "direction": "away",
+       "counted": true,
+       "why": "counted: big, fast and one-way",
+       "outcome": "waiting for stillness"
+      },
+      "thresholds": {
+       "burstLevel": 0.18,
+       "fastLevel": 0.144,
+       "oneSided": 0.35,
+       "minS": 0.4,
+       "maxS": 2.5,
+       "stillnessS": 10.0
+      }
+     },
+     "monitoring": {
+      "enabled": true,
+      "help": {
+       "enabled": true,
+       "windowS": 2.5,
+       "minGapS": 1.0,
+       "confirmS": 3.0,
+       "pushTiming": "wait"
+      },
+      "noMovement": {
+       "enabled": true,
+       "seconds": 15.0,
+       "breathingCounts": false
+      },
+      "noBreathing": {
+       "enabled": true,
+       "seconds": 10.0
+      },
+      "fall": {
+       "enabled": true,
+       "sensitivity": "high",
+       "stillnessS": 10.0,
+       "burstLevel": 0.25,
+       "fastLevel": 0.2,
+       "oneSided": 0.35,
+       "minS": 0.4,
+       "maxS": 2.5
+      }
+     },
+     "alerts": [
+      {
+       "id": "fall-1",
+       "kind": "fall",
+       "level": "alert",
+       "state": "active",
+       "title": "Possible fall",
+       "detail": "A sudden movement toward the laptop, then no movement for 15 s. Experimental: it can be wrong. Movement was seen again 40 s later.",
+       "since": 1794599940.0,
+       "raisedAt": 1794599955.0,
+       "activeAt": 1794599955.0,
+       "escalateAt": null,
+       "ackedAt": null,
+       "resolvedAt": null,
+       "resolution": null,
+       "ackS": null,
+       "count": 1.0,
+       "thresholdS": null,
+       "breathingDetected": null,
+       "experimental": true,
+       "direction": "toward",
+       "confidence": 0.66,
+       "movedAt": 1794599995.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "care state: the fall alert switched itself off after an error",
+   "raw": {
+    "type": "care_state",
+    "t": 1794600000.5,
+    "version": "1.0.0",
+    "monitoring": {
+     "enabled": true
+    },
+    "fall": {
+     "enabled": false,
+     "sensitivity": "medium",
+     "error": "ValueError: rows of the wrong shape"
+    }
+   },
+   "expect": [
+    {
+     "kind": "careState",
+     "fall": {
+      "enabled": false,
+      "sensitivity": "medium",
+      "level": null,
+      "slowLevel": null,
+      "hasRows": false,
+      "error": "ValueError: rows of the wrong shape",
+      "watching": null,
+      "lastBurst": null,
+      "thresholds": {
+       "burstLevel": null,
+       "fastLevel": null,
+       "oneSided": null,
+       "minS": null,
+       "maxS": null,
+       "stillnessS": null
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "spectrogram carries the row spacing",
+   "raw": {
+    "type": "spectrogram",
+    "t": 1794600000.5,
+    "rows": [
+     [
+      0.0,
+      0.5,
+      1.0
+     ],
+     [
+      0.1,
+      0.2,
+      0.3
+     ]
+    ],
+    "n_bins": 3,
+    "bins_hz": [
+     -7.8,
+     0.0,
+     7.8
+    ],
+    "frame_s": 0.02
+   },
+   "expect": [
+    {
+     "kind": "spectrogram",
+     "frameS": 0.02,
+     "binsHz": [
+      -7.8,
+      0.0,
+      7.8
+     ],
+     "rows_shape": [
+      2,
+      3
      ]
     }
    ]

@@ -47,7 +47,7 @@ What it cannot do yet:
 - The gesture model fits one laptop. Left and right depend on where this MacBook's two speakers and its microphone sit.
 - One push is sometimes read as two, because the hand coming back also looks like a push. After our filter, about 1 single push in 12 can still look like a help gesture. That is why a help request can be cancelled on screen for 3 seconds. We have not measured how often a deliberate double push is caught.
 - Breathing from one microphone is experimental. The dashboard labels it "Early estimate" and shows a dash when the engine is not confident. The app also has an experimental "No breathing movement" alert, with the same limits.
-- The "No movement" alert is a prompt to check on someone. It is not fall detection.
+- The "No movement" alert is a prompt to check on someone. It is not fall detection. An experimental "Possible fall" alert (one sudden one-way movement, then stillness) is in the app, switched off by default: it has never been tried on a real fall, and it also fires when someone steps away from the laptop and nothing else moves.
 
 The camera stays taped over. No image is ever captured, and no audio is stored or sent anywhere. The engine's only output is small JSON messages (states, gesture names, rates, the chest waveform and a coarse Doppler strip) on a connection that only the laptop itself can reach. Sonar Care keeps a settings file and a text log of events on the laptop. Nothing goes to a cloud.
 
@@ -111,7 +111,7 @@ The camera stays taped over. No image is ever captured, and no audio is stored o
 - **Teach the model the hand coming back**, so one push is no longer read as two. Then measure the help gesture properly: deliberate double pushes across many people.
 - **A model per device, or one that works across devices.** Today's gesture model only fits this MacBook's speaker and microphone layout.
 - **Check breathing against a reference**: a respiration belt and counted breaths, across ages, body sizes, chairs and beds. Report the error and how often it shows a dash.
-- **Fall detection, tested on real falls.** A fall is a fast movement whose distance changes by more than half a metre in under a second, followed by stillness. Presence, distance and the stillness timer already exist. The testing doesn't.
+- **Fall detection, tested on real falls.** The app has a first rule for it, off by default: one sudden one-way movement, then 15 s of stillness. On 36 minutes of our own recordings of ordinary movement it raised no false alarm at that setting, and at shorter settings its false alarms were people stepping away from the laptop. What it has never seen is a real fall. That needs a mattress, volunteers and a labelled dataset.
 - **Alerts that reach a caregiver's phone.** Today the alert stays on the laptop (another device on the same network can open the dashboard and acknowledge it, if the app is started with `--lan`).
 - **Share the speakers.** Loud audio through the same speakers can weaken the signal. A product has to live inside the audio driver.
 - **Other devices** with a speaker and a microphone: tablets, smart speakers, TVs.

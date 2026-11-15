@@ -224,7 +224,7 @@ Stop the live app first (Ctrl+C). If it is still running, a second start only at
 - Simulated data is never called live. It is tagged on screen, and you say it as well.
 - Quote only the held-out gesture score: 133 of 206 gestures recognised (65%) and 22 of 499 other movements triggering (4.4%), with each of three people held out of training in turn. The best-matched person was 70 of 81 (86%). Never quote that one alone.
 - Never promise a breathing number. Say "early estimate".
-- Say "No movement alert". Do not say "fall detection".
+- Say "No movement alert". Do not say "fall detection". The experimental fall alert stays off for the demo unless you rehearsed it on this MacBook (`SONAR_CARE.md`, section 10); if you show it, say "experimental, never tested on a real fall".
 - If a judge asks something you haven't measured, say "we haven't measured that" and what you would measure. The deliberate double push is one of those until you fill in section 1.
 - The dashboard says "Prototype · not a medical device". Say the same if asked.
 

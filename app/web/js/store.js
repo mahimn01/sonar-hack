@@ -275,7 +275,7 @@
 
     // ---- what the Sonar Care service decided ---------------------------------
 
-    var ALERT_ORDER = { help: 0, no_breathing: 1, no_movement: 2 };
+    var ALERT_ORDER = { help: 0, fall: 1, no_breathing: 2, no_movement: 3 };
     function sortAlerts(list) {
       return list.slice().sort(function (a, b) {
         var pa = ALERT_ORDER[a.kind] == null ? 9 : ALERT_ORDER[a.kind], pb = ALERT_ORDER[b.kind] == null ? 9 : ALERT_ORDER[b.kind];

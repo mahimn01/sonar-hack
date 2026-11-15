@@ -36,7 +36,7 @@ Loud audio through the same speakers can weaken the sonar's signal, so the app s
 
 **8. Your problem slide is about falls. Can it detect a fall?**
 
-Not in a way we would claim. What works today sits around a fall: a help gesture that needs nothing worn, and a "No movement" alert when someone is present but has not moved for a set time. That alert is a prompt to check on someone. It is not fall detection: a person who falls out of the sensor's range (about 1.3 m) reads as "room empty". A fall rule is in our design notes (`DESIGN.md`, section 10): a fast movement whose distance changes by more than half a metre in under a second, then stillness. Testing it needs a mattress and volunteers, which we didn't have this weekend.
+Not in a way we would claim. What works today sits around a fall: a help gesture that needs nothing worn, and a "No movement" alert when someone is present but has not moved for a set time. That alert is a prompt to check on someone. It is not fall detection: a person who falls out of the sensor's range (about 1.3 m) reads as "room empty". The app does carry a first fall rule, switched off by default and labelled experimental: one sudden one-way movement, then 15 s of stillness. We ran it over 36 minutes of our own recordings of gestures, walking and sitting: no false alarm at 15 s, and at 10 s one, a person stepping away from the laptop and standing still. It has never seen a real fall. Testing that needs a mattress and volunteers, which we didn't have this weekend (`docs/SONAR_CARE.md`, section 10).
 
 **9. How does the alert reach a caregiver who is in another room?**
 

@@ -10,7 +10,9 @@
  *                        held, stoppedS, motionlessS, tLocal}
  *   {kind:'status',      snrDb, snrList, carrierHz, carriersHz, bandHz, fps, calibrating, source, device, latencyMs,
  *                        locked, clipped, dropped, activityDb, noiseDb, classifier, lastDecision, t, tLocal}
- *   {kind:'spectrogram', rows, binsHz, axisLabel, autoscaled, t, tLocal}
+ *   {kind:'spectrogram', rows, binsHz, axisLabel, autoscaled, frameS, t, tLocal}
+ *   {kind:'fall',        stage, seq, burstT, burstDb, burstLevel, fastLevel, oneSided, direction, durationS, stillnessS,
+ *                        needsS, rangeBeforeM, rangeAfterM, confidence, reason, experimental, t, tLocal}
  *   {kind:'hello',       source, version, schema, labels, classifier, t, tLocal}
  *   {kind:'unknown',     raw, reason}
  * and Sonar Care's own messages (see docs/SONAR_CARE.md):
@@ -37,6 +39,7 @@
     // Sonar Care's own messages (app/care/service.py), on the same stream as the engine's.
     care_hello: 'careHello', care_state: 'careState', care_alert: 'careAlert', care_action: 'careAction',
     care_timeline: 'careTimeline', care_settings: 'careSettings',
+    fall: 'fall', care_fall: 'fall', possible_fall: 'fall',
     gesture: 'gesture', gestures: 'gesture',
     presence: 'presence', occupancy: 'presence', room: 'presence',
     breathing: 'breathing', breath: 'breathing', respiration: 'breathing', resp: 'breathing', vitals: 'breathing',
@@ -286,7 +289,27 @@
       binsHz: numArray(pick(m, ['bins_hz', 'freqs_hz', 'doppler_hz', 'f_hz', 'axis_hz'])),
       axisLabel: pick(m, ['axis', 'label', 'units']) != null ? String(pick(m, ['axis', 'label', 'units'])) : null,
       autoscaled: autoscaled,
+      frameS: num(pick(m, ['frame_s', 'hop_s', 'dt'])),
       t: ts.t, tLocal: ts.tLocal
+    };
+  }
+
+  // The experimental "possible fall" event. Today Sonar Care's own detector sends it on the relay, not the engine.
+  function parseFall(m, ts) {
+    var stage = pick(m, ['stage', 'state', 'phase']);
+    stage = stage == null ? null : String(stage).toLowerCase();
+    if (['candidate', 'confirmed', 'dismissed', 'moved'].indexOf(stage) < 0) {
+      return { kind: 'unknown', raw: m, reason: 'fall event without a known stage' };
+    }
+    var direction = strOrNull(m.direction);
+    return {
+      kind: 'fall', stage: stage, seq: num(m.seq), burstT: num(m.burst_t),
+      burstDb: num(m.burst_db), burstLevel: num(m.burst_level), fastLevel: num(m.fast_level),
+      oneSided: num(m.one_sided), direction: direction === 'toward' || direction === 'away' ? direction : null,
+      durationS: num(m.duration_s), stillnessS: num(m.stillness_s), needsS: num(m.needs_s),
+      rangeBeforeM: num(m.range_before_m), rangeAfterM: num(m.range_after_m),
+      confidence: conf(m.confidence), reason: strOrNull(m.reason),
+      experimental: true, t: ts.t, tLocal: ts.tLocal
     };
   }
 
@@ -317,7 +340,32 @@
       title: strOrNull(a.title), detail: strOrNull(a.detail),
       since: num(a.since), raisedAt: num(a.raised_at), activeAt: num(a.active_at), escalateAt: num(a.escalate_at),
       ackedAt: num(a.acked_at), resolvedAt: num(a.resolved_at), resolution: strOrNull(a.resolution),
-      ackS: num(a.ack_s), count: num(a.count), thresholdS: num(a.threshold_s), breathingDetected: boolOrNull(a.breathing_detected)
+      ackS: num(a.ack_s), count: num(a.count), thresholdS: num(a.threshold_s), breathingDetected: boolOrNull(a.breathing_detected),
+      experimental: yes(a.experimental), direction: strOrNull(a.direction), confidence: conf(a.confidence), movedAt: num(a.moved_at)
+    };
+  }
+
+  function fallBurst(b) {
+    if (!isObj(b)) return null;
+    return {
+      t: num(b.t), durationS: num(b.duration_s), level: num(b.level), fastLevel: num(b.fast_level), oneSided: num(b.one_sided),
+      direction: strOrNull(b.direction), counted: yes(b.counted), why: strOrNull(b.why), outcome: strOrNull(b.outcome)
+    };
+  }
+
+  // The experimental fall alert's live read-out inside care_state (app/care/fall.py snapshot()).
+  function fallState(f) {
+    f = d(f);
+    var w = f.watching, th = d(f.thresholds);
+    return {
+      enabled: yes(f.enabled), sensitivity: strOrNull(f.sensitivity),
+      level: num(f.level), slowLevel: num(f.slow_level), hasRows: yes(f.has_rows), error: strOrNull(f.error),
+      watching: isObj(w) ? { since: num(w.since), stillS: num(w.still_s), needsS: num(w.needs_s), direction: strOrNull(w.direction) } : null,
+      lastBurst: fallBurst(f.last_burst),
+      thresholds: {
+        burstLevel: num(th.burst_level), fastLevel: num(th.fast_level), oneSided: num(th.one_sided),
+        minS: num(th.min_s), maxS: num(th.max_s), stillnessS: num(th.stillness_s)
+      }
     };
   }
 
@@ -371,7 +419,7 @@
   function parseCareState(m, ts) {
     var eng = d(m.engine), link = d(m.link), sonar = d(m.sonar), pres = d(m.presence), br = d(m.breathing);
     var still = d(m.stillness), hlp = d(m.help), ctl = d(m.control), mon = d(m.monitoring);
-    var keys = d(ctl.keys), mh = d(mon.help), mm = d(mon.no_movement), mb = d(mon.no_breathing);
+    var keys = d(ctl.keys), mh = d(mon.help), mm = d(mon.no_movement), mb = d(mon.no_breathing), mf = d(mon.fall);
     var mapping = {}, rawMap = d(ctl.mapping);
     for (var g in rawMap) mapping[g] = { action: strOrNull(d(rawMap[g]).action), label: strOrNull(d(rawMap[g]).label) };
     return {
@@ -396,6 +444,7 @@
       stillness: { stillS: num(still.still_s), limitS: num(still.limit_s), lastMovement: strOrNull(still.last_movement) },
       help: { pending: yes(hlp.pending), since: num(hlp.since), until: num(hlp.until), heldAction: strOrNull(hlp.held_action) },
       practice: yes(m.practice),
+      fall: fallState(m.fall),
       lastGesture: careGesture(m.last_gesture),
       alerts: Array.isArray(m.alerts) ? m.alerts.map(careAlert).filter(Boolean) : [],
       control: {
@@ -409,7 +458,12 @@
         enabled: yes(mon.enabled),
         help: { enabled: yes(mh.enabled), windowS: num(mh.window_s), minGapS: num(mh.min_gap_s), confirmS: num(mh.confirm_s), pushTiming: strOrNull(mh.push_timing) },
         noMovement: { enabled: yes(mm.enabled), seconds: num(mm.seconds), breathingCounts: yes(mm.breathing_counts) },
-        noBreathing: { enabled: yes(mb.enabled), seconds: num(mb.seconds) }
+        noBreathing: { enabled: yes(mb.enabled), seconds: num(mb.seconds) },
+        fall: {
+          enabled: yes(mf.enabled), sensitivity: strOrNull(mf.sensitivity), stillnessS: num(mf.stillness_s),
+          burstLevel: num(mf.burst_level), fastLevel: num(mf.fast_level), oneSided: num(mf.one_sided),
+          minS: num(mf.min_s), maxS: num(mf.max_s)
+        }
       },
       room: strOrNull(m.room), onboarded: yes(m.onboarded), settingsRev: num(m.settings_rev), pages: num(m.pages),
       t: ts.t, tLocal: ts.tLocal
@@ -418,7 +472,7 @@
 
   var PARSERS = {
     gesture: parseGesture, presence: parsePresence, breathing: parseBreathing,
-    status: parseStatus, spectrogram: parseSpectrogram, hello: parseHello,
+    status: parseStatus, spectrogram: parseSpectrogram, hello: parseHello, fall: parseFall,
     careHello: parseCareHello, careState: parseCareState, careAlert: parseCareAlert, careAction: parseCareAction,
     careTimeline: parseCareTimeline, careSettings: parseCareSettings
   };

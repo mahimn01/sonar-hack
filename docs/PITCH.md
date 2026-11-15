@@ -180,7 +180,7 @@ Say: "Ten seconds without breathing is the clinical definition of an apnea. This
 | "the microphones" | "its one microphone" | The MacBook gives one. Left and right come from the two speakers. |
 | "works on any laptop" | "an ordinary laptop"; "trained for this one MacBook" | The gesture model only fits this MacBook. |
 | "measures breathing", "breathing monitor" | "an early breathing estimate" | It is experimental on one microphone and shows a dash when it is not sure. |
-| "detects falls" | "a No movement alert"; "we do not claim fall detection yet" | It has not been tested on real falls. Someone who falls out of range reads as "room empty". |
+| "detects falls" | "a No movement alert"; "an experimental fall alert, off by default, never tested on a real fall" | The fall rule has only seen ordinary movement and a scripted fall. It also fires when someone steps away and nothing else moves. |
 | "it phones someone", "it alerts a nurse" | "it raises Help requested on this laptop" | Today the alert stays on the laptop: red screen, notification, chime and voice. |
 | "medical grade", "diagnoses" | "a prototype" | Not validated, not cleared. |
 | any accuracy number except the held-out one | "65 percent of gestures, 133 of 206, on people held out of training" | Scores on people in the training set flatter the model. Never quote the 86 percent of the best-matched person alone. |

@@ -27,6 +27,7 @@ How to run
         {"cmd": "presence", "state": "entering"}                    {"cmd": "moving", "seconds": 2}
         {"cmd": "apnea", "on": true}      {"cmd": "freeze", "on": true}      {"cmd": "bpm", "value": 18}
         {"cmd": "snr", "value": 18}       {"cmd": "calibrate"}
+        {"cmd": "fall", "direction": "toward", "still_s": 30}       (the experimental fall alert)
 
 What it changes
     Nothing on disk. Opens one local network port (127.0.0.1 only unless --host is given).
@@ -50,6 +51,7 @@ from websockets.exceptions import ConnectionClosed
 
 VERSION = "mock-1.1"
 GESTURES = ("swipe_left", "swipe_right", "push")       # the classes the trained model has (no pull, no wave)
+FALL_BURST_S = 1.0                                     # how long the simulated fall's one-way burst lasts
 TONES_HZ = [18500.0, 19000.0]                          # left speaker, right speaker (sonar/config.py)
 CHIRP_HZ = [19500.0, 21500.0]
 KEY_HELP = """
@@ -61,6 +63,7 @@ Keys (interactive mode)
   m             the person moves for 2 s (resets the no-movement count)
   h             hold breath on/off (triggers the no-breathing alert after ~10 s)
   f             freeze on/off: nothing moves at all, not even breathing
+  g             a fall: one fast one-way movement, then nothing moves for 30 s (the experimental fall alert)
   + / -         breathing rate up / down by 2 per minute
   c             3-second calibration
   ?             this help         q             quit
@@ -100,6 +103,10 @@ class World:
     snr_target: float = 55.0               # what the signal quality drifts toward (the "snr" command changes it)
     moving_until: float = 0.0              # the person is making a big movement until this time
     frozen: bool = False                   # nothing moves at all, not even breathing
+    fall_at: float = -1e9                  # a simulated fall started at this time ...
+    fall_dir: int = 1                      # ... toward (+1) or away from (-1) the laptop
+    fall_freeze_at: float = 0.0            # the burst is over and everything goes still at this time ...
+    fall_still_until: float = 0.0          # ... until this time
     last_any_motion: float = field(default_factory=time.time)   # for the engine's "motionless_s" counter
     range_m: float = 0.72
 
@@ -174,17 +181,27 @@ class World:
 
     def spectro_row(self, now: float) -> list[float]:
         n, c = self.bins, self.bins // 2
-        row = [0.035 + 0.05 * self.rng.random() for _ in range(n)]
+        # Like the real engine's strip, a still room is dark: 0 is "no more than 3 dB above the noise floor".
+        row = [max(0.0, 0.06 * self.rng.random() - 0.035) for _ in range(n)]
 
         def bump(center: float, height: float, width: float) -> None:
             lo, hi = max(0, int(center - 4 * width)), min(n, int(center + 4 * width) + 1)
             for i in range(lo, hi):
                 row[i] += height * math.exp(-0.5 * ((i - center) / width) ** 2)
 
-        bump(c, 0.26, 0.7)                                   # leftover direct path at zero Doppler
+        bump(c, 0.26, 0.3)                                   # leftover direct path at zero Doppler
         if self.presence == "present":
-            vel = math.cos(self.phase) * self.amp            # chest velocity follows the breathing phase
-            bump(c + 1.4 * vel, 0.22, 1.1)
+            vel = math.cos(self.phase) * self.amp            # chest velocity follows the breathing phase:
+            bump(c + 0.3 * vel, 0.22, 0.3)                   # far too slow to leave the middle bin
+        tau = now - self.fall_at
+        if self.presence == "present" and now < self.moving_until and not 0.0 <= tau <= FALL_BURST_S:
+            bump(c + 8 + 3 * math.sin(now * 5.0), 0.6, 2.5)  # shifting about: some movement each way, well below a gesture
+            bump(c - 7 - 3 * math.sin(now * 3.1), 0.45, 2.5)
+        if 0.0 <= tau <= FALL_BURST_S:                       # a whole body going one way, fast: half the strip lights up
+            fade = math.sin(math.pi * tau / FALL_BURST_S) ** 0.5
+            for k in range(5, 30):
+                if 0 <= c + self.fall_dir * k < n:
+                    row[c + self.fall_dir * k] += 0.85 * fade
         if self.presence == "entering":                      # torso plus swinging limbs
             torso = 5.5 + 1.5 * math.sin(now * 2.1)
             bump(c + torso, 0.7, 1.6)
@@ -225,6 +242,7 @@ class MockEngine:
         self.care_step = -1
         self.rng = random.Random(args.seed)
         self.world = World(rng=self.rng, bins=args.bins)
+        self.bins_hz = [round(-250.0 + i * 500.0 / args.bins, 2) for i in range(args.bins)]    # the engine's Doppler axis
         self.clients: set[ServerConnection] = set()
         self.t0 = time.time()
         self.next_auto_gesture = self.t0 + 6.0
@@ -293,6 +311,19 @@ class MockEngine:
             w.frozen, w.last_any_motion = on, now
             self.log("freeze ON: nothing moves at all" if on else "moving again")
 
+    def fire_fall(self, now: float, direction: str = "toward", still_s: float = 30.0) -> None:
+        """One fast one-way burst, then nothing moves at all for still_s: what the experimental fall alert looks for."""
+        w = self.world
+        if w.presence != "present":
+            self.log("a fall needs someone present: press 3 first")
+            return
+        w.frozen = False
+        w.fall_at, w.fall_dir = now, (-1 if direction == "away" else 1)
+        w.moving_until = now + FALL_BURST_S
+        w.fall_freeze_at = now + FALL_BURST_S
+        w.fall_still_until = now + FALL_BURST_S + max(1.0, still_s)
+        self.log(f"a fall {direction} the laptop, then {still_s:.0f} s without any movement")
+
     def fire_gesture(self, label: str, now: float, confidence: float | None = None) -> None:
         if label not in GESTURES:
             self.log(f"unknown gesture {label!r} ignored")
@@ -339,6 +370,8 @@ class MockEngine:
             self.set_moving(float(cmd.get("seconds", 2.0)), now)
         elif kind == "freeze":
             self.set_frozen(bool(cmd.get("on", True)), now)
+        elif kind == "fall":
+            self.fire_fall(now, str(cmd.get("direction", "toward")), float(cmd.get("still_s", 30.0)))
         elif kind == "snr":
             self.world.snr_target = max(0.0, min(80.0, float(cmd.get("value", 55))))
         elif kind in ("ping", "hello", "set_min_confidence"):
@@ -361,6 +394,8 @@ class MockEngine:
             self.set_moving(2.0, now)
         elif k in ("f", "freeze"):
             self.set_frozen(not self.world.frozen, now)
+        elif k in ("g", "fall"):
+            self.fire_fall(now)
         elif k == "x":
             self.fire_gesture(self.rng.choice(GESTURES), now, confidence=0.42)
         elif k in ("1", "empty"):
@@ -453,11 +488,19 @@ class MockEngine:
                 if not leaving:
                     self.set_presence("present", now)
 
-            # Spectrogram: one row per frame, sent two at a time.
+            if w.fall_freeze_at and now >= w.fall_freeze_at:                # the simulated fall: the burst is over
+                w.fall_freeze_at = 0.0
+                self.set_frozen(True, now)
+            if w.fall_still_until and now >= w.fall_still_until:            # ... and later the person moves again
+                w.fall_still_until = 0.0
+                self.set_frozen(False, now)
+                self.set_moving(2.0, now)
+
+            # Spectrogram: one row per frame, sent two at a time (the engine sends five; pages take any number).
             w.advance_breathing(now)
             rows.append(w.spectro_row(now))
             if len(rows) >= 2:
-                self.send({"type": "spectrogram", "rows": rows, "t": now})
+                self.send({"type": "spectrogram", "rows": rows, "n_bins": w.bins, "bins_hz": self.bins_hz, "frame_s": round(frame, 4), "t": now})
                 rows = []
 
             # Gesture events go out once most of the motion has happened (like a real classifier).

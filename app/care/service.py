@@ -7,6 +7,8 @@ What it does
         * an alert raised            -> notify.py shows a notification and plays a sound
         * anything worth remembering -> one line in the timeline (memory + a log file)
     and it tells every open dashboard about all of it through relay.py.
+    When the experimental fall alert is switched on, the engine's Doppler rows also go through
+    fall.py, and what that finds goes out as `fall` events and (when confirmed) into rules.py.
 
     Other threads (the web server in api.py, the menu bar) use the small thread-safe
     methods at the bottom: snapshot(), update_settings(), acknowledge(), calibrate(), ...
@@ -43,6 +45,7 @@ from . import __version__  # noqa: E402
 from . import settings as S  # noqa: E402
 from .actions import Actions  # noqa: E402
 from .client import EngineClient  # noqa: E402
+from .fall import FallDetector, for_sensitivity  # noqa: E402
 from .notify import Notifier  # noqa: E402
 from .relay import Relay  # noqa: E402
 from .rules import CareRules, fmt_duration  # noqa: E402
@@ -116,6 +119,10 @@ class Service:
         self._error: BaseException | None = None
 
         self._rules: CareRules | None = None
+        self._fall = FallDetector()                      # experimental; only fed while monitoring.fall.enabled
+        self._fall_on = False
+        self._fall_t = 0.0                               # the time given to the newest Doppler row
+        self._fall_error: str | None = None              # set if the fall path failed and switched itself off
         self._client: EngineClient | None = None
         self._relay: Relay | None = None
         self._status: dict[str, Any] = {}
@@ -165,6 +172,7 @@ class Service:
         self._stop = asyncio.Event()
         now = self._now()
         self._rules = CareRules(self.settings, now)
+        self._configure_fall(now)
         self.relay_port = free_port(self.opts.host, self.opts.port + 1)
         self._relay = Relay(self.opts.host, self.relay_port, self._hello_messages, self._on_page_command)
         await self._relay.start()
@@ -199,18 +207,76 @@ class Service:
         now = self._now()
         self._last_msg_at = now
         self._relay.broadcast(text)
-        if text.startswith('{"type":"spectrogram"'):      # 10 a second, only the page draws them
+        if text.startswith('{"type":"spectrogram"'):      # 10 a second: the page draws them, the fall detector reads them
+            if self._fall_on:
+                self._fall_step(lambda: self._doppler_events(text, now), now)
             return
         for evt in adapt(text, now):
             kind = evt.get("kind")
-            if kind == "spectrogram" or kind == "unknown":
+            if kind == "spectrogram" or kind == "unknown" or kind == "fall":
                 continue
             if kind == "hello":
                 self._hello_text = text
                 continue
             if kind == "status":
+                if self._fall_on and evt.get("calibrating") is True and self._status.get("calibrating") is not True:
+                    self._fall_step(lambda: self._fall.reset(now), now)      # the engine is learning its floors again
                 self._status = evt
+            elif self._fall_on and kind == "gesture" and evt.get("gesture") not in (None, "none"):
+                self._fall_step(lambda: self._fall.on_gesture(now), now)
+            elif self._fall_on and kind == "presence":
+                state, range_m = evt.get("state") or "unknown", evt.get("rangeM")
+                self._fall_step(lambda: self._fall.on_presence(state, range_m, now), now)
             self._apply(self._rules.on_event(evt, now))
+
+    # ---- the experimental fall alert (fall.py does the looking, rules.py owns the alert) -----------------
+
+    def _configure_fall(self, now: float) -> None:
+        """Thresholds and on/off from the settings. Called at start and whenever a setting changes."""
+        mon = self.settings["monitoring"]
+        cfg = mon["fall"]
+        on = bool(mon["enabled"] and cfg["enabled"])
+        self._fall.configure(for_sensitivity({k: v for k, v in cfg.items() if isinstance(v, (int, float)) and not isinstance(v, bool)},
+                                             cfg["sensitivity"]))
+        if self._fall_on and not on:
+            self._fall_step(lambda: self._fall.reset(now), now)
+        if on and not self._fall_on:
+            self._fall_error = None                       # switched on (again): a fresh start
+        self._fall_on = on
+        self._dirty = True
+
+    def _doppler_events(self, text: str, now: float) -> list[dict[str, Any]]:
+        """One spectrogram message from the engine: hand its rows to the fall detector."""
+        out: list[dict[str, Any]] = []
+        for evt in adapt(text, now):
+            if evt.get("kind") != "spectrogram":
+                continue
+            rows = evt["rows"]
+            frame_s = evt.get("frameS") or 0.02
+            # Rows are 20 ms apart whatever the network does: count time in rows, and fall back on the clock after a gap.
+            expected = self._fall_t + len(rows) * frame_s
+            self._fall_t = expected if abs(expected - now) <= 0.5 else now
+            out += self._fall.on_rows(rows, evt.get("binsHz"), self._fall_t, frame_s)
+        return out
+
+    def _fall_step(self, step: Callable[[], list[dict[str, Any]]], now: float) -> None:
+        """Run one step of the fall path and act on what it found.
+
+        The fall alert is experimental and sits in the middle of the engine's message stream. If a step ever fails,
+        it switches itself off for this run and says so in the timeline, the log and Settings: gestures, the help
+        gesture and the other alerts must not go down with it. Switching it off and on in Settings starts it again."""
+        try:
+            for f in step():
+                self._broadcast({"type": "fall", "source": "care", "experimental": True, **f})
+                self._apply(self._rules.on_fall(f, now))
+                self._dirty = True
+        except Exception as err:
+            self._fall_on = False
+            self._fall_error = f"{type(err).__name__}: {err}"
+            self._dirty = True
+            print(f"[care] the experimental fall alert stopped after an error: {self._fall_error}", file=sys.stderr, flush=True)
+            self._add_timeline({"t": now, "kind": "system", "level": "attention", "icon": "alert",
+                                "text": "Experimental fall alert stopped after an internal error", "detail": self._fall_error})
 
     async def _ticker(self) -> None:
         last_state = 0.0
@@ -229,6 +295,8 @@ class Service:
                 self._watch_engine(now)
             self._apply(self._rules.on_link(health == "live", now))
             self._apply(self._rules.tick(now))
+            if self._fall_on:
+                self._fall_step((lambda: self._fall.tick(now)) if health == "live" else (lambda: self._fall.reset(now)), now)
             if self._dirty or now - last_state >= STATE_EVERY_S:
                 self._publish_state(now)
                 last_state = now
@@ -356,6 +424,10 @@ class Service:
             "pages": self._relay.n_clients if self._relay else 0,
         }
         state.update(self._rules.snapshot(now))
+        fall_cfg = s["monitoring"]["fall"]
+        state["fall"] = {"enabled": self._fall_on, "sensitivity": fall_cfg["sensitivity"], **(self._fall.snapshot(now) if self._fall_on else {})}
+        if self._fall_error:
+            state["fall"]["error"] = self._fall_error
         if self._last_action is not None:
             state["last_gesture"] = {k: self._last_action.get(k) for k in ("gesture", "confidence", "result", "reason", "action", "action_label", "t")}
         return state
@@ -416,6 +488,7 @@ class Service:
             self.settings = new
             self._rev += 1
             self._apply(self._rules.apply_settings(new, now))
+            self._configure_fall(now)
             for text in _describe_change(old, new):
                 self._add_timeline({"t": now, "kind": "system", "level": "info", "icon": "settings", "text": text})
             self._broadcast({"type": "care_settings", "t": now, "rev": self._rev, "settings": new})
@@ -532,4 +605,10 @@ def _describe_change(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
         out.append(f"No-movement alert: after {fmt_duration(b['seconds'])}" if b["enabled"] else "No-movement alert turned off")
     if old["monitoring"]["help"]["enabled"] != new["monitoring"]["help"]["enabled"]:
         out.append("Help gesture turned " + ("on" if new["monitoring"]["help"]["enabled"] else "off"))
+    a, b = old["monitoring"]["fall"], new["monitoring"]["fall"]
+    if a["enabled"] != b["enabled"]:
+        out.append(f"Experimental fall alert turned on ({b['sensitivity']} sensitivity, {fmt_duration(b['stillness_s'])} of stillness)"
+                   if b["enabled"] else "Experimental fall alert turned off")
+    elif b["enabled"] and a != b:
+        out.append(f"Fall alert settings changed: {b['sensitivity']} sensitivity, {fmt_duration(b['stillness_s'])} of stillness")
     return out

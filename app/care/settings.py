@@ -124,6 +124,17 @@ DEFAULTS: dict[str, Any] = {
             "enabled": True,
             "seconds": 10,           # breathing movement stopped for this long (the clinical length of an apnea)
         },
+        "fall": {                    # EXPERIMENTAL, rules only (app/care/fall.py). Off until someone switches it on.
+            "enabled": False,
+            "sensitivity": "medium", # low | medium | high: scales the two size thresholds below
+            "stillness_s": 15,       # stillness after the sudden movement before the alert goes out
+            "burst_level": 0.25,     # how big the movement must be (0..1). Real recordings: fidgeting 0.1-0.2,
+                                     # walking 0.3-0.5, a hand gesture at the laptop 0.5
+            "fast_level": 0.20,      # how much of it must be faster than about 0.9 m/s
+            "one_sided": 0.35,       # 0 = as much toward as away, 1 = all one way
+            "min_s": 0.4,            # shortest and ...
+            "max_s": 2.5,            # ... longest sudden movement that counts
+        },
     },
     "alerts": {
         "notification": True,        # macOS notification banner
@@ -154,12 +165,19 @@ _LIMITS: dict[str, tuple[float, float]] = {
     "monitoring.help.confirm_s": (0.0, 10.0),
     "monitoring.no_movement.seconds": (5, 3600),
     "monitoring.no_breathing.seconds": (5, 120),
+    "monitoring.fall.stillness_s": (5, 60),
+    "monitoring.fall.burst_level": (0.05, 0.95),
+    "monitoring.fall.fast_level": (0.0, 0.9),
+    "monitoring.fall.one_sided": (0.0, 0.95),
+    "monitoring.fall.min_s": (0.2, 2.0),
+    "monitoring.fall.max_s": (1.0, 8.0),
     "alerts.volume": (0.0, 1.0),
     "alerts.repeat_s": (0, 600),
 }
 _CHOICES: dict[str, tuple[str, ...]] = {
     "control.preset": tuple(PRESETS),
     "monitoring.help.push_timing": ("wait", "instant"),
+    "monitoring.fall.sensitivity": ("low", "medium", "high"),
     "ui.theme": ("auto", "light", "dark"),
 }
 

@@ -51,6 +51,10 @@
       '<span class="field__input"><input type="range" data-path="' + path + '" min="' + lim[0] + '" max="' + lim[1] + '" step="' + step + '"' + (percent ? ' data-percent="1"' : '') + '>' +
       '<output class="field__unit num"></output></span></label>';
   }
+  function select(path, label, hint, options) {
+    return '<label class="field"><span class="field__label"><b>' + esc(label) + '</b>' + (hint ? '<small>' + esc(hint) + '</small>' : '') + '</span>' +
+      '<span class="field__input"><select data-path="' + path + '">' + options.map(function (o) { return '<option value="' + o[0] + '">' + esc(o[1]) + '</option>'; }).join('') + '</select></span></label>';
+  }
   function section(id, icon, title, lede, body) {
     return '<section class="sect" id="set-' + id + '" aria-labelledby="set-' + id + '-t"><header class="sect__head"><span class="sect__icon">' + UI.icon(icon) + '</span>' +
       '<div><h2 id="set-' + id + '-t">' + esc(title) + '</h2><p>' + lede + '</p></div></header><div class="sect__body">' + body + '</div></section>';
@@ -108,6 +112,20 @@
         toggle('monitoring.no_breathing.enabled', '“No breathing movement” alert', 'A steady breathing rate was seen, then the movement stopped. Experimental on one microphone.') +
         number('monitoring.no_breathing.seconds', 'Alert after', 's', '10 s is the clinical length of an apnea.', 1) +
         '</div>') +
+
+      section('fall', 'fall', 'Fall alert (experimental)', 'One sudden one-way movement, then stillness, raises “Possible fall”. A prototype rule: it can be wrong.',
+        toggle('monitoring.fall.enabled', 'Experimental fall alert', 'Off unless you switch it on. Needs Monitoring to be on.') +
+        select('monitoring.fall.sensitivity', 'Sensitivity', 'How big the sudden movement has to be.', [['low', 'Low: only big movements'], ['medium', 'Medium'], ['high', 'High: smaller movements count']]) +
+        number('monitoring.fall.stillness_s', 'Stillness before the alert', 's', 'Nothing may move for this long after the sudden movement. Shorter is quicker but fires more often when someone just steps away.', 1) +
+        '<div class="note" id="fallBox" aria-live="polite"></div>' +
+        '<details class="more"><summary>Thresholds for tuning</summary>' +
+        number('monitoring.fall.burst_level', 'Size needed', '', '0 to 1: how much of the Doppler strip the movement lights up. Sensitivity scales this and the next one.', 0.01) +
+        number('monitoring.fall.fast_level', 'Fast part needed', '', '0 to 1: how much of it is faster than about 0.9 m/s.', 0.01) +
+        number('monitoring.fall.one_sided', 'One-way score needed', '', '0 = as much toward as away, 1 = all one way. Gestures, sitting down and walking past go both ways.', 0.05) +
+        number('monitoring.fall.min_s', 'Shortest movement', 's', 'A dropped pillow is quick: lower this if the box says “too short”.', 0.1) +
+        number('monitoring.fall.max_s', 'Longest movement', 's', 'Longer than this is walking or tidying, not a fall.', 0.1) +
+        '<p class="fine">Try it with something safe: drop a pillow or a bag about a metre in front of the laptop, step back and keep still. The box above says what the last big movement looked like and why it did or did not count. The guide is in docs/SONAR_CARE.md.</p>' +
+        '</details>') +
 
       section('help', 'help', 'Help gesture', 'Two pushes in a row raise “Help requested”.',
         toggle('monitoring.help.enabled', 'Two pushes call for help', 'Needs Monitoring to be on.') +
@@ -167,6 +185,7 @@
     var path = t.getAttribute('data-path');
     if (!path) return;
     if (t.type === 'checkbox') save(patchOf(path, t.checked));
+    else if (t.tagName === 'SELECT') save(patchOf(path, t.value));
     else if (t.value !== '' && isFinite(Number(t.value))) save(patchOf(path, Number(t.value)));
     else sync();
   }
@@ -219,6 +238,7 @@
     view.querySelector('#set-control .sect__body').setAttribute('data-off', s.control.enabled ? '0' : '1');
     view.querySelector('#set-monitor .sect__body').setAttribute('data-off', s.monitoring.enabled ? '0' : '1');
     view.querySelector('#set-help .sect__body').setAttribute('data-off', s.monitoring.enabled && s.monitoring.help.enabled ? '0' : '1');
+    view.querySelector('#set-fall .sect__body').setAttribute('data-off', s.monitoring.enabled ? '0' : '1');
     view.querySelectorAll('[data-still]').forEach(function (b) {
       var p = meta.no_movement_presets.filter(function (x) { return x.id === b.getAttribute('data-still'); })[0];
       var on = s.monitoring.no_movement.seconds === p.seconds && s.monitoring.no_movement.breathing_counts === p.breathing_counts;
@@ -245,6 +265,29 @@
     }
     var box = doc.getElementById('keysBox');
     if (box.getAttribute('data-key') !== k.mode + '|' + k.media) { box.innerHTML = html; box.setAttribute('data-key', k.mode + '|' + k.media); }
+
+    // The experimental fall alert: what the detector sees right now, and what it made of the last big movement.
+    var f = st.fall, fbox = doc.getElementById('fallBox'), fhtml, two = function (v) { return v == null ? '–' : v.toFixed(2); };
+    if (f && f.error) {
+      fhtml = '<span class="note__icon" data-tone="alert">' + UI.icon('alert') + '</span><div><b>Stopped after an internal error</b><p>The fall alert switched itself off so the rest of Sonar Care keeps working. ' +
+        'Switch it off and on again to restart it.</p><p class="note__error">' + esc(f.error) + '</p></div>';
+    } else if (!f || !f.enabled) {
+      fhtml = '<span class="note__icon" data-tone="caution">' + UI.icon('info') + '</span><div><b>Switched off</b><p>Nothing is watched for falls.' +
+        (st.mode === 'mock' ? ' To rehearse: switch it on, open the dashboard and press G.' : '') + '</p></div>';
+    } else if (!f.hasRows) {
+      fhtml = '<span class="note__icon" data-tone="alert">' + UI.icon('alert') + '</span><div><b>No movement picture from the engine</b><p>The fall alert reads the engine’s Doppler strip. It is not arriving (engine stopped, or started with --no-spectrogram).</p></div>';
+    } else {
+      var th = f.thresholds, b = f.lastBurst, w = f.watching;
+      fhtml = '<span class="note__icon" data-tone="' + (w ? 'caution' : 'ok') + '">' + UI.icon(w ? 'still' : 'check') + '</span><div><b>' +
+        (w ? 'Sudden movement seen: still for ' + Math.round(w.stillS) + ' of ' + Math.round(w.needsS) + ' s' : 'Watching') + '</b>' +
+        '<p>Movement level now <span class="num">' + two(f.level) + '</span> (slow movement <span class="num">' + two(f.slowLevel) + '</span>). ' +
+        'A movement counts from size <span class="num">' + two(th.burstLevel) + '</span>, fast part <span class="num">' + two(th.fastLevel) + '</span>, one-way score <span class="num">' + two(th.oneSided) +
+        '</span>, lasting ' + th.minS + ' to ' + th.maxS + ' s.</p>' +
+        (b ? '<p>Last big movement: size <span class="num">' + two(b.level) + '</span>, fast part <span class="num">' + two(b.fastLevel) + '</span>, one-way score <span class="num">' + two(b.oneSided) + '</span> ' +
+          esc(b.direction === 'toward' ? 'toward the laptop' : 'away from the laptop') + ', ' + (b.durationS == null ? '–' : b.durationS.toFixed(1)) + ' s. ' + esc(b.why || '') +
+          (b.outcome && b.outcome !== 'ignored' ? ' → ' + esc(b.outcome) : '') + '.</p>' : '<p>No movement big enough to judge yet.</p>') + '</div>';
+    }
+    if (fbox && fbox.innerHTML !== fhtml) fbox.innerHTML = fhtml;
 
     var e = st.engine, word = { running: 'running', starting: 'starting…', restarting: 'restarting…', stopping: 'stopping…', stopped: 'stopped', failed: 'could not start',
       attached: 'running (started elsewhere)', external: 'started elsewhere' }[e.state] || e.state;

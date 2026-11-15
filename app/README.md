@@ -82,8 +82,9 @@ The Sonar Care dashboard does not use this page's built-in alarm: there the serv
 Interactive keys: arrows or `a`/`d`/`w` fire swipe left, swipe right and push; Down or `s` fires two pushes (the
 help gesture); `x` fires a low-confidence gesture; `1`/`2`/`3` set empty, entering or present; `m` makes the person
 move for 2 s; `h` holds the breath; `f` freezes all movement; `+`/`-` change the breathing rate; `c` calibrates;
-`q` quits. Any client can also send JSON commands such as `{"cmd":"gesture","label":"push","confidence":0.9}`,
-`{"cmd":"double_push"}` or `{"cmd":"moving","seconds":2}`.
+`g` plays a fall (one fast one-way movement, then nothing moves for 30 s: the experimental fall alert); `q`
+quits. Any client can also send JSON commands such as `{"cmd":"gesture","label":"push","confidence":0.9}`,
+`{"cmd":"double_push"}`, `{"cmd":"moving","seconds":2}` or `{"cmd":"fall","direction":"toward","still_s":30}`.
 
 It sends the engine's own message shapes (`INTERFACES.md`): three gestures, pilot tones at 18.5 and 19.0 kHz, a
 19.5-21.5 kHz chirp, 50 frames/s, 64 Doppler bins, presence with distance, movement flag and stillness counter,

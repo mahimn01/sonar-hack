@@ -189,6 +189,36 @@ values in 0..1: movement energy per Doppler bin, from `bins_hz[0]` = -250 Hz
 0 = at the noise floor, 1 = 39 dB above it. Draw time on one axis and append rows
 as they arrive.
 
+### `fall` — EXPERIMENTAL, and not sent by the engine
+
+Sonar Care's service (`app/care/fall.py`) reads the `spectrogram` rows and adds this event to its own relay
+stream (the port after the web server's), only while its "Fall alert (experimental)" setting is on. The engine's
+port never carries it. A page that listens to the relay gets it between the engine's messages.
+
+```json
+{"type":"fall","source":"care","experimental":true,"stage":"confirmed","t":1794600000.5,"seq":7,
+ "burst_t":1794599985.2,"burst_level":0.372,"burst_db":13.4,"fast_level":0.36,"one_sided":0.97,
+ "direction":"toward","duration_s":1.2,"stillness_s":15.1,"needs_s":15.0,
+ "range_before_m":1.1,"range_after_m":1.5,"confidence":0.66,"reason":null}
+```
+
+| Field | Meaning |
+|---|---|
+| `stage` | `candidate`: a big, fast, one-way burst just ended and the stillness count started. `confirmed`: nothing moved for `needs_s`; this is the one that raises the "Possible fall" alert. `dismissed`: dropped, with `reason` in plain words. `moved`: sent at most once after `confirmed`, when movement is seen again. |
+| `burst_level` | size of the burst, 0..1: the mean of the row over the bins beyond ±25 Hz at its strongest frame |
+| `burst_db` | the same on the strip's dB scale (`burst_level` × 36) |
+| `fast_level` | the same over the bins beyond ±100 Hz (about 0.9 m/s) |
+| `one_sided` | 0 = as much toward as away, 1 = all one way; from 1.5 s before the burst to 1.2 s after it |
+| `direction` | `toward` or `away` (from the laptop) |
+| `duration_s`, `burst_t` | how long the burst lasted and when it ended |
+| `stillness_s`, `needs_s` | seconds without movement since the burst, and how many the setting asks for |
+| `range_before_m`, `range_after_m` | the person's distance from `presence` before and after, or `null`; a supporting vote only |
+| `confidence` | 0..1, a rough score from size, direction, speed and the distance change. Not a probability. |
+| `seq` | counts this detector's events (it is not the engine's `seq`) |
+
+It is a rule, not a trained model, and no real fall has been recorded with it: what it is known to get wrong is in
+`docs/SONAR_CARE.md`, section 10.
+
 ### `error`
 
 `{"type":"error","message":"..."}` — the audio device failed or a bad command was sent.

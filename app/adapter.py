@@ -26,6 +26,7 @@ TYPE_ALIASES = {
     # Sonar Care's own messages (app/care/service.py), on the same stream as the engine's.
     "care_hello": "careHello", "care_state": "careState", "care_alert": "careAlert", "care_action": "careAction",
     "care_timeline": "careTimeline", "care_settings": "careSettings",
+    "fall": "fall", "care_fall": "fall", "possible_fall": "fall",
     "gesture": "gesture", "gestures": "gesture",
     "presence": "presence", "occupancy": "presence", "room": "presence",
     "breathing": "breathing", "breath": "breathing", "respiration": "breathing", "resp": "breathing", "vitals": "breathing",
@@ -264,7 +265,8 @@ def _spectrogram(m: dict, t: float, local: bool) -> dict:
     bins = _pick(m, ("bins_hz", "freqs_hz", "doppler_hz", "f_hz", "axis_hz"))
     return {"kind": "spectrogram", "rows": out,
             "binsHz": [(_num(v) if _num(v) is not None else math.nan) for v in bins] if isinstance(bins, list) else None,
-            "axisLabel": _str_or_none(axis), "autoscaled": autoscaled, "t": t, "tLocal": local}
+            "axisLabel": _str_or_none(axis), "autoscaled": autoscaled,
+            "frameS": _num(_pick(m, ("frame_s", "hop_s", "dt"))), "t": t, "tLocal": local}
 
 
 def _hello(m: dict, t: float, local: bool) -> dict:
@@ -292,7 +294,9 @@ def _care_alert(a: Any) -> dict | None:
             "since": _num(a.get("since")), "raisedAt": _num(a.get("raised_at")), "activeAt": _num(a.get("active_at")),
             "escalateAt": _num(a.get("escalate_at")), "ackedAt": _num(a.get("acked_at")), "resolvedAt": _num(a.get("resolved_at")),
             "resolution": _str_or_none(a.get("resolution")), "ackS": _num(a.get("ack_s")), "count": _num(a.get("count")),
-            "thresholdS": _num(a.get("threshold_s")), "breathingDetected": _bool(a.get("breathing_detected"))}
+            "thresholdS": _num(a.get("threshold_s")), "breathingDetected": _bool(a.get("breathing_detected")),
+            "experimental": _bool(a.get("experimental")) is True, "direction": _str_or_none(a.get("direction")),
+            "confidence": _conf(a.get("confidence")), "movedAt": _num(a.get("moved_at"))}
 
 
 def _care_entry(e: Any) -> dict | None:
@@ -333,6 +337,45 @@ def _care_action(m: dict, t: float, local: bool) -> dict:
             "gapS": _num(m.get("gap_s")), "t": t, "tLocal": local}
 
 
+def _fall_burst(b: Any) -> dict | None:
+    if not isinstance(b, dict):
+        return None
+    return {"t": _num(b.get("t")), "durationS": _num(b.get("duration_s")), "level": _num(b.get("level")),
+            "fastLevel": _num(b.get("fast_level")), "oneSided": _num(b.get("one_sided")), "direction": _str_or_none(b.get("direction")),
+            "counted": _bool(b.get("counted")) is True, "why": _str_or_none(b.get("why")), "outcome": _str_or_none(b.get("outcome"))}
+
+
+def _fall_state(f: Any) -> dict:
+    """The experimental fall alert's live read-out inside care_state (app/care/fall.py snapshot())."""
+    f = _d(f)
+    w, th = f.get("watching"), _d(f.get("thresholds"))
+    return {"enabled": _bool(f.get("enabled")) is True, "sensitivity": _str_or_none(f.get("sensitivity")),
+            "level": _num(f.get("level")), "slowLevel": _num(f.get("slow_level")), "hasRows": _bool(f.get("has_rows")) is True,
+            "error": _str_or_none(f.get("error")),
+            "watching": {"since": _num(w.get("since")), "stillS": _num(w.get("still_s")), "needsS": _num(w.get("needs_s")),
+                         "direction": _str_or_none(w.get("direction"))} if isinstance(w, dict) else None,
+            "lastBurst": _fall_burst(f.get("last_burst")),
+            "thresholds": {"burstLevel": _num(th.get("burst_level")), "fastLevel": _num(th.get("fast_level")),
+                           "oneSided": _num(th.get("one_sided")), "minS": _num(th.get("min_s")), "maxS": _num(th.get("max_s")),
+                           "stillnessS": _num(th.get("stillness_s"))}}
+
+
+def _fall(m: dict, t: float, local: bool) -> dict:
+    """The experimental "possible fall" event. Today Sonar Care's own detector sends it on the relay, not the engine."""
+    stage = _str_or_none(_pick(m, ("stage", "state", "phase")))
+    stage = stage.lower() if stage else None
+    if stage not in ("candidate", "confirmed", "dismissed", "moved"):
+        return {"kind": "unknown", "raw": m, "reason": "fall event without a known stage"}
+    direction = _str_or_none(m.get("direction"))
+    return {"kind": "fall", "stage": stage, "seq": _num(m.get("seq")), "burstT": _num(m.get("burst_t")),
+            "burstDb": _num(m.get("burst_db")), "burstLevel": _num(m.get("burst_level")), "fastLevel": _num(m.get("fast_level")),
+            "oneSided": _num(m.get("one_sided")), "direction": direction if direction in ("toward", "away") else None,
+            "durationS": _num(m.get("duration_s")), "stillnessS": _num(m.get("stillness_s")), "needsS": _num(m.get("needs_s")),
+            "rangeBeforeM": _num(m.get("range_before_m")), "rangeAfterM": _num(m.get("range_after_m")),
+            "confidence": _conf(m.get("confidence")), "reason": _str_or_none(m.get("reason")),
+            "experimental": True, "t": t, "tLocal": local}
+
+
 def _care_alert_event(m: dict, t: float, local: bool) -> dict:
     return {"kind": "careAlert", "change": _str_or_none(m.get("change")), "alert": _care_alert(m.get("alert")), "t": t, "tLocal": local}
 
@@ -345,6 +388,7 @@ def _care_state(m: dict, t: float, local: bool) -> dict:
     eng, link, sonar, pres, br = _d(m.get("engine")), _d(m.get("link")), _d(m.get("sonar")), _d(m.get("presence")), _d(m.get("breathing"))
     still, hlp, ctl, mon = _d(m.get("stillness")), _d(m.get("help")), _d(m.get("control")), _d(m.get("monitoring"))
     keys, mh, mm, mb = _d(ctl.get("keys")), _d(mon.get("help")), _d(mon.get("no_movement")), _d(mon.get("no_breathing"))
+    mf = _d(mon.get("fall"))
     mapping = {str(g): {"action": _str_or_none(_d(v).get("action")), "label": _str_or_none(_d(v).get("label"))}
                for g, v in _d(ctl.get("mapping")).items()}
     alerts = m.get("alerts")
@@ -371,6 +415,7 @@ def _care_state(m: dict, t: float, local: bool) -> dict:
         "help": {"pending": _bool(hlp.get("pending")) is True, "since": _num(hlp.get("since")), "until": _num(hlp.get("until")),
                  "heldAction": _str_or_none(hlp.get("held_action"))},
         "practice": _bool(m.get("practice")) is True,
+        "fall": _fall_state(m.get("fall")),
         "lastGesture": _care_gesture(m.get("last_gesture")),
         "alerts": [a for a in (_care_alert(x) for x in alerts) if a] if isinstance(alerts, list) else [],
         "control": {"enabled": _bool(ctl.get("enabled")) is True, "preset": _str_or_none(ctl.get("preset")),
@@ -385,7 +430,11 @@ def _care_state(m: dict, t: float, local: bool) -> dict:
                                 "pushTiming": _str_or_none(mh.get("push_timing"))},
                        "noMovement": {"enabled": _bool(mm.get("enabled")) is True, "seconds": _num(mm.get("seconds")),
                                       "breathingCounts": _bool(mm.get("breathing_counts")) is True},
-                       "noBreathing": {"enabled": _bool(mb.get("enabled")) is True, "seconds": _num(mb.get("seconds"))}},
+                       "noBreathing": {"enabled": _bool(mb.get("enabled")) is True, "seconds": _num(mb.get("seconds"))},
+                       "fall": {"enabled": _bool(mf.get("enabled")) is True, "sensitivity": _str_or_none(mf.get("sensitivity")),
+                                "stillnessS": _num(mf.get("stillness_s")), "burstLevel": _num(mf.get("burst_level")),
+                                "fastLevel": _num(mf.get("fast_level")), "oneSided": _num(mf.get("one_sided")),
+                                "minS": _num(mf.get("min_s")), "maxS": _num(mf.get("max_s"))}},
         "room": _str_or_none(m.get("room")), "onboarded": _bool(m.get("onboarded")) is True,
         "settingsRev": _num(m.get("settings_rev")), "pages": _num(m.get("pages")),
         "t": t, "tLocal": local,
@@ -393,7 +442,7 @@ def _care_state(m: dict, t: float, local: bool) -> dict:
 
 
 _PARSERS = {"gesture": _gesture, "presence": _presence, "breathing": _breathing,
-            "status": _status, "spectrogram": _spectrogram, "hello": _hello,
+            "status": _status, "spectrogram": _spectrogram, "hello": _hello, "fall": _fall,
             "careHello": _care_hello, "careState": _care_state, "careAlert": _care_alert_event, "careAction": _care_action,
             "careTimeline": _care_timeline, "careSettings": _care_settings}
 

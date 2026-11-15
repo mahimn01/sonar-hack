@@ -5,6 +5,7 @@ What it checks (a real engine process, the real service, the real web server; no
     - a gesture becomes the mapped key press, in dry-run mode: logged, nothing pressed;
     - two pushes raise "help": first a cancellable countdown, then the alert, then acknowledge with time-to-acknowledge;
     - sitting still raises "No movement", and a movement resolves it;
+    - the experimental fall alert: off by default; switched on, a one-way burst followed by stillness raises "Possible fall";
     - settings changes are validated, saved to disk and pushed to open pages;
     - the tutorial's practice mode presses nothing;
     - the API and the relay refuse requests from other websites.
@@ -244,6 +245,56 @@ class CareService(unittest.TestCase):
         self.engine(cmd="gesture", label="swipe_right", confidence=0.9)
         resolved = self.wait(lambda: self.alerts("no_movement", "resolved"), "the alert to resolve")[0]
         self.assertEqual(resolved["resolution"], "movement seen again")
+
+    def test_fall_alert_is_off_until_switched_on(self) -> None:
+        self.engine(cmd="fall", direction="toward", still_s=8)
+        time.sleep(2.5)
+        self.assertEqual(self.care("fall"), [], "the detector is not even fed while the setting is off")
+        self.assertEqual(self.service.snapshot()["fall"], {"enabled": False, "sensitivity": "medium"})
+        self.engine(cmd="freeze", on=False)
+
+    def test_fall_alert_end_to_end_when_switched_on(self) -> None:
+        code, body = self.http("POST", "/api/settings", {"monitoring": {"fall": {"enabled": True, "stillness_s": 5}, "no_movement": {"seconds": 5, "breathing_counts": False}}})
+        self.assertEqual(code, 200, body)
+        self.wait(lambda: self.service.snapshot().get("fall", {}).get("has_rows"), "Doppler rows to reach the fall detector")
+        self.engine(cmd="moving", seconds=1)                             # so the stillness count starts fresh
+        time.sleep(1.2)
+        self.engine(cmd="fall", direction="away", still_s=12)
+        cand = self.wait(lambda: self.care("fall", stage="candidate"), "the burst to be noticed", timeout=6)[0]
+        self.assertEqual((cand["direction"], cand["source"], cand["experimental"]), ("away", "care", True))
+        self.assertGreater(cand["burst_level"], 0.25)
+        watching = self.wait(lambda: self.service.snapshot()["fall"].get("watching"), "the watching read-out")
+        self.assertEqual(watching["needs_s"], 5.0)
+        raised = self.wait(lambda: self.alerts("fall", "raised"), "the possible-fall alert", timeout=12)[0]
+        self.assertEqual((raised["level"], raised["title"], raised["experimental"]), ("alert", "Possible fall", True))
+        self.assertIn("away from the laptop", raised["detail"])
+        self.assertEqual(self.service.notifier.sent[-1]["kind"], "fall")
+        self.assertGreaterEqual(self.care("fall", stage="confirmed")[0]["stillness_s"], 5.0)
+        self.assertIn("Possible fall (experimental)", [e["text"] for e in self.service.timeline()])
+        still_open = [a["kind"] for a in self.service.snapshot()["alerts"] if a["state"] in ("active", "pending")]
+        self.assertEqual(still_open, ["fall"], "one event, one alert: the fall alert covers the stillness")
+        moved = self.wait(lambda: self.care("fall", stage="moved"), "movement to be seen again when the person gets up", timeout=14)[0]
+        self.assertGreater(moved["stillness_s"], 10.0)
+        alert = [a for a in self.service.snapshot()["alerts"] if a["kind"] == "fall"][0]
+        self.assertEqual(alert["state"], "active", "it stays until a person answers it")
+        self.assertIn("Movement was seen again", alert["detail"])
+        code, body = self.http("POST", "/api/ack", {})
+        self.assertEqual(code, 200, body)
+        self.wait(lambda: self.alerts("fall", "acknowledged"), "the acknowledgement")
+
+    def test_a_fault_in_the_fall_alert_cannot_take_the_app_down(self) -> None:
+        self.http("POST", "/api/settings", {"monitoring": {"fall": {"enabled": True}}})
+        self.wait(lambda: self.service.snapshot().get("fall", {}).get("has_rows"), "Doppler rows to reach the fall detector")
+
+        def broken(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+            raise ValueError("rows of the wrong shape")
+        self.service._fall.on_rows = broken                               # the next Doppler message hits this
+        self.wait(lambda: self.service.snapshot()["fall"].get("error"), "the fall alert to switch itself off")
+        self.assertFalse(self.service.snapshot()["fall"]["enabled"])
+        self.assertIn("Experimental fall alert stopped after an internal error", [e["text"] for e in self.service.timeline()])
+        self.engine(cmd="gesture", label="swipe_right", confidence=0.9)   # everything else still works
+        self.wait(lambda: self.care("care_action", gesture="swipe_right", result="dry_run"), "a gesture to still press its (dry-run) key")
+        self.assertEqual(self.service.snapshot()["link"]["health"], "live")
 
     def test_settings_are_validated_saved_and_pushed(self) -> None:
         status, body = self.http("GET", "/api/settings")

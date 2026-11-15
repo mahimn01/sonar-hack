@@ -96,7 +96,7 @@ Sensor (signal strength, the live Doppler strip, Calibrate). `T` switches light 
 
 **Settings** (`#/settings`). Every change is saved and applied at once. Presets and a key per gesture with
 "Try in 3 s", the alerts and their thresholds, the help gesture's timing, how alerts are announced, the room name
-and the engine.
+and the engine. The experimental fall alert is switched on here too (section 10); it is off by default.
 
 **Setup** (`#/setup`). Run it again any time from the menu or from Settings.
 
@@ -263,6 +263,12 @@ The same logic as the Care Monitor page, moved into the service: after a steady 
 still person, the alert fires when breathing movement stops for 10 s (the clinical length of an apnea). It never
 fires within 6 s of a gesture or body movement. Breathing is experimental on one microphone.
 
+### "Possible fall" (experimental, off by default)
+
+One sudden one-way movement followed by stillness. It is a prototype rule checked on recordings of ordinary
+movement, never on a real fall. What it looks for, what the recordings showed, what it gets wrong and how to tune
+it are in section 10.
+
 ### Alert life cycle
 
 `pending` (help only, cancellable) → `active` (notification, chime, voice; red alerts repeat the chime every 20 s)
@@ -292,6 +298,11 @@ The relay passes engine messages through unchanged (`INTERFACES.md`) and adds th
 | `care_action` | for every gesture | `gesture`, `confidence`, `result`, `reason`, `action`, `action_label`, `delayed_s`, `help_until` |
 | `care_alert` | on every alert change | `change` (`pending`, `raised`, `updated`, `reminder`, `acknowledged`, `resolved`, `dismissed`), `alert` |
 | `care_timeline` | for every timeline line | `entry` (`id`, `t`, `kind`, `level`, `icon`, `text`, `detail`) |
+| `fall` | only while the experimental fall alert is on: at each step of a possible fall | `stage` (`candidate`, `confirmed`, `dismissed`, `moved`), `burst_db`, `burst_level`, `direction`, `stillness_s`, `confidence`, `reason`, `seq` (full list in `INTERFACES.md`) |
+
+`care_state` also carries `fall`: `enabled`, `sensitivity` and, while it is on, `level` (movement right now),
+`slow_level`, `watching` (the stillness count), `last_burst` (what the last big movement looked like and why it did
+or did not count) and the `thresholds` in use.
 
 `care_action.result` is one of: `sent`, `dry_run`, `blocked`, `failed` (a key press was attempted); `held` (a push
 waiting out the help window); `armed` (a first push with nothing to press); `help`; `paused` (a help alert is open);
@@ -330,7 +341,8 @@ node --test app/tests/                          # the browser code: adapters, st
 | `app/tests/test_care_actions.py` | Key codes, dry run, the blocked state, notification commands and their rate limits. Presses nothing. |
 | `app/tests/test_care_supervisor.py` | Engine commands per mode, attach, start, crash and restart, giving up, adopting a left-over engine; the menu's contents. |
 | `app/tests/test_care_service.py` | End to end: the real service against the mock engine: gesture to (dry-run) key press, the help countdown, cancel, acknowledge, no movement, settings, practice mode, refusing other websites. |
-| `app/tests/store.test.js`, `adapter.test.js` | The page's side: the service's alerts drive the page; both adapters agree on 50 shared examples. |
+| `app/tests/test_care_fall.py` | The experimental fall alert: synthetic bursts (fires on a one-way burst plus stillness; not on a fidget, a swipe, a push and its return, a recognised gesture, movement afterwards, walking past, sitting down, a jump, an empty room), six windows of real recorded rows (`fixtures/fall_real_rows.json`), and the alert it raises. |
+| `app/tests/store.test.js`, `adapter.test.js` | The page's side: the service's alerts drive the page; both adapters agree on 56 shared examples. |
 
 ## 9. Known limits
 
@@ -342,7 +354,134 @@ node --test app/tests/                          # the browser code: adapters, st
   banner with chime and voice, the menu's look, and a deliberate double push. All of them are covered by tests of
   the logic and of the commands; none has run against real hardware at the time of writing.
 - **Breathing is experimental** on one microphone, and the no-breathing alert inherits that.
+- **The fall alert is a prototype rule** (section 10): off by default, never tried on a real fall or on the
+  MacBook live, and it fires when someone steps away from the laptop and nothing else moves.
 - **About 1 single push in 12 looks like a double push.** The cancel time is the answer; it is not zero.
 - **Chrome is the tested browser** (the dashboard opens in a Chrome app window when Chrome is installed). The
   page needs a 2023 or newer browser (container queries, `color-mix()`).
 - **Not a medical device.** A prototype built in a weekend.
+
+## 10. The experimental fall alert
+
+**Off by default. A prototype rule, not a tested fall detector: no real fall has been recorded with it.** Switch it
+on in Settings > Fall alert (experimental). When it fires, the caregiver sees a red "Possible fall" banner tagged
+"Experimental fall alert", with the same notification, chime, voice and timeline line as the other alerts. It stays
+until someone acknowledges it. If movement comes back first, the alert says so and stays up anyway.
+
+### What it looks for
+
+A fall, seen by sonar, is one sudden movement that goes one way and does not come back, followed by stillness.
+The rule reads the engine's Doppler strip (the moving picture on the Sensor card: 64 speed bins, 50 rows a second;
+111 Hz of Doppler shift is 1 m/s) and needs all of this:
+
+1. a burst of movement lasting 0.4 to 2.5 s;
+2. big: it lights up a quarter of the strip or more (size 0.25 on a 0 to 1 scale);
+3. with a fast part: energy beyond 100 Hz, about 0.9 m/s;
+4. one way, toward or away, counted from 1.5 s before the burst to 1.2 s after it. A hand comes back, sitting down
+   goes down and back, walking past goes toward and then away: those score low;
+5. the gesture model did not call it a gesture;
+6. no train of smaller movements right after it (a jump lands and recovers in steps);
+7. then stillness for 15 s (settable 5 to 60 s), slow shifting included;
+8. and the engine does not report the room empty when the time is up (that is someone leaving).
+
+A change in the person's measured distance across the burst raises the confidence number and is never required.
+Stillness alone never raises this alert; that is what "No movement" is for. When "Possible fall" goes out, an open
+"No movement" alert is folded into it, so one event gives one alert.
+
+### What real recordings showed (and how they changed the rule)
+
+The rule was checked against the 12 recorded MacBook sessions of three people (35.8 minutes: prompted gestures,
+walking in and out, sitting still, breathing, moving about). Nobody fell, so every alert there is a false alarm.
+
+| Finding | Number |
+|---|---|
+| A still room on the strip | size 0.001 (median) |
+| Fidgeting while sitting | 0.11 to 0.12 (median burst) |
+| A person walking in or out | 0.27 to 0.38 |
+| A hand gesture at the laptop | 0.45 to 0.51 |
+
+- **A hand 30 cm from the laptop is bigger on the strip than a body 1.5 m away.** "Bigger than a gesture" does not
+  exist on this sensor, so size only removes fidgeting. What tells a gesture from a fall is direction: swipes go
+  both ways (one-way score 0.1 to 0.2) and a push comes back within a second.
+- **The engine's distance zones and its "moving" flag are not usable here.** Near-zone and far-zone movement read
+  the same for a push and for walking, and the "moving" flag was on for 61 % of the time while people sat still. So
+  the rule takes its stillness from the strip itself: the slowest bins (8 to 23 Hz, 0.07 to 0.2 m/s) read 0.000
+  when someone sits still and 0.14 when they shift about.
+- **False alarms in the 35.8 minutes** (484 movement bursts, 37 of them big, fast and one-way):
+
+  | Stillness setting | Low | Medium | High |
+  |---|---|---|---|
+  | 15 s (default) | 0 | 0 | 0 |
+  | 10 s | 0 | 1 | 1 |
+  | 5 s | not run | 2 | not run |
+
+  Every one of them is a person stepping away from the laptop and then standing still.
+- **Gesture, then freeze.** Each of the 174 recorded gesture prompts (54 pushes, 108 swipes, and 12 pull-backs
+  from an early recording script) was replayed
+  followed by 20 s in which nothing moves, without help from the gesture model: 0 alerts. The same for 8 walk-ins:
+  0. For 8 walk-outs: 2 alerts.
+
+Those recordings keep people moving every 5 to 10 s, so "0 at 15 s" is weaker than it looks: nobody in them walked
+away and stayed away for 15 s.
+
+### What it gets wrong
+
+- **Fires on** someone stepping quickly away from the laptop (or up to it) who then stays out of view or stands
+  still for the whole stillness time. To this sensor that is a one-way burst followed by stillness. Also: a bag
+  dropped in front of the laptop that then lies still; a hand pushed toward the laptop and held there when the
+  model did not recognise the push.
+- **Misses** a fall side-on to the laptop or straight down (little speed toward or away from it), a fall behind
+  furniture or far from the laptop (the echo gets too weak; how far it reaches has not been measured, and presence
+  itself is tuned for about 1.3 m), a slow slide to the floor (no fast burst), a fall after
+  which the person keeps moving, and a fall in a busy room (other people's movement breaks the stillness).
+
+### Why it runs in the Sonar Care service and not in the engine
+
+Everything it needs is already in the engine's event stream at full frame rate. So the engine is not touched:
+gestures, presence and breathing cannot be disturbed, it works with an engine that is already running, and every
+threshold changes from the Settings page while it runs. An engine-side detector would see the same Doppler picture
+plus the distance zones, and the recordings showed those do not help on this hardware.
+
+### Trying it and tuning it on the MacBook (10 minutes, nobody falls)
+
+1. Start Sonar Care (`scripts/sonar_care.sh`, or with `--dry-run`). Open Settings > **Fall alert (experimental)**,
+   switch it on and set **Stillness before the alert** to 10 s while you try things.
+2. Read the box under the switch. **Movement level now** should sit at 0.00 to 0.02 in a still room. If it stays
+   above 0.05, something is moving in view (people nearby, a fan): the stillness can never complete there.
+3. Stand 1 to 1.5 m in front of the laptop. Drop a pillow or a bag from chest height in front of you, or take one
+   fast step toward the laptop. Then keep still.
+4. The box now shows **Last big movement** with its size, fast part, one-way score and duration, and why it did or
+   did not count:
+
+   | The box says | What to change |
+   |---|---|
+   | not big enough (level 0.18, needs 0.25) | Sensitivity to High, or "Size needed" to just under the level shown |
+   | not fast enough | lower "Fast part needed" |
+   | too short (0.3 s; needs 0.4 s) | lower "Shortest movement", or drop from higher up |
+   | too long | it lasted over 2.5 s: that is walking; raise "Longest movement" only if a real test needs it |
+   | moved both ways | the thing bounced back or you stepped back. Leave "One-way score needed" at 0.35 or above: lower lets gestures through |
+   | counted … dropped: movement was seen again | something moved during the stillness time; keep still |
+   | counted … dropped: slow movement was seen again | someone is shifting about in view |
+   | possible fall: still for 10 s | the alert went out |
+
+   On the dashboard the Room card counts the stillness ("Sudden movement, then still for 6 s").
+5. Check that it stays quiet: swipe and push at the laptop, walk past, sit down. The box should say "moved both
+   ways", "too long" or "the model recognised it as a hand gesture". Then step away from the laptop and stand
+   still: it will fire. That is the known weak spot, and the reason for the longer default.
+6. For a demo use 10 to 15 s of stillness and tell the audience to keep still. Switch it off afterwards.
+
+The live numbers are also in the stream: `care_state.fall` once a second and a `fall` event at each step (`D` on
+the dashboard shows both). The six thresholds above are saved in `settings.json` under `monitoring.fall`; the
+finer ones (where a burst starts and ends, what counts as quiet) are the `DEFAULTS` table in `app/care/fall.py`.
+Without the sonar, `scripts/sonar_care.sh --mock` and the `G` key on the dashboard play a scripted fall.
+
+### Sources and next step
+
+Starting values came from: Lian et al., "Fall Detection via Inaudible Acoustic Sensing", IMWUT 2021,
+<https://doi.org/10.1145/3478094>; Erol et al., SPIE 2018,
+<https://homepage.villanova.edu/moeness.amin/paper_pdf/Baris_SPIE_2018.pdf>; Erol and Amin, EUSIPCO 2016,
+<https://www.eurasip.org/Proceedings/Eusipco/Eusipco2016/papers/1570252332.pdf> (one-sided Doppler, extreme
+Doppler as a first cut, the distance change as a supporting cue, a 10 to 20 s stillness timer, rejecting a burst
+followed by smaller recovery peaks). The next step is real validation: staged falls onto a mattress with this
+hardware, and the University of Glasgow radar dataset (<https://researchdata.gla.ac.uk/848/>) for the shape of
+falls against sitting, bending and walking.

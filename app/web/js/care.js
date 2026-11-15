@@ -113,9 +113,11 @@
   var ALERT_COPY = {
     no_movement: function (a) { return 'Someone is present but nothing has moved. ' + (a.breathingDetected ? 'Breathing is still detected.' : 'Breathing is not confirmed.'); },
     no_breathing: function () { return 'Breathing was steady, then the breathing movement stopped. The person is present and still.'; },
-    help: function () { return 'Two pushes in a row at the laptop.'; }
+    help: function () { return 'Two pushes in a row at the laptop.'; },
+    fall: function (a) { return a.detail || 'A sudden movement, then no movement. Experimental: it can be wrong.'; }
   };
-  var ALERT_ICON = { no_movement: 'still', no_breathing: 'breath', help: 'help' };
+  var ALERT_ICON = { no_movement: 'still', no_breathing: 'breath', help: 'help', fall: 'fall' };
+  var ALERT_TAG = { fall: 'Experimental fall alert' };       // a label next to the title: this one is a prototype rule
   var bannersEl = $('alerts'), banners = {};
 
   function bannerModel(a) {
@@ -124,8 +126,8 @@
       return { tone: a.level === 'alert' ? 'alert' : 'attention', size: 'big', title: a.title, live: true,
         detail: (ALERT_COPY[a.kind] || function () { return a.detail || ''; })(a), button: 'Acknowledge' };
     }
-    if (a.kind === 'help') {                                // acknowledged: stays a few seconds as a receipt
-      return { tone: 'ok', size: 'small', title: 'Help request acknowledged', live: false,
+    if (a.kind === 'help' || a.kind === 'fall') {           // acknowledged: stays a few seconds as a receipt
+      return { tone: 'ok', size: 'small', title: (a.kind === 'help' ? 'Help request' : 'Possible fall') + ' acknowledged', live: false,
         detail: 'Answered ' + UI.duration((a.ackS || 0) * 1000) + ' after it went out.', button: null };
     }
     if (a.state === 'acknowledged') {
@@ -159,7 +161,8 @@
       b.el.setAttribute('data-tone', m.tone);
       b.el.setAttribute('data-size', m.size);
       b.el.setAttribute('data-level', a.level || '');
-      var title = UI.escapeHtml(m.title) + (m.live ? ' <span>· ' + UI.duration(since(a.since)) + '</span>' : '');
+      var title = UI.escapeHtml(m.title) + (m.live ? ' <span>· ' + UI.duration(since(a.since)) + '</span>' : '') +
+        (ALERT_TAG[a.kind] && m.size === 'big' ? ' <em class="abanner__tag">' + ALERT_TAG[a.kind] + '</em>' : '');
       if (b.title.innerHTML !== title) b.title.innerHTML = title;
       if (b.detail.textContent !== m.detail) b.detail.textContent = m.detail;
     });
@@ -253,7 +256,8 @@
   var debug = UI.debugPanel(store, cfg.debug);
   var REHEARSE = {                                          // only with --mock: fire scripted events from the keyboard
     ArrowRight: { cmd: 'gesture', label: 'swipe_right' }, ArrowLeft: { cmd: 'gesture', label: 'swipe_left' },
-    p: { cmd: 'gesture', label: 'push' }, h: { cmd: 'double_push' }, m: { cmd: 'moving', seconds: 2 }
+    p: { cmd: 'gesture', label: 'push' }, h: { cmd: 'double_push' }, m: { cmd: 'moving', seconds: 2 },
+    g: { cmd: 'fall', direction: 'toward', still_s: 30 }    // the experimental fall alert (switch it on in Settings first)
   };
   doc.addEventListener('keydown', function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;

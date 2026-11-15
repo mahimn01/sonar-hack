@@ -8,6 +8,7 @@ What it does
       * when two pushes in a row mean "help requested";
       * when to raise "No movement" (someone is present, nothing has moved, breathing not confirmed);
       * when to raise "No breathing movement" (a steady breathing rate was seen, then it stopped);
+      * when to raise "Possible fall" (the experimental detector in fall.py confirmed one);
       * when an alert is acknowledged, resolves by itself, needs a reminder, or can be put away.
     It returns a list of "effects" (plain dicts) that service.py carries out: press a key, show and
     sound an alert, add a line to the timeline.
@@ -72,7 +73,8 @@ ACKED_LINGER_S = 8.0                   # an acknowledged help request stays visi
 MAX_REMINDERS = 10
 PRACTICE_TIMEOUT_S = 90.0              # the tutorial must say "still here" this often, or practice mode ends
 
-ALERT_PRIORITY = {"help": 0, "no_breathing": 1, "no_movement": 2}
+ALERT_PRIORITY = {"help": 0, "fall": 1, "no_breathing": 2, "no_movement": 3}
+STICKY = ("help", "fall")              # these stay until a person acknowledges them; they never resolve by themselves
 
 
 def fmt_duration(seconds: float) -> str:
@@ -182,8 +184,8 @@ def to_millimetres(wave: list[float], amplitude_mm: float | None) -> list[float]
 class AlertBook:
     """The open alerts and their life cycle: raised -> acknowledged and/or resolved -> put away.
 
-    At most one alert per kind is open at a time. "help" stays until a person acknowledges it.
-    "no_movement" and "no_breathing" also resolve by themselves when the condition ends.
+    At most one alert per kind is open at a time. "help" and "fall" stay until a person acknowledges
+    them. "no_movement" and "no_breathing" also resolve by themselves when the condition ends.
     """
 
     def __init__(self) -> None:
@@ -196,7 +198,7 @@ class AlertBook:
     def is_open(self, kind: str) -> bool:
         """The condition is still going on (acknowledged or not)."""
         a = self._by_kind.get(kind)
-        return a is not None and a["resolved_at"] is None and not (kind == "help" and a["acked_at"] is not None)
+        return a is not None and a["resolved_at"] is None and not (kind in STICKY and a["acked_at"] is not None)
 
     def needs_attention(self, kind: str) -> bool:
         """Raised (or about to be) and nobody has acknowledged it yet."""
@@ -316,7 +318,7 @@ class AlertBook:
                 a["reminders"] += 1
                 a["last_sound_at"] = now
                 out.append({"effect": "alert", "change": "reminder", "alert": dict(a)})
-            done_at = a["resolved_at"] if a["state"] == "resolved" else a["acked_at"] if kind == "help" and a["acked_at"] is not None else None
+            done_at = a["resolved_at"] if a["state"] == "resolved" else a["acked_at"] if kind in STICKY and a["acked_at"] is not None else None
             linger = RESOLVED_LINGER_S if a["state"] == "resolved" else ACKED_LINGER_S
             if done_at is not None and now - done_at >= linger:
                 del self._by_kind[kind]
@@ -739,6 +741,39 @@ class CareRules:
         out.append(_timeline("alert", "alert", "help", "Help requested again", now, alert_id=a["id"]))
         return out
 
+    # ---- "Possible fall" (experimental; the detector is fall.py, this only turns its verdict into an alert) ----
+
+    def on_fall(self, f: dict[str, Any], now: float) -> list[Effect]:
+        """One event from the fall detector: candidate (watching), confirmed (alert) or dismissed."""
+        mon = self.settings["monitoring"]
+        if not (mon["enabled"] and mon["fall"]["enabled"]) or self.practice:
+            return []
+        stage = f.get("stage")
+        if stage == "confirmed":
+            if self.alerts.needs_attention("fall"):
+                a = self.alerts.get("fall")
+                return self.alerts.update("fall", now, change="reminder", count=a["count"] + 1)
+            way = "toward the laptop" if f.get("direction") == "toward" else "away from the laptop"
+            still = fmt_duration(float(f.get("stillness_s") or 0))
+            detail = f"A sudden movement {way}, then no movement for {still}. Experimental: it can be wrong."
+            out = self.alerts.resolve("no_movement", now, "covered by the possible-fall alert")
+            out += self.alerts.raise_("fall", "alert", "Possible fall", detail, float(f.get("burst_t") or now), now,
+                                     confidence=f.get("confidence"), direction=f.get("direction"), experimental=True)
+            out.append(_timeline("alert", "alert", "fall", "Possible fall (experimental)", now,
+                                 detail=f"sudden movement {way}, then still for {still}", alert_id=self.alerts.get("fall")["id"]))
+            return out
+        if stage == "moved":
+            return self._note_movement_after_fall(now)
+        return []
+
+    def _note_movement_after_fall(self, now: float) -> list[Effect]:
+        """Movement came back while a fall alert is open: say so, but leave the alert for a person to answer."""
+        a = self.alerts.get("fall")
+        if a is None or a["state"] != "active" or a.get("moved_at") is not None:
+            return []
+        return self.alerts.update("fall", now, moved_at=now,
+                                  detail=a["detail"] + f" Movement was seen again {fmt_duration(now - a['raised_at'])} later.")
+
     # ---- practice mode (the tutorial) ---------------------------------------------------------------
 
     def set_practice(self, active: bool, now: float) -> list[Effect]:
@@ -835,6 +870,8 @@ class CareRules:
                 return self.alerts.resolve("no_movement", now, seen)
             return []
         if still is None or still < limit:
+            return []
+        if self.alerts.needs_attention("fall"):               # the fall alert already says it, louder
             return []
         since = now - still
         breathing_now = self.last_breath_at is not None and now - self.last_breath_at < 5.0

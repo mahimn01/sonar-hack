@@ -83,8 +83,8 @@
         else parts.push('Settled');
         if (P.rangeM != null) parts.push(range(P.rangeM));
         sub = parts.join(' · ');
-        var help = openAlert('help');
-        if ((help && help.state !== 'acknowledged') || openAlert('no_breathing')) tone = 'alert';
+        var help = openAlert('help'), fell = openAlert('fall');
+        if ((help && help.state !== 'acknowledged') || (fell && fell.state !== 'acknowledged') || openAlert('no_breathing')) tone = 'alert';
         else if (openAlert('no_movement')) tone = 'attention';
       }
     } else { head = 'Waiting for the sensor'; sub = 'No presence reading yet.'; tone = 'muted'; }
@@ -101,10 +101,18 @@
 
     // Monitoring chip and the stillness countdown.
     var mon = st ? st.monitoring : null;
-    if (mon) { setText(monChip, mon.enabled ? 'Monitoring on' : 'Monitoring off'); monChip.setAttribute('data-tone', mon.enabled ? 'ok' : ''); }
+    var fall = st && st.fall && st.fall.enabled ? st.fall : null;
+    if (mon) { setText(monChip, mon.enabled ? 'Monitoring on' + (fall ? ' · fall alert (experimental)' : '') : 'Monitoring off'); monChip.setAttribute('data-tone', mon.enabled ? 'ok' : ''); }
     var stillS = stillNow(st), show = live && mon && mon.enabled && mon.noMovement.enabled && stillS != null && rs === 'present';
-    stillEl.hidden = !show;
-    if (show) {
+    var watch = live && fall && fall.watching && !openAlert('fall') ? fall.watching : null;
+    stillEl.hidden = !show && !watch;
+    if (watch) {                                            // the experimental fall alert saw a sudden movement and is counting the stillness
+      var seen = Math.min(watch.needsS, watch.stillS + Math.max(0, Math.min(3, store.engineNow() - st.t)));
+      stillFill.style.transform = 'scaleX(' + Math.min(1, seen / watch.needsS).toFixed(3) + ')';
+      stillEl.setAttribute('data-tone', 'attention');
+      setText(stillText, 'Sudden movement · still ' + dur(seen));
+      setText(stillLimit, 'possible fall at ' + dur(watch.needsS));
+    } else if (show) {
       var limit = st.stillness.limitS || mon.noMovement.seconds, frac = Math.min(1, stillS / limit), alert = openAlert('no_movement');
       stillFill.style.transform = 'scaleX(' + frac.toFixed(3) + ')';
       stillEl.setAttribute('data-tone', frac >= 0.6 || alert ? 'attention' : '');
